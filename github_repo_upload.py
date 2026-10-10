@@ -22,7 +22,7 @@ from PyQt6.QtCore import QDateTime, QEasingCurve, QObject, QPoint, QPropertyAnim
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPolygon, QTextCursor
 from PyQt6.QtWidgets import QApplication, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QFrame, QGraphicsColorizeEffect, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QSlider, QTextEdit, QVBoxLayout, QWidget, QWidgetItem
 from datetime import datetime, timezone
-
+from paths import PATCH_EMU_GIT_DIR
 from translations import TEXTS
 from workers import safe_play
 from patch_format import load_github_config
