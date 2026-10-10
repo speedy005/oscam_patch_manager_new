@@ -7741,6 +7741,11 @@ class PatchManagerGUI(QWidget):
         # Sie werden weder kopiert noch überschrieben.
         excluded_files = {
             "Noto_Color_Emoji.zip",
+            "final-oscam-emu-patch-maker.png",
+            "counter.php",
+            "final-oscam-emu-patch-maker.png",
+            "final-englisch.png",
+            "version.txt",
             "oscam_emu_toolkit2.png",
             "oscam-patch-generator.png",
             "README.md",
