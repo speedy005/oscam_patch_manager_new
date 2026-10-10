@@ -7703,129 +7703,201 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "pbar_idle"):
             QTimer.singleShot(2500, self.pbar_idle)
 
+    
     def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """Sichert alle wichtigen Dateien, installiert das Update und bietet Rollback bei Fehlern."""
+        """Aktualisiert das gesamte Projekt aus GitHub."""
 
-        # --- Final-Label ausblenden ---
-        if hasattr(self, "hide_final_label"):
-            self.hide_final_label()
-        elif hasattr(self, "final_label") and self.final_label:
-            self.final_label.hide()
-        import requests, os, shutil, sys
+        import os
+        import sys
+        import shutil
+        import tempfile
+        import zipfile
+        from pathlib import Path
+        from io import BytesIO
+
+        import requests
         from PyQt6.QtWidgets import QMessageBox, QApplication
 
-        current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
-        is_de = current_lang == "de"
-        lang_pack = (
-            globals()
-            .get("TEXTS", {})
-            .get(current_lang, globals().get("TEXTS", {}).get("en", {}))
-        )
-        current_file = os.path.abspath(__file__)
-        backup_file = globals().get("PATCH_MANAGER_OLD", "patch_backup_old.py")
+        project_dir = Path(__file__).resolve().parent
+        backup_dir = Path(tempfile.mkdtemp(prefix="oscam_backup_"))
 
-        # --- REGENBOGEN & PROGRESSBAR INITIALISIERUNG ---
-        pbar = getattr(self, "progress_bar", None)
-        rainbow = (
-            "qlineargradient(x1:0, y1:0, x2:1, y2:0, "
-            "stop:0.0 #FF0000, stop:0.2 #FF7F00, stop:0.4 #FFFF00, "
-            "stop:0.6 #00FF00, stop:0.8 #0000FF, stop:1.0 #8B00FF);"
+        download_url = (
+            "https://api.github.com/repos/"
+            "speedy005/oscam_patch_manager_new/zipball/main"
         )
 
-        def set_pbar(value, text):
+        # Diese lokalen Verzeichnisse bleiben unverändert.
+        protected_dirs = {
+            ".git",
+            "streamboard-git",
+            "oscam-emu-git",
+        }
+
+        # Diese lokalen Konfigurationsdateien bleiben erhalten.
+        protected_files = {
+            "config.json",
+            "settings.json",
+        }
+
+        def is_protected(path):
+            relative = path.relative_to(project_dir)
+            if any(part in protected_dirs for part in relative.parts):
+                return True
+            if path.name in protected_files:
+                return True
+            if path.suffix.lower() == ".ini":
+                return True
+            return False
+
+        def update_progress(value, message):
+            if progress_callback:
+                progress_callback(value, message)
+
+            pbar = getattr(self, "progress_bar", None)
             if pbar:
-                pbar.setStyleSheet(
-                    f"QProgressBar {{ text-align: center; font-weight: 900; color: black; background: #111; border: 2px solid #222; }} "
-                    f"QProgressBar::chunk {{ background: {rainbow}; }}"
-                )
                 pbar.setValue(value)
-                pbar.setFormat(text)
+                pbar.setFormat(message)
                 QApplication.processEvents()
 
-        def action_log(text_key, level="info", **kwargs):
-            if hasattr(self, "info_text"):
-                safe_vars = {
-                    "version": latest_version or "???",
-                    "current": globals().get("APP_VERSION", "0"),
-                }
-                safe_vars.update(kwargs)
-                text_template = lang_pack.get(text_key, text_key)
-                try:
-                    text = text_template.format(**safe_vars)
-                except:
-                    text = text_template
-                color = (
-                    "#00FF41"
-                    if level == "success"
-                    else "#FB0A2A" if level == "error" else "cyan"
-                )
-                self.info_text.append(
-                    f'<span style="color:{color}; font-weight:700;">{text}</span>'
-                )
-                QApplication.processEvents()
+        backup_files = []
+        new_files = []
 
         try:
-            # --- 1. BACKUP ERSTELLEN ---
-            set_pbar(20, "📦 Backup..." if is_de else "📦 Backup...")
-            patch_dir = getattr(self, "OLD_PATCH_DIR", "patch_backup")
-            os.makedirs(patch_dir, exist_ok=True)
-            shutil.copy2(current_file, backup_file)
-            action_log("update_backup_done", "success")
+            update_progress(10, "GitHub wird heruntergeladen...")
 
-            # --- 2. DOWNLOAD ---
-            set_pbar(50, "📡 Download..." if is_de else "📡 Download...")
-            download_url = (
-                "https://raw.githubusercontent.com/"
-                "speedy005/Oscam-Emu-patch-Manager/main/oscam_patch_manager.py"
+            response = requests.get(download_url, timeout=(15, 120))
+            response.raise_for_status()
+
+            with zipfile.ZipFile(BytesIO(response.content)) as archive:
+                members = [
+                    item for item in archive.namelist()
+                    if not item.endswith("/")
+                ]
+
+                if not members:
+                    raise RuntimeError("Das GitHub-Archiv ist leer.")
+
+                root = members[0].split("/", 1)[0] + "/"
+                updates = []
+
+                for member in members:
+                    if not member.startswith(root):
+                        continue
+
+                    relative_name = member[len(root):]
+                    if not relative_name:
+                        continue
+
+                    relative = Path(relative_name)
+
+                    if relative.is_absolute() or ".." in relative.parts:
+                        raise RuntimeError(
+                            f"Unsicherer Dateipfad: {relative_name}"
+                        )
+
+                    target = (project_dir / relative).resolve()
+
+                    if not target.is_relative_to(project_dir):
+                        raise RuntimeError(
+                            f"Datei außerhalb des Projektordners: {target}"
+                        )
+
+                    if not is_protected(target):
+                        updates.append((member, target))
+
+                if not updates:
+                    raise RuntimeError("Keine Projektdateien gefunden.")
+
+                update_progress(25, "Backup wird erstellt...")
+
+                # Vorhandene, nicht geschützte Dateien sichern.
+                for path in project_dir.rglob("*"):
+                    if not path.is_file() or is_protected(path):
+                        continue
+
+                    backup_file = backup_dir / path.relative_to(project_dir)
+                    backup_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(path, backup_file)
+                    backup_files.append((path, backup_file))
+
+                update_progress(40, "Projektdateien werden ersetzt...")
+
+                # Dateien aus GitHub installieren.
+                for index, (member, target) in enumerate(updates):
+                    target.parent.mkdir(parents=True, exist_ok=True)
+
+                    temp_target = target.with_name(
+                        target.name + ".update_tmp"
+                    )
+
+                    try:
+                        with archive.open(member) as source:
+                            with open(temp_target, "wb") as destination:
+                                shutil.copyfileobj(source, destination)
+
+                        os.replace(temp_target, target)
+
+                    finally:
+                        if temp_target.exists():
+                            temp_target.unlink()
+
+                    if not target.exists():
+                        raise RuntimeError(
+                            f"Datei konnte nicht installiert werden: {target}"
+                        )
+
+                    update_progress(
+                        40 + int(50 * (index + 1) / len(updates)),
+                        f"Installiere {index + 1}/{len(updates)}",
+                    )
+
+                update_progress(100, "Update erfolgreich")
+
+            answer = QMessageBox.question(
+                self,
+                "Update erfolgreich",
+                "Alle Dateien aus GitHub wurden aktualisiert.\n\n"
+                "Programm jetzt neu starten?",
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
             )
-            resp = requests.get(download_url, timeout=20)
-            resp.raise_for_status()
-            new_content = resp.content
 
-            # --- 3. DATEI ERSETZEN MIT ROLLBACK-SCHUTZ ---
-            set_pbar(80, "⚙️ Install..." if is_de else "⚙️ Installing...")
-            try:
-                if len(new_content) < 1000:
-                    raise ValueError("Download-Datei korrupt (zu klein).")
-                with open(current_file, "wb") as f:
-                    f.write(new_content)
-            except Exception as write_error:
-                if os.path.exists(backup_file):
-                    shutil.copy2(backup_file, current_file)
-                raise write_error
-
-            # --- 4. ERFOLG ---
-            action_log("update_done", "success", version=latest_version)
-            if "safe_play" in globals():
-                safe_play("complete.oga")
-            set_pbar(100, "🏁 Fertig!" if is_de else "🏁 Done!")
-
-            msg_box = QMessageBox(self)
-            msg_box.setIcon(QMessageBox.Icon.Information)
-            msg_box.setWindowTitle(lang_pack.get("restart_required_title", "Restart"))
-            msg_box.setText(
-                f"{lang_pack.get('update_success', 'Update OK')}\n\n{lang_pack.get('restart_tool_question', 'Restart?')}"
-            )
-            yes_btn = msg_box.addButton(
-                lang_pack.get("yes", "Ja"), QMessageBox.ButtonRole.YesRole
-            )
-            msg_box.addButton(
-                lang_pack.get("no", "Nein"), QMessageBox.ButtonRole.NoRole
-            )
-            msg_box.exec()
-
-            if msg_box.clickedButton() == yes_btn:
+            if answer == QMessageBox.StandardButton.Yes:
                 os.execl(sys.executable, sys.executable, *sys.argv)
 
-        except Exception as e:
-            if "safe_play" in globals():
-                safe_play("dialog-error.oga")
-            if pbar:
-                pbar.setStyleSheet(
-                    "QProgressBar { color: black; font-weight: 900; background: #800; }"
+            return True
+
+        except Exception as error:
+            rollback_errors = []
+
+            # Dateien aus dem Backup wiederherstellen.
+            for target, backup_file in reversed(backup_files):
+                try:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(backup_file, target)
+                except Exception as rollback_error:
+                    rollback_errors.append(str(rollback_error))
+
+            details = f"Update fehlgeschlagen:\n{error}"
+
+            if rollback_errors:
+                details += (
+                    "\n\nRollback unvollständig. Backup liegt hier:\n"
+                    f"{backup_dir}\n"
+                    + "\n".join(rollback_errors)
                 )
-                pbar.setFormat("❌ Fehler!" if is_de else "❌ Error!")
-            QMessageBox.critical(self, "Update Error", f"Fehler: {str(e)}")
+            else:
+                details += "\nVorhandene Dateien wurden wiederhergestellt."
+
+            QMessageBox.critical(self, "Update-Fehler", details)
+            return False
+
+        finally:
+            # Backup bei erfolgreichem Update oder erfolgreichem Rollback löschen.
+            if "rollback_errors" not in locals() or not rollback_errors:
+                shutil.rmtree(backup_dir, ignore_errors=True)
+
 
 
     def ask_for_update(self, latest_version):
@@ -9812,7 +9884,7 @@ class PatchManagerGUI(QWidget):
                 print(f"[{level.upper()}] {text}")
 
         try:
-            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+            url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/version.txt"
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
 
@@ -9835,7 +9907,7 @@ class PatchManagerGUI(QWidget):
         try:
             import requests
 
-            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/version.txt"
+            url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/version.txt"
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
             version = resp.text.strip().lstrip("v")  # "v1.4.7" → "1.4.7"
@@ -9959,7 +10031,7 @@ class PatchManagerGUI(QWidget):
             pbar.setValue(20)
 
         # --- 2. URL & CHECK ---
-        version_url_base = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/refs/heads/master/version.txt"
+        version_url_base = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/refs/heads/master/version.txt"
 
         try:
             v_url = f"{version_url_base}?nocache={int(time.time())}"
@@ -10088,7 +10160,7 @@ class PatchManagerGUI(QWidget):
         C_BLUE = "#00ADFF"
         C_LINE = "#808080"
 
-        v_url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/master/version.txt"
+        v_url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/version.txt"
 
         try:
             # Cache-Busting durch Timestamp
@@ -10402,7 +10474,7 @@ class PatchManagerGUI(QWidget):
         header_layout.addWidget(self.logo_label, 2)
 
         try:
-            url = "https://raw.githubusercontent.com/speedy005/Oscam-Emu-patch-Manager/main/oscam_emu_toolkit2.png"
+            url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/oscam_emu_toolkit2.png"
             resp = requests.get(url, timeout=5)
             resp.raise_for_status()
             self.original_pixmap = QPixmap()
@@ -16920,7 +16992,7 @@ class PatchManagerGUI(QWidget):
 def auto_install_emoji_font():
     """Installiert Noto Color Emoji plattformübergreifend."""
     def _run_install():
-        url = "https://github.com/speedy005/Oscam-Emu-patch-Manager/raw/master/Noto_Color_Emoji.zip"
+        url = "https://github.com/speedy005/oscam_patch_manager_new/raw/master/Noto_Color_Emoji.zip"
         os_type = platform.system()
 
         try:
