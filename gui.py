@@ -7704,8 +7704,9 @@ class PatchManagerGUI(QWidget):
             QTimer.singleShot(2500, self.pbar_idle)
 
     
+    
     def plugin_update_action(self, latest_version=None, progress_callback=None):
-        """Aktualisiert das gesamte Projekt aus GitHub."""
+        """Aktualisiert das gesamte Projekt aus GitHub und schützt lokale Daten."""
 
         import os
         import sys
@@ -7726,30 +7727,52 @@ class PatchManagerGUI(QWidget):
             "speedy005/oscam_patch_manager_new/zipball/main"
         )
 
-        # Diese lokalen Verzeichnisse bleiben unverändert.
+        # Diese Verzeichnisse niemals verändern.
         protected_dirs = {
             ".git",
             "streamboard-git",
             "oscam-emu-git",
+            ".venv",
+            "venv",
+            "__pycache__",
         }
 
-        # Diese lokalen Konfigurationsdateien bleiben erhalten.
+        # Diese Dateien beim Update grundsätzlich überspringen.
+        # Sie werden weder kopiert noch überschrieben.
+        excluded_files = {
+            "Noto_Color_Emoji.zip",
+            "oscam_emu_toolkit2.png",
+            "oscam-patch-generator.png",
+            "README.md",
+            "requirements.txt",
+        }
+
+        # Lokale Konfigurationsdateien erhalten.
         protected_files = {
             "config.json",
             "settings.json",
         }
 
         def is_protected(path):
+            """Prüft, ob eine Datei vom Update ausgeschlossen ist."""
             relative = path.relative_to(project_dir)
+
             if any(part in protected_dirs for part in relative.parts):
                 return True
+
+            if path.name in excluded_files:
+                return True
+
             if path.name in protected_files:
                 return True
+
             if path.suffix.lower() == ".ini":
                 return True
+
             return False
 
         def update_progress(value, message):
+            """Aktualisiert Fortschritt und Oberfläche."""
             if progress_callback:
                 progress_callback(value, message)
 
@@ -7761,68 +7784,104 @@ class PatchManagerGUI(QWidget):
 
         backup_files = []
         new_files = []
+        rollback_errors = []
 
         try:
+            # --------------------------------------------------
+            # 1. GitHub-Archiv herunterladen
+            # --------------------------------------------------
             update_progress(10, "GitHub wird heruntergeladen...")
 
-            response = requests.get(download_url, timeout=(15, 120))
+            response = requests.get(
+                download_url,
+                timeout=(15, 120),
+                headers={"Accept": "application/vnd.github+json"},
+            )
             response.raise_for_status()
 
+            # --------------------------------------------------
+            # 2. ZIP prüfen und Update-Dateien ermitteln
+            # --------------------------------------------------
             with zipfile.ZipFile(BytesIO(response.content)) as archive:
-                members = [
-                    item for item in archive.namelist()
-                    if not item.endswith("/")
+                members = archive.namelist()
+
+                file_members = [
+                    member for member in members
+                    if not member.endswith("/")
                 ]
 
-                if not members:
+                if not file_members:
                     raise RuntimeError("Das GitHub-Archiv ist leer.")
 
-                root = members[0].split("/", 1)[0] + "/"
+                # GitHub legt die Dateien in einem übergeordneten Ordner ab.
+                root = file_members[0].split("/", 1)[0] + "/"
                 updates = []
 
-                for member in members:
+                for member in file_members:
                     if not member.startswith(root):
                         continue
 
                     relative_name = member[len(root):]
+
                     if not relative_name:
                         continue
 
                     relative = Path(relative_name)
 
+                    # Schutz vor unsicheren ZIP-Pfaden.
                     if relative.is_absolute() or ".." in relative.parts:
                         raise RuntimeError(
-                            f"Unsicherer Dateipfad: {relative_name}"
+                            f"Unsicherer Dateipfad im Update: {relative_name}"
                         )
 
                     target = (project_dir / relative).resolve()
 
                     if not target.is_relative_to(project_dir):
                         raise RuntimeError(
-                            f"Datei außerhalb des Projektordners: {target}"
+                            f"Datei liegt außerhalb des Projektordners: {target}"
                         )
 
-                    if not is_protected(target):
-                        updates.append((member, target))
-
-                if not updates:
-                    raise RuntimeError("Keine Projektdateien gefunden.")
-
-                update_progress(25, "Backup wird erstellt...")
-
-                # Vorhandene, nicht geschützte Dateien sichern.
-                for path in project_dir.rglob("*"):
-                    if not path.is_file() or is_protected(path):
+                    # Ausgeschlossene Dateien gar nicht erst einplanen.
+                    if is_protected(target):
                         continue
 
-                    backup_file = backup_dir / path.relative_to(project_dir)
-                    backup_file.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(path, backup_file)
-                    backup_files.append((path, backup_file))
+                    # Keine Verzeichnisse als Dateien installieren.
+                    if target.exists() and not target.is_file():
+                        raise RuntimeError(
+                            f"Zielpfad ist keine Datei: {target}"
+                        )
 
+                    updates.append((member, target))
+
+                if not updates:
+                    raise RuntimeError(
+                        "Keine aktualisierbaren Projektdateien gefunden."
+                    )
+
+                # --------------------------------------------------
+                # 3. Backup vorhandener, zu ändernder Dateien
+                # --------------------------------------------------
+                update_progress(25, "Backup wird erstellt...")
+
+                for _, target in updates:
+                    if target.is_file():
+                        backup_file = (
+                            backup_dir / target.relative_to(project_dir)
+                        )
+                        backup_file.parent.mkdir(
+                            parents=True,
+                            exist_ok=True,
+                        )
+                        shutil.copy2(target, backup_file)
+                        backup_files.append((target, backup_file))
+                    else:
+                        new_files.append(target)
+
+                # --------------------------------------------------
+                # 4. Projektdateien ersetzen
+                # --------------------------------------------------
                 update_progress(40, "Projektdateien werden ersetzt...")
 
-                # Dateien aus GitHub installieren.
                 for index, (member, target) in enumerate(updates):
                     target.parent.mkdir(parents=True, exist_ok=True)
 
@@ -7835,33 +7894,44 @@ class PatchManagerGUI(QWidget):
                             with open(temp_target, "wb") as destination:
                                 shutil.copyfileobj(source, destination)
 
+                        # Datei atomar ersetzen.
                         os.replace(temp_target, target)
 
                     finally:
                         if temp_target.exists():
                             temp_target.unlink()
 
-                    if not target.exists():
+                    if not target.is_file():
                         raise RuntimeError(
                             f"Datei konnte nicht installiert werden: {target}"
                         )
 
+                    progress = 40 + int(
+                        50 * (index + 1) / len(updates)
+                    )
                     update_progress(
-                        40 + int(50 * (index + 1) / len(updates)),
-                        f"Installiere {index + 1}/{len(updates)}",
+                        progress,
+                        f"Installiere Datei {index + 1}/{len(updates)}",
                     )
 
-                update_progress(100, "Update erfolgreich")
+            # --------------------------------------------------
+            # 5. Update erfolgreich
+            # --------------------------------------------------
+            update_progress(100, "Update erfolgreich")
 
             answer = QMessageBox.question(
                 self,
                 "Update erfolgreich",
-                "Alle Dateien aus GitHub wurden aktualisiert.\n\n"
+                "Das Projekt wurde aktualisiert.\n\n"
+                "Lokale Configs und Git-Repositories wurden geschützt.\n\n"
                 "Programm jetzt neu starten?",
                 QMessageBox.StandardButton.Yes
                 | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
             )
+
+            # Backup wird nach erfolgreicher Installation nicht mehr benötigt.
+            shutil.rmtree(backup_dir, ignore_errors=True)
 
             if answer == QMessageBox.StandardButton.Yes:
                 os.execl(sys.executable, sys.executable, *sys.argv)
@@ -7869,13 +7939,21 @@ class PatchManagerGUI(QWidget):
             return True
 
         except Exception as error:
-            rollback_errors = []
+            # --------------------------------------------------
+            # 6. Rollback bei Fehler
+            # --------------------------------------------------
+            for target in reversed(new_files):
+                try:
+                    if target.exists() and target.is_file():
+                        target.unlink()
+                except Exception as rollback_error:
+                    rollback_errors.append(str(rollback_error))
 
-            # Dateien aus dem Backup wiederherstellen.
             for target, backup_file in reversed(backup_files):
                 try:
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(backup_file, target)
+                    if backup_file.exists():
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(backup_file, target)
                 except Exception as rollback_error:
                     rollback_errors.append(str(rollback_error))
 
@@ -7883,20 +7961,22 @@ class PatchManagerGUI(QWidget):
 
             if rollback_errors:
                 details += (
-                    "\n\nRollback unvollständig. Backup liegt hier:\n"
-                    f"{backup_dir}\n"
+                    "\n\nRollback nicht vollständig!\n"
+                    f"Backup-Verzeichnis:\n{backup_dir}\n\n"
                     + "\n".join(rollback_errors)
                 )
             else:
-                details += "\nVorhandene Dateien wurden wiederhergestellt."
+                details += "\nDie geänderten Dateien wurden wiederhergestellt."
+                shutil.rmtree(backup_dir, ignore_errors=True)
 
-            QMessageBox.critical(self, "Update-Fehler", details)
+            QMessageBox.critical(
+                self,
+                "Update-Fehler",
+                details,
+            )
+
             return False
 
-        finally:
-            # Backup bei erfolgreichem Update oder erfolgreichem Rollback löschen.
-            if "rollback_errors" not in locals() or not rollback_errors:
-                shutil.rmtree(backup_dir, ignore_errors=True)
 
 
 
