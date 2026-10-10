@@ -618,22 +618,33 @@ sys.stdout.write(value)
             )
 
         # ========================================================
-        # Patch prüfen
+        # Patch-Pfad zuverlässig auflösen
+        # Reihenfolge: GUI-Instanz -> Modul-Globals -> paths.py
         # ========================================================
-        patch_file = globals().get(
-            "PATCH_FILE"
-        )
+        patch_file = getattr(
+            gui_instance,
+            "PATCH_FILE",
+            None
+        ) if gui_instance is not None else None
 
         if not patch_file:
+            patch_file = globals().get("PATCH_FILE")
 
+        if not patch_file:
+            try:
+                from paths import PATCH_FILE as _PATHS_PATCH_FILE
+                patch_file = _PATHS_PATCH_FILE
+            except (ImportError, AttributeError):
+                patch_file = None
+
+        if not patch_file:
             raise RuntimeError(
-                "PATCH_FILE ist nicht definiert."
+                "PATCH_FILE ist nicht definiert. "
+                "Weder GUI-Instanz, Modul noch paths.py liefern einen Pfad."
             )
 
         patch_file = os.path.abspath(
-            os.path.expanduser(
-                str(patch_file)
-            )
+            os.path.expanduser(os.path.expandvars(str(patch_file)))
         )
 
         if not os.path.isfile(
@@ -663,9 +674,13 @@ sys.stdout.write(value)
             text="📁 Temp-Verzeichnis..."
         )
 
-        plugin_dir = globals().get(
-            "PLUGIN_DIR"
-        )
+        plugin_dir = globals().get("PLUGIN_DIR")
+        if not plugin_dir:
+            try:
+                from paths import PLUGIN_DIR as _PATHS_PLUGIN_DIR
+                plugin_dir = _PATHS_PLUGIN_DIR
+            except (ImportError, AttributeError):
+                plugin_dir = None
 
         if plugin_dir:
             plugin_dir = os.path.abspath(
