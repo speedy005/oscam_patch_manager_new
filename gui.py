@@ -538,7 +538,7 @@ class PatchManagerGUI(QWidget):
             
             # Für S4 nutzen wir das schicke Grün (#2ecc71) anstelle von Orange, wenn es fehlt
             if exists:
-                color = "#00FF00"
+                color = "#FF3333"  # Rot, wenn die ausführbare Datei gefunden wurde
             else:
                 color = "#2ecc71" if btn_attr == "btn_s4" else "orange"
 
@@ -2592,36 +2592,53 @@ class PatchManagerGUI(QWidget):
 
             # 3. Visuelles Feedback bei Erfolg
             self.btn_ncam.setStyleSheet(
-                "background-color: green; color: white; font-weight: bold; border-radius: 5px;"
+                """
+                QPushButton {
+                    background-color: green;
+                    color: white;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    text-align: center;
+                }
+                """
             )
             self.btn_ncam.setText("✅ Fertig" if is_de else "✅ Done")
-            
-            # UI-Texte (Labels etc.) aktualisieren, falls die Funktion existiert
+
+            # UI-Texte aktualisieren, falls die Funktion existiert
             if hasattr(self, "update_ui_texts"):
                 self.update_ui_texts()
 
             QMessageBox.information(
-                self, 
-                "NCam Installation" if is_de else "NCam Setup", 
-                f"{message}\n\nPfad: {self.NCAM_PATH}" if is_de else f"{message}\n\nPath: {self.NCAM_PATH}"
+                self,
+                "NCam Installation" if is_de else "NCam Setup",
+                f"{message}\n\nPfad: {self.NCAM_PATH}"
+                if is_de
+                else f"{message}\n\nPath: {self.NCAM_PATH}"
             )
         else:
             # Fehler-Zustand: Roter Button
             self.btn_ncam.setStyleSheet(
-                "background-color: #e74c3c; color: white; font-weight: bold; border-radius: 5px;"
+                """
+                QPushButton {
+                    background-color: #e74c3c;
+                    color: white;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    text-align: center;
+                }
+                """
             )
             self.btn_ncam.setText("❌ Fehler" if is_de else "❌ Error")
-            
+
             QMessageBox.critical(
-                self, 
-                "NCam Installation" if is_de else "NCam Setup", 
+                self,
+                "NCam Installation" if is_de else "NCam Setup",
                 message
             )
-            
-            # TIPP: Setze hier nach dem Fehler-Dialog den Button-Text zurück,
-            # damit das UI bereit für einen neuen Versuch ist:
+
+            # Standard-Buttontext wiederherstellen
             if hasattr(self, "update_ui_texts"):
-                self.update_ui_texts() # Setzt den Standard-Buttontext wieder ein
+                self.update_ui_texts()
 
     def select_s4_path_manually(self, pos=None):
         """
@@ -7743,12 +7760,11 @@ class PatchManagerGUI(QWidget):
             self.color_label.setFont(label_font)
             self.commit_label.setFont(label_font)
 
-        # 5. Logo-Skalierung (Proportional zur Fensterhöhe begrenzen)
+        
+        # 5. Logo-Skalierung
         if hasattr(self, "original_pixmap") and self.original_pixmap:
-            # Breite auf 40% reduzieren, damit Header schmal bleibt
-            logo_width = min(500, int(self.width() * 0.4))
-            logo_height = int(logo_width / 6.3)
-            self.update_logo(width=logo_width, height=logo_height)
+            self.update_logo(width=150, height=80)
+
 
         # 6. Info-Text-Skalierung (Courier braucht oft etwas mehr Platz)
         if hasattr(self, "info_text"):
@@ -8512,30 +8528,29 @@ class PatchManagerGUI(QWidget):
             buttons[key] = btn
         return buttons
 
+    
     def update_logo(self, width=None, height=None):
         """
-        Skaliert das Logo auf die angegebene Breite und Höhe.
-        Wenn width oder height None ist, werden Standardwerte verwendet.
+        Skaliert das Logo proportional auf die vorgegebene Maximalgröße.
         """
         if not hasattr(self, "original_pixmap") or self.original_pixmap is None:
             return
 
-        # Nutze die übergebenen Werte direkt, sonst Standard
         if width is None:
             width = self.TITLE_HEIGHT * 3
         if height is None:
             height = self.TITLE_HEIGHT
 
-        # Pixmap skalieren
         scaled_pixmap = self.original_pixmap.scaled(
             width,
             height,
-            Qt.AspectRatioMode.IgnoreAspectRatio,  # exakt width x height
+            Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
 
         self.logo_label.setPixmap(scaled_pixmap)
         self.logo_label.setFixedSize(width, height)
+
 
     # 🔹 HIER EINSETZEN 🔹
     def adjust_color(self, hex_color, factor):
@@ -10810,7 +10825,7 @@ class PatchManagerGUI(QWidget):
         time_date_layout.setSpacing(2)
         time_date_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        bold_font_time = QFont("Segoe UI", 22, QFont.Weight.Bold)
+        bold_font_time = QFont("Segoe UI", 24, QFont.Weight.Bold)
         bold_font_date = QFont("Segoe UI", 24, QFont.Weight.Bold)
 
         # --- CLOCK ---
@@ -10840,9 +10855,9 @@ class PatchManagerGUI(QWidget):
         s3_s4_h_layout.setSpacing(8)
         s3_s4_h_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.btn_s3.setFixedSize(180, self.UI_BUTTON_H)
-        self.btn_s4.setFixedSize(180, self.UI_BUTTON_H)
-        self.btn_ncam.setFixedSize(190, self.UI_BUTTON_H)
+        self.btn_s3.setFixedSize(140, self.UI_BUTTON_H)
+        self.btn_s4.setFixedSize(140, self.UI_BUTTON_H)
+        self.btn_ncam.setFixedSize(140, self.UI_BUTTON_H)
 
         s3_s4_h_layout.addWidget(self.btn_s3)
         s3_s4_h_layout.addWidget(self.btn_s4)
@@ -10896,7 +10911,7 @@ class PatchManagerGUI(QWidget):
         # --- MIDDLE: Logo ---
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.logo_label.setMinimumWidth(300)
+        self.logo_label.setMinimumWidth(400)
         header_layout.addWidget(self.logo_label, 2)
 
         try:
@@ -10905,7 +10920,7 @@ class PatchManagerGUI(QWidget):
             resp.raise_for_status()
             self.original_pixmap = QPixmap()
             self.original_pixmap.loadFromData(resp.content)
-            self.update_logo(width=300, height=40)
+            self.update_logo(width=150, height=80)
         except Exception:
             self.logo_label.setText("OSCAM TOOLKIT")
             self.logo_label.setStyleSheet("color: white; font-size: 18px;")
@@ -11134,13 +11149,13 @@ class PatchManagerGUI(QWidget):
         # Die Aktionsbuttons liegen jetzt direkt rechts neben den Patch-Buttons.
 
         # Fonts definieren, BEVOR sie benutzt werden (löst NameError)
-        bold_font_header = QFont("Segoe UI", 24, QFont.Weight.Bold)
-        bold_font_version = QFont("Segoe UI", 22, QFont.Weight.Bold)
+        bold_font_header = QFont("Segoe UI", 25, QFont.Weight.Bold)
+        bold_font_version = QFont("Segoe UI", 25, QFont.Weight.Bold)
 
         # Container für die Labels rechts oben
         version_text_container = QWidget()
         version_text_layout = QVBoxLayout(version_text_container)
-        version_text_layout.setContentsMargins(10, 0, 15, 0)
+        version_text_layout.setContentsMargins(10, 0, 35, 0)
         version_text_layout.setSpacing(2)
         version_text_layout.setAlignment(
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
@@ -11161,7 +11176,7 @@ class PatchManagerGUI(QWidget):
 
         # Autor Label (Blau im Screenshot)
         self.by_label = QLabel("by speedy005")
-        self.by_label.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
+        self.by_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         self.by_label.setStyleSheet("color: #0055ff; background: transparent;")
 
         # In den kleinen Container packen
