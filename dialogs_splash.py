@@ -360,7 +360,7 @@ class CinematicMatrixSplash(QWidget):
             r" █  |_|   |_||__| |__||_|  |__||__| |__||_______||_______||___|  |_|      █ ",
             r" █                                                                        █ ",
             r" █──────────────────[ SYSTEM: NEURAL_LINK OPERATIONAL ]───────────────────█ ",
-            r" █                   >> OSCAM EMU PATCH MANAGER v1.0.8  <<               █ ",
+            r" █                   >> OSCAM EMU PATCH MANAGER v1.0.9  <<               █ ",
             r" █             >> CODENAME: Speedy_Oscam-_Patch_Manager 2026 <<           █ ",
             r" ◥◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢◤ "
         ]
