@@ -5182,123 +5182,466 @@ class PatchManagerGUI(QWidget):
         for led in getattr(self, "status_leds", []):
             led.setStyleSheet("background-color: green; border-radius: 4px;")
 
+    
     def get_matrix_style(self):
+        """Gibt das neon-grüne Matrix-Stylesheet zurück."""
         return """
-            QWidget { background-color: #0D0D0D; color: #00FF41; font-family: 'Segoe UI', 'Ubuntu', sans-serif; }
-            QGroupBox { border: 2px solid #008F11; border-radius: 8px; margin-top: 1ex; font-weight: bold; }
-            QTextEdit { background-color: #000000; border: 1px solid #00FF41; color: #00FF41; font-family: 'Consolas', monospace; font-size: 20px; }
-            QPushButton { background-color: #1A1A1A; color: #00FF41; border: 1px solid #008F11; border-radius: 4px; padding: 6px; font-weight: bold; }
-            QPushButton:hover { background-color: #008F11; color: #000000; }
-            QLabel { color: #00FF41; }
-            QLineEdit { background-color: #1A1A1A; border: 1px solid #008F11; color: #FFFFFF; }
-            QProgressBar { border: 1px solid #008F11; border-radius: 5px; text-align: center; color: white; }
-            QProgressBar::chunk { background-color: #008F11; }
+            QWidget {
+                background-color: #0D0D0D;
+                color: #00FF41;
+                font-family: 'Segoe UI', 'Ubuntu', sans-serif;
+            }
+
+            QGroupBox {
+                border: 2px solid #008F11;
+                border-radius: 8px;
+                margin-top: 1ex;
+                font-weight: bold;
+                color: #00FF41;
+            }
+
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 4px;
+            }
+
+            QTextEdit {
+                background-color: #000000;
+                border: 1px solid #00FF41;
+                color: #00FF41;
+                font-family: 'Consolas', 'Ubuntu Mono', monospace;
+                font-size: 20px;
+            }
+
+            QPushButton {
+                background-color: #1A1A1A;
+                color: #00FF41;
+                border: 1px solid #008F11;
+                border-radius: 5px;
+                padding: 6px;
+                font-weight: bold;
+            }
+
+            QPushButton:hover {
+                background-color: #008F11;
+                color: #000000;
+                border: 1px solid #00FF41;
+            }
+
+            QPushButton:pressed {
+                background-color: #005F0A;
+                color: #FFFFFF;
+            }
+
+            QPushButton:disabled {
+                background-color: #111111;
+                color: #555555;
+                border-color: #333333;
+            }
+
+            QLabel {
+                color: #00FF41;
+                background: transparent;
+                border: none;
+            }
+
+            QLineEdit {
+                background-color: #1A1A1A;
+                border: 1px solid #008F11;
+                color: #00FF41;
+                padding: 3px;
+                selection-background-color: #008F11;
+                selection-color: #FFFFFF;
+            }
+
+            QProgressBar {
+                background-color: #111111;
+                border: 1px solid #008F11;
+                border-radius: 5px;
+                text-align: center;
+                color: #FFFFFF;
+            }
+
+            QProgressBar::chunk {
+                background-color: #008F11;
+                border-radius: 3px;
+            }
+
+            QSlider::groove:horizontal {
+                border: 1px solid #008F11;
+                height: 6px;
+                background: #000000;
+                border-radius: 3px;
+            }
+
+            QSlider::handle:horizontal {
+                background: #00FF41;
+                border: 1px solid #008F11;
+                width: 14px;
+                height: 14px;
+                margin: -5px 0;
+                border-radius: 7px;
+            }
+
+            QCheckBox, QRadioButton {
+                color: #00FF41;
+                spacing: 6px;
+            }
+
+            QComboBox, QSpinBox, QDoubleSpinBox {
+                background-color: #1A1A1A;
+                color: #00FF41;
+                border: 1px solid #008F11;
+                padding: 3px;
+            }
+
+            QComboBox QAbstractItemView {
+                background-color: #111111;
+                color: #00FF41;
+                selection-background-color: #008F11;
+            }
+
+            QToolTip {
+                background-color: #000000;
+                color: #00FF41;
+                border: 1px solid #008F11;
+            }
         """
+
 
     def toggle_matrix(self, force_state=None):
         """
-        Schaltet das neon-grüne Matrix-Theme um.
-        Sichert den Status in der Config und aktualisiert GUI-Elemente sofort.
+        Schaltet den Matrix-Modus ein oder aus.
+
+        force_state:
+            None       -> Modus anhand des Button-Texts umschalten
+            "matrix"   -> Matrix-Modus einschalten
+            "standard" -> Standarddesign einschalten
         """
+        import traceback
 
-        # --- Final Label sofort ausblenden ---
-        if hasattr(self, "hide_final_label"):
-            self.hide_final_label()
-        elif hasattr(self, "final_label") and self.final_label:
-            self.final_label.hide()
-
-        if not hasattr(self, "btn_matrix") or not self.btn_matrix:
-            return
-
-        # --- Sprache & Texte ---
-        lang_code = getattr(self, "LANG", "de").lower()
-        t = TEXTS.get(lang_code, TEXTS.get("en", {}))
-
-        # --- Aktuelle Config & Ziel-Modus ---
-        cfg = getattr(self, "current_config", {})
-        current_mode = cfg.get("theme_mode", "standard")
-        target_mode = (
-            force_state
-            if force_state
-            else ("matrix" if current_mode != "matrix" else "standard")
+        print(
+            "DEBUG: toggle_matrix aufgerufen:",
+            "force_state =", repr(force_state),
+            flush=True
         )
 
-        # --- MATRIX STYLE ---
-        if target_mode == "matrix":
-            matrix_qss = """
-                QWidget { background-color: #000; color: #00FF41; font-family: 'Segoe UI', 'Consolas'; }
-                QGroupBox { border: 2px solid #008F11; border-radius: 8px; margin-top: 1ex; font-weight: bold; color: #00FF41; }
-                QTextEdit { background-color: #050505; border: 1px solid #00FF41; color: #00FF41; font-family: 'Consolas'; font-size: 20px; }
-                QPushButton { background-color: #111; color: #00FF41; border: 1px solid #008F11; border-radius: 5px; padding: 5px; font-weight: bold; }
-                QPushButton:hover { background-color: #008F11; color: #000; border: 1px solid #00FF41; }
-                QLabel { color: #00FF41; background: transparent; border: none; }
-                QProgressBar { border: 1px solid #008F11; border-radius: 5px; text-align: center; color: white; background-color: #111; }
-                QProgressBar::chunk { background-color: #008F11; }
-                QLineEdit { background-color: #111; border: 1px solid #008F11; color: #00FF41; padding: 2px; }
-                QSlider::groove:horizontal { border: 1px solid #008F11; height: 6px; background: #000; border-radius: 3px; }
-                QSlider::handle:horizontal { background: #00FF41; border: 1px solid #008F11; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
-            """
-            self.setStyleSheet(matrix_qss)
-            self.btn_matrix.setText(t.get("matrix_btn_exit", "🔙 EXIT MATRIX"))
-            cfg["theme_mode"] = "matrix"
+        # 1. Final-Label ausblenden
+        try:
+            hide_label = getattr(self, "hide_final_label", None)
 
-            # Header-Widget anpassen
-            if hasattr(self, "header_widget"):
-                self.header_widget.setStyleSheet(
-                    "background-color: #000; border: 1px solid #008F11;"
-                )
+            if callable(hide_label):
+                hide_label()
+            else:
+                final_label = getattr(self, "final_label", None)
+                if final_label is not None:
+                    final_label.hide()
 
-            # Log-Ausgabe
-            if hasattr(self, "info_text") and not getattr(self, "is_loading", False):
-                sys_tag = f"<b>[{t.get('matrix_sys', 'System')}]</b>"
-                msg = f'<br><span style="color:#00FF41; font-family:Consolas, monospace;">{sys_tag} {t.get("matrix_on", "Wake up, Neo... Matrix Mode engaged. ■")}</span>'
-                self.info_text.append(msg)
-
-            if "safe_play" in globals() and not getattr(self, "is_loading", False):
-                safe_play("dialog-information.oga")
-
-        # --- STANDARD STYLE ---
-        else:
-            self.setStyleSheet("")  # Alles auf Standard zurücksetzen
-
-            # Slider zurücksetzen
-            target_slider = getattr(
-                self, "blink_slider", getattr(self, "slider_speed", None)
+        except Exception as exc:
+            print(
+                f"DEBUG: Final-Label konnte nicht ausgeblendet werden: {exc}",
+                flush=True
             )
-            if target_slider:
-                target_slider.setStyleSheet(
-                    """
-                    QSlider::groove:horizontal { border: 1px solid #666; height: 6px; background: #222; border-radius: 3px; }
-                    QSlider::handle:horizontal { background: #F37804; border: 1px solid #444; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
-                """
+
+        # 2. Button prüfen
+        btn = getattr(self, "btn_matrix", None)
+
+        if btn is None:
+            print(
+                "FEHLER: self.btn_matrix ist nicht vorhanden!",
+                flush=True
+            )
+            return
+
+        # 3. Sprache und Übersetzungen
+        lang_code = str(getattr(self, "LANG", "de")).lower()
+        translations = globals().get("TEXTS", {})
+
+        if not isinstance(translations, dict):
+            translations = {}
+
+        t = translations.get(
+            lang_code,
+            translations.get("en", {})
+        )
+
+        if not isinstance(t, dict):
+            t = {}
+
+        # 4. Konfiguration absichern
+        cfg = getattr(self, "current_config", None)
+
+        if not isinstance(cfg, dict):
+            cfg = {}
+            self.current_config = cfg
+
+        # 5. Aktuellen Modus bestimmen
+        current_mode = str(
+            cfg.get("theme_mode", "standard")
+        ).strip().lower()
+
+        button_text = str(btn.text()).strip().lower()
+
+        # Bei normalem Klick entscheidet der sichtbare Button-Text.
+        # "EXIT MATRIX" bedeutet: Matrix ist aktiv -> Standard einschalten.
+        # Andernfalls: Matrix einschalten.
+        if force_state is None:
+            if (
+                "exit matrix" in button_text
+                or "matrix verlassen" in button_text
+                or "matrix beenden" in button_text
+            ):
+                target_mode = "standard"
+            else:
+                target_mode = "matrix"
+        else:
+            target_mode = str(force_state).strip().lower()
+
+        if target_mode not in ("matrix", "standard"):
+            print(
+                f"FEHLER: Ungültiger Matrix-Modus: {target_mode!r}",
+                flush=True
+            )
+            return
+
+        print(
+            "DEBUG: Zustand vor Umschaltung:",
+            "config =", repr(current_mode),
+            "| button =", repr(btn.text()),
+            "| ziel =", repr(target_mode),
+            flush=True
+        )
+
+        # 6. Standard-Styles nur einmal sichern
+        # So wird der Matrix-Style nicht versehentlich als Standard gespeichert.
+        if not hasattr(self, "_standard_stylesheet"):
+            self._standard_stylesheet = self.styleSheet()
+
+        header = getattr(self, "header_widget", None)
+
+        if (
+            header is not None
+            and not hasattr(self, "_standard_header_stylesheet")
+        ):
+            self._standard_header_stylesheet = header.styleSheet()
+
+        slider = getattr(
+            self,
+            "blink_slider",
+            getattr(self, "slider_speed", None)
+        )
+
+        if (
+            slider is not None
+            and not hasattr(self, "_standard_slider_stylesheet")
+        ):
+            self._standard_slider_stylesheet = slider.styleSheet()
+
+        is_loading = bool(getattr(self, "is_loading", False))
+
+        # 7. Gewünschten Modus anwenden
+        try:
+            if target_mode == "matrix":
+
+                # Matrix-Stylesheet holen
+                matrix_style_func = getattr(
+                    self,
+                    "get_matrix_style",
+                    None
                 )
 
-            self.btn_matrix.setText(t.get("matrix_btn_enter", "📟 MATRIX MODE"))
-            cfg["theme_mode"] = "standard"
+                if not callable(matrix_style_func):
+                    raise AttributeError(
+                        "get_matrix_style() fehlt oder ist keine "
+                        "Methode von PatchManagerGUI."
+                    )
 
-            # Log-Ausgabe
-            if hasattr(self, "info_text") and not getattr(self, "is_loading", False):
-                sys_tag = f"<b>[{t.get('matrix_sys', 'System')}]</b>"
-                msg = f'<br><span style="color:orange; font-family:Consolas, monospace;">{sys_tag} {t.get("matrix_off", "Matrix Mode disabled.")}</span>'
-                self.info_text.append(msg)
+                matrix_style = matrix_style_func()
 
-        # --- AnalogClock aktualisieren ---
-        if hasattr(self, "analog_clock"):
-            self.analog_clock.update()
+                if not isinstance(matrix_style, str):
+                    raise TypeError(
+                        "get_matrix_style() muss einen String zurückgeben."
+                    )
 
-        # --- LEDs synchronisieren ---
-        if hasattr(self, "force_leds_static"):
-            self.force_leds_static()
+                self.setStyleSheet(matrix_style)
 
-        # --- Buttons & UI-Höhen setzen ---
-        if hasattr(self, "all_buttons"):
-            for btn in self.all_buttons:
-                btn.setFixedHeight(getattr(self, "BUTTON_HEIGHT", 50))
+                # Button zeigt ab jetzt die Aktion zum Verlassen an
+                btn.setText(
+                    t.get("matrix_btn_exit", "🔙 EXIT MATRIX")
+                )
 
-        # --- Config speichern ---
-        if not getattr(self, "is_loading", False):
-            if "save_config" in globals():
-                save_config(cfg, gui_instance=self, silent=True)
+                cfg["theme_mode"] = "matrix"
+                self.current_config = cfg
+
+                # Header anpassen
+                if header is not None:
+                    header.setStyleSheet("""
+                        QWidget {
+                            background-color: #000000;
+                            color: #00FF41;
+                            border: 1px solid #008F11;
+                        }
+                    """)
+
+                print(
+                    "DEBUG: Matrix-Modus AKTIVIERT",
+                    "| config =", repr(cfg.get("theme_mode")),
+                    "| button =", repr(btn.text()),
+                    flush=True
+                )
+
+                # Aktivierungsnachricht
+                info = getattr(self, "info_text", None)
+
+                if info is not None and not is_loading:
+                    sys_tag = t.get("matrix_sys", "System")
+                    message = t.get(
+                        "matrix_on",
+                        "Matrix-Modus aktiviert."
+                    )
+
+                    info.append(
+                        '<br><span style="color:#00FF41; '
+                        'font-family:monospace;">'
+                        f'<b>[{sys_tag}]</b> {message}'
+                        '</span>'
+                    )
+
+                # Optionaler Sound
+                safe_play_func = globals().get("safe_play")
+
+                if callable(safe_play_func) and not is_loading:
+                    try:
+                        safe_play_func("dialog-information.oga")
+                    except Exception as exc:
+                        print(
+                            f"DEBUG: Sound übersprungen: {exc}",
+                            flush=True
+                        )
+
+            else:
+
+                # Standard-Styles wiederherstellen
+                self.setStyleSheet(
+                    self._standard_stylesheet
+                )
+
+                # Button zeigt wieder die Aktivierungsaktion an
+                btn.setText(
+                    t.get("matrix_btn_enter", "📟 MATRIX MODE")
+                )
+
+                cfg["theme_mode"] = "standard"
+                self.current_config = cfg
+
+                # Header wiederherstellen
+                if header is not None:
+                    header.setStyleSheet(
+                        self._standard_header_stylesheet
+                    )
+
+                # Slider wiederherstellen
+                if slider is not None:
+                    slider.setStyleSheet(
+                        self._standard_slider_stylesheet
+                    )
+
+                print(
+                    "DEBUG: Standard-Modus AKTIVIERT",
+                    "| config =", repr(cfg.get("theme_mode")),
+                    "| button =", repr(btn.text()),
+                    flush=True
+                )
+
+                # Deaktivierungsnachricht
+                info = getattr(self, "info_text", None)
+
+                if info is not None and not is_loading:
+                    sys_tag = t.get("matrix_sys", "System")
+                    message = t.get(
+                        "matrix_off",
+                        "Matrix-Modus deaktiviert."
+                    )
+
+                    info.append(
+                        '<br><span style="color:orange; '
+                        'font-family:monospace;">'
+                        f'<b>[{sys_tag}]</b> {message}'
+                        '</span>'
+                    )
+
+        except Exception as exc:
+            print(
+                f"FEHLER beim Umschalten des Matrix-Modus: {exc}",
+                flush=True
+            )
+            traceback.print_exc()
+            return
+
+        # 8. Uhr aktualisieren
+        analog_clock = getattr(self, "analog_clock", None)
+
+        if analog_clock is not None:
+            try:
+                analog_clock.update()
+            except Exception as exc:
+                print(
+                    f"DEBUG: Uhr-Aktualisierung fehlgeschlagen: {exc}",
+                    flush=True
+                )
+
+        # 9. LEDs synchronisieren
+        force_leds = getattr(
+            self,
+            "force_leds_static",
+            None
+        )
+
+        if callable(force_leds):
+            try:
+                force_leds()
+            except Exception as exc:
+                print(
+                    f"DEBUG: LED-Aktualisierung fehlgeschlagen: {exc}",
+                    flush=True
+                )
+
+        # 10. Button-Höhen aktualisieren
+        for button in getattr(self, "all_buttons", []):
+            try:
+                button.setFixedHeight(
+                    getattr(self, "BUTTON_HEIGHT", 50)
+                )
+            except (AttributeError, RuntimeError):
+                continue
+
+        # 11. Konfiguration speichern
+        if not is_loading:
+            save_config_func = globals().get("save_config")
+
+            if callable(save_config_func):
+                try:
+                    save_config_func(
+                        cfg,
+                        gui_instance=self,
+                        silent=True
+                    )
+                except Exception as exc:
+                    print(
+                        "WARNUNG: Konfiguration konnte nicht gespeichert "
+                        f"werden: {exc}",
+                        flush=True
+                    )
+
+        # 12. Endzustand protokollieren
+        print(
+            "DEBUG: toggle_matrix abgeschlossen:",
+            "theme_mode =", repr(cfg.get("theme_mode")),
+            "| button_text =", repr(btn.text()),
+            flush=True
+        )
+
 
 
     def animate_everything(self):
@@ -11092,7 +11435,7 @@ class PatchManagerGUI(QWidget):
             "QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; }"
         )
         if hasattr(self, "toggle_matrix"):
-            self.btn_matrix.clicked.connect(self.toggle_matrix)
+            self.btn_matrix.clicked.connect(lambda checked=False: self.toggle_matrix())
         status_bar_layout.addWidget(self.btn_matrix)
 
         self.btn_theme = QPushButton("🌓 THEME")
@@ -17211,4 +17554,3 @@ auto_install_emoji_font()
 # =============================================================================
 # EXECUTION BOOTLOADER: Oscam Emu Patch Manager by speedy005
 # =============================================================================
-
