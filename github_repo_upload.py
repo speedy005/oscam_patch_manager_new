@@ -22,10 +22,9 @@ from PyQt6.QtCore import QDateTime, QEasingCurve, QObject, QPoint, QPropertyAnim
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPolygon, QTextCursor
 from PyQt6.QtWidgets import QApplication, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QFrame, QGraphicsColorizeEffect, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QSlider, QTextEdit, QVBoxLayout, QWidget, QWidgetItem
 from datetime import datetime, timezone
-from paths import PATCH_EMU_GIT_DIR
+
 from translations import TEXTS
 from workers import safe_play
-from patch_format import load_github_config
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -522,13 +521,11 @@ sys.stdout.write(value)
     # ============================================================
     # CONFIG LADEN
     # ============================================================
-    # Die Funktion explizit importieren statt sie nur in globals() zu suchen.
-    # Bei einem normalen Modulimport steht sie dadurch zuverlässig zur Verfügung.
-    cfg_func = globals().get("load_github_config")
-    if not callable(cfg_func):
-        cfg_func = load_github_config
+    cfg_func = globals().get(
+        "load_github_config"
+    )
 
-    if not callable(cfg_func):
+    if not cfg_func:
 
         update_p(
             last_progress,
