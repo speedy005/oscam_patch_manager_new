@@ -47,7 +47,7 @@ print("[DEBUG] Git-Verzeichnis:", os.path.isdir(os.path.join(repo, ".git")))
 
 result = subprocess.run(
     [
-        "C:\\Program Files\\Git\\cmd\\git.EXE",
+        find_git_executable(),
         "-C", repo,
         "show",
         f"{commit}:globals.h",
