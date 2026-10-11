@@ -1914,57 +1914,57 @@ def create_patch(
         log(f"      {remote_head}")
         return remote_head
 
-        def get_emu_repository_config():
-            """Liest die im GitHub-Konfigurationsdialog gewählte Emu-URL und den Branch."""
-            repo_url = ""
-            branch = "master"
+    def get_emu_repository_config():
+        """Liest die im GitHub-Konfigurationsdialog gewählte Emu-URL und den Branch."""
+        repo_url = ""
+        branch = "master"
 
+        try:
+            cfg = load_github_config()
+            repo_url = str(cfg.get("emu_repo_url", "") or "").strip()
+            branch = str(cfg.get("emu_branch", "master") or "master").strip() or "master"
+        except Exception:
+            pass
+
+        # Eine im Tool gerade ausgewählte Repo-URL hat IMMER Vorrang
+        # vor einer älteren gespeicherten Konfiguration.
+        if gui_instance is not None:
             try:
-                cfg = load_github_config()
-                repo_url = str(cfg.get("emu_repo_url", "") or "").strip()
-                branch = str(cfg.get("emu_branch", "master") or "master").strip() or "master"
+                value = str(getattr(gui_instance, "selected_emu_repo_url", "") or "").strip()
+                if value:
+                    repo_url = value
+            except Exception:
+                pass
+            try:
+                value = str(getattr(gui_instance, "EMUREPO", "") or "").strip()
+                if value:
+                    repo_url = value
+            except Exception:
+                pass
+            try:
+                value = str(getattr(gui_instance, "selected_emu_repo_branch", "") or "").strip()
+                if value:
+                    branch = value
             except Exception:
                 pass
 
-            # Eine im Tool gerade ausgewählte Repo-URL hat IMMER Vorrang
-            # vor einer älteren gespeicherten Konfiguration.
-            if gui_instance is not None:
-                try:
-                    value = str(getattr(gui_instance, "selected_emu_repo_url", "") or "").strip()
-                    if value:
-                        repo_url = value
-                except Exception:
-                    pass
-                try:
-                    value = str(getattr(gui_instance, "EMUREPO", "") or "").strip()
-                    if value:
-                        repo_url = value
-                except Exception:
-                    pass
-                try:
-                    value = str(getattr(gui_instance, "selected_emu_repo_branch", "") or "").strip()
-                    if value:
-                        branch = value
-                except Exception:
-                    pass
+        selected_global = str(globals().get("SELECTED_EMU_REPO_URL", "") or "").strip()
+        if selected_global:
+            repo_url = selected_global
 
-            selected_global = str(globals().get("SELECTED_EMU_REPO_URL", "") or "").strip()
-            if selected_global:
-                repo_url = selected_global
+        if not repo_url:
+            repo_url = str(globals().get("EMUREPO_URL", "") or "").strip()
 
-            if not repo_url:
-                repo_url = str(globals().get("EMUREPO_URL", "") or "").strip()
-
-            if not repo_url:
-                raise RuntimeError(
-                    tr(
-                        "emu_repo_url_missing",
-                        "Keine OSCam-Emu Repository-URL gesetzt. Bitte im GitHub-Konfigurationsdialog eintragen.",
-                        "No OSCam-Emu repository URL configured. Set it in the GitHub configuration dialog."
-                    )
+        if not repo_url:
+            raise RuntimeError(
+                tr(
+                    "emu_repo_url_missing",
+                    "Keine OSCam-Emu Repository-URL gesetzt. Bitte im GitHub-Konfigurationsdialog eintragen.",
+                    "No OSCam-Emu repository URL configured. Set it in the GitHub configuration dialog."
                 )
+            )
 
-            return repo_url, branch
+        return repo_url, branch
 
     def get_emu_repository_url():
         return get_emu_repository_config()[0]
