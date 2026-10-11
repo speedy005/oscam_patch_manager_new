@@ -13806,14 +13806,25 @@ class PatchManagerGUI(QWidget):
         # PATCH_FILE
         # =========================================================
 
-        patch_file = globals().get(
-            "PATCH_FILE",
-            getattr(
-                self,
-                "PATCH_FILE",
-                ""
-            )
+        
+        patch_file = (
+            getattr(self, "PATCH_FILE", None)
+            or globals().get("PATCH_FILE")
         )
+
+        if not patch_file:
+            try:
+                from paths import PATCH_FILE as CONFIG_PATCH_FILE
+                patch_file = CONFIG_PATCH_FILE
+            except (ImportError, AttributeError):
+                patch_file = None
+
+        if not patch_file:
+            return check_failed(
+                "PATCH_FILE ist nicht konfiguriert. "
+                "Der Pfad konnte auch nicht aus paths.py gelesen werden."
+            )
+
 
         if not patch_file:
 
@@ -13891,27 +13902,34 @@ class PatchManagerGUI(QWidget):
             )
         )
 
+       
         # =========================================================
         # STREAMREPO
         # =========================================================
 
-        streamboard_repo = globals().get(
-            "STREAMREPO",
-            ""
+        streamboard_repo = (
+            globals().get("STREAMREPO")
+            or getattr(self, "STREAMREPO", None)
         )
 
         if not streamboard_repo:
-
-            streamboard_repo = getattr(
-                self,
-                "STREAMREPO",
-                ""
-            )
+            try:
+                from paths import STREAMREPO as CONFIG_STREAMREPO
+                streamboard_repo = CONFIG_STREAMREPO
+            except (ImportError, AttributeError):
+                streamboard_repo = None
 
         if not streamboard_repo:
+            try:
+                from paths import TEMP_REPO as CONFIG_TEMP_REPO
+                streamboard_repo = CONFIG_TEMP_REPO
+            except (ImportError, AttributeError):
+                streamboard_repo = None
 
+        if not streamboard_repo:
             return check_failed(
-                "STREAMREPO ist nicht konfiguriert."
+                "STREAMREPO ist nicht konfiguriert. "
+                "Der Pfad konnte nicht aus paths.py gelesen werden."
             )
 
         streamboard_repo = os.path.abspath(
@@ -13932,6 +13950,15 @@ class PatchManagerGUI(QWidget):
             f"   {streamboard_repo}",
             "info"
         )
+
+        if not os.path.isdir(
+            os.path.join(streamboard_repo, ".git")
+        ):
+            return check_failed(
+                "STREAMREPO ist kein gültiges Git-Repository:\n"
+                f"{streamboard_repo}"
+            )
+
 
         # ---------------------------------------------------------
         # Repository vorhanden?
