@@ -66,7 +66,53 @@ Convenience launchers are also included:
 4. Configure your Git username and email, plus a GitHub token if uploads are needed.
 5. Confirm the local repository and patch paths before running operations.
 6. Start with a patch check or another non-destructive operation to verify your setup.
+# 🚀 OSCam Patch Manager
 
+**Manage. Patch. Update. Upload.** 🛠️
+
+A Python-based GUI tool for managing OSCam patches, Git revisions, repositories, and GitHub uploads.
+
+## ✨ Highlights
+
+- 🔧 Fixed Streamboard revision checkout
+- 🔄 Fixed OSCam-Emu revision management
+- 📤 Fixed GitHub patch and repository uploads
+- ⚙️ Improved configuration loading and repository paths
+- 🖥️ Windows and Linux startup scripts
+- 🐙 GitHub integration for easier workflow management
+
+## 📥 Get Started
+
+Clone the repository:
+
+```bash
+git clone https://github.com/speedy005/oscam_patch_manager_new.git
+cd oscam_patch_manager_new
+```
+
+Install dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Launch the application:
+
+**Windows:** Run `start_windows.bat`
+
+**Linux:**
+```bash
+chmod +x linux.sh
+./linux.sh
+```
+
+## 🎯 Mission
+
+Making OSCam patch and repository management simpler, smoother, and more reliable.
+
+⭐ **Like the project? Give it a star on GitHub!**
+
+[**View Repository →**](https://github.com/speedy005/oscam_patch_manager_new)
 Keep your GitHub token private. Use a token with only the permissions needed for your workflow, and do not commit credentials or local configuration files to a public repository.
 
 ## 🗂️ Project layout
