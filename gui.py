@@ -7743,7 +7743,10 @@ class PatchManagerGUI(QWidget):
             "Noto_Color_Emoji.zip",
             "oscam_emu_toolkit2.png",
             "oscam-patch-generator.png",
+            "final-oscam-emu-patch-maker.png",
+            "final-englisch.png",
             "README.md",
+            "version.txt",
             "requirements.txt",
         }
 
@@ -17009,76 +17012,119 @@ class PatchManagerGUI(QWidget):
         self.cfg["s4_patch_path"] = directory
         save_config({"s4_patch_path": directory}, gui_instance=self, silent=True)
 
+    
     def copy_patch_to_target(self, target):
-        """Kopiert die aktuell erzeugte oscam-emu.patch in den gewählten S3-NCam- oder S4-Ordner."""
+        """Kopiert oscam-emu.patch in den gewählten S3-NCam- oder S4-Ordner."""
         import os
         import shutil
         from PyQt6.QtWidgets import QMessageBox
+        from paths import PATCH_FILE as CONFIG_PATCH_FILE
 
         is_de = str(getattr(self, "LANG", "de")).lower()[:2] == "de"
-        source = os.path.normpath(getattr(self, "PATCH_FILE", globals().get("PATCH_FILE", "")))
 
+        # Patch-Quelldatei ermitteln
+        source = (
+            getattr(self, "PATCH_FILE", None)
+            or globals().get("PATCH_FILE")
+            or CONFIG_PATCH_FILE
+        )
+        source = os.path.abspath(
+            os.path.expanduser(
+                os.path.expandvars(str(source))
+            )
+        )
+
+        # Gespeicherte Konfiguration lesen
+        cfg = getattr(self, "cfg", {})
+        if not isinstance(cfg, dict):
+            cfg = {}
+
+        # Zielordner ermitteln
         if target == "ncam":
-            destination_dir = os.path.normpath(getattr(self, "NCAM_PATCH_PATH", globals().get("NCAM_PATCH_PATH", "")))
+            destination_dir = (
+                getattr(self, "NCAM_PATCH_PATH", None)
+                or globals().get("NCAM_PATCH_PATH")
+                or cfg.get("ncam_patch_path", "")
+            )
             label = "S3-NCam-Bonecrew"
+
         elif target == "s4":
-            destination_dir = os.path.normpath(getattr(self, "S4_PATCH_PATH", globals().get("S4_PATCH_PATH", "")))
+            destination_dir = (
+                getattr(self, "S4_PATCH_PATH", None)
+                or globals().get("S4_PATCH_PATH")
+                or cfg.get("s4_patch_path", "")
+            )
             label = "S4"
+
         else:
             return
 
-        if not source or not os.path.isfile(source):
+        destination_dir = (
+            os.path.abspath(
+                os.path.expanduser(
+                    os.path.expandvars(str(destination_dir))
+                )
+            )
+            if destination_dir else ""
+        )
+
+        # Quelldatei prüfen
+        if not os.path.isfile(source):
             QMessageBox.warning(
                 self,
                 "Patch fehlt" if is_de else "Patch missing",
-                f"Die Quelldatei oscam-emu.patch wurde nicht gefunden:\n{source}"
+                f"Die Quelldatei wurde nicht gefunden:\n{source}"
                 if is_de else
-                f"The source file oscam-emu.patch was not found:\n{source}",
+                f"The patch file was not found:\n{source}",
             )
             return
 
+        # Zielordner prüfen
         if not destination_dir:
             QMessageBox.warning(
                 self,
                 "Pfad fehlt" if is_de else "Path missing",
-                f"Für {label} ist noch kein Zielordner eingestellt."
+                f"Bitte zuerst den Zielordner für {label} auswählen."
                 if is_de else
-                f"No destination folder is configured for {label}.",
+                f"Please select the destination folder for {label} first.",
+            )
+            return
+
+        if not os.path.isdir(destination_dir):
+            QMessageBox.warning(
+                self,
+                "Ordner fehlt" if is_de else "Folder missing",
+                f"Der Zielordner existiert nicht:\n{destination_dir}"
+                if is_de else
+                f"The destination folder does not exist:\n{destination_dir}",
             )
             return
 
         try:
-            os.makedirs(destination_dir, exist_ok=True)
-            destination = os.path.join(destination_dir, "oscam-emu.patch")
+            destination = os.path.join(
+                destination_dir, "oscam-emu.patch"
+            )
 
-            # Vorhandene Patch-Datei nicht kommentarlos verlieren: Backup anlegen.
+            # Backup der vorhandenen Datei anlegen
             if os.path.isfile(destination):
-                backup = destination + ".bak"
-                try:
-                    shutil.copy2(destination, backup)
-                except Exception:
-                    pass
+                shutil.copy2(destination, destination + ".bak")
 
             shutil.copy2(source, destination)
 
+            message = (
+                f"Patch erfolgreich nach {label} kopiert:\n{destination}"
+            )
             self.append_info(
                 getattr(self, "info_text", None),
-                f"✅ oscam-emu.patch nach {label} kopiert: {destination}",
+                f"✅ {message}",
                 "success",
             )
-
-            if "safe_play" in globals():
-                try:
-                    safe_play("complete.oga")
-                except Exception:
-                    pass
 
             QMessageBox.information(
                 self,
                 "Patch kopiert" if is_de else "Patch copied",
-                f"oscam-emu.patch wurde nach {label} kopiert.\n\n{destination}"
-                if is_de else
-                f"oscam-emu.patch was copied to {label}.\n\n{destination}",
+                message if is_de else
+                f"Patch successfully copied to {label}:\n{destination}",
             )
 
         except Exception as exc:
@@ -17090,10 +17136,11 @@ class PatchManagerGUI(QWidget):
             QMessageBox.critical(
                 self,
                 "Fehler" if is_de else "Error",
-                f"oscam-emu.patch konnte nicht nach {label} kopiert werden:\n{exc}"
+                f"Patch konnte nicht kopiert werden:\n{exc}"
                 if is_de else
-                f"oscam-emu.patch could not be copied to {label}:\n{exc}",
+                f"Could not copy patch:\n{exc}",
             )
+
 
     
 def auto_install_emoji_font():
