@@ -31,7 +31,7 @@ from github_patch_upload import github_upload_patch_file
 from github_repo_upload import github_upload_oscam_emu_folder, run_bash
 from patch_format import load_github_config
 from patch_operations import backup_old_patch, clean_patch_folder, create_patch, ensure_git_repository, patch_oscam_emu_git
-from paths import ALT_PATCH_FILE, APP_VERSION, CONFIG_FILE, OLD_PATCH_DIR, OLD_PATCH_FILE, STREAM_REPO_CHOICES, TEMP_REPO, get_selected_stream_repo_name, get_selected_stream_repo_url, now
+from paths import ALT_PATCH_FILE, APP_VERSION, CONFIG_FILE, OLD_PATCH_DIR, OLD_PATCH_FILE, PATCH_EMU_GIT_DIR, STREAMREPO, STREAM_REPO_CHOICES, TEMP_REPO, get_selected_stream_repo_name, get_selected_stream_repo_url, now
 from system_check import SystemCheckWorker
 from themes import DIFF_COLORS, current_color_name, current_diff_colors
 from translations import LANG, TEXTS
