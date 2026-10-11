@@ -10944,7 +10944,7 @@ class PatchManagerGUI(QWidget):
         patch_button_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.header_btn_s3_ncam = QPushButton(self.TEXT.get("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad"))
-        self.header_btn_s3_ncam.setMinimumSize(170, 32)
+        self.header_btn_s3_ncam.setMinimumSize(130, 32)
         self.header_btn_s3_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s3_ncam.setToolTip(
             self.TEXT.get("patch_folder_s3_ncam_tooltip", "S3-NCam-Bonecrew-Pfad wählen")
@@ -10953,7 +10953,7 @@ class PatchManagerGUI(QWidget):
         path_button_layout.addWidget(self.header_btn_s3_ncam)
 
         self.header_btn_s4 = QPushButton(self.TEXT.get("patch_folder_s4", "S4-Pfad"))
-        self.header_btn_s4.setMinimumSize(170, 32)
+        self.header_btn_s4.setMinimumSize(130, 32)
         self.header_btn_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s4.setToolTip(
             self.TEXT.get("patch_folder_s4_tooltip", "S4-Pfad wählen")
@@ -10963,7 +10963,7 @@ class PatchManagerGUI(QWidget):
 
         # Die beiden Patch-Kopieraktionen ebenfalls untereinander.
         self.header_btn_patch_ncam = QPushButton(self.TEXT.get("patch_copy_s3_ncam", "Patch → S3-NCam"))
-        self.header_btn_patch_ncam.setMinimumSize(170, 32)
+        self.header_btn_patch_ncam.setMinimumSize(130, 32)
         self.header_btn_patch_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_ncam.clicked.connect(
             lambda checked=False: self.copy_patch_to_target("ncam")
@@ -10971,7 +10971,7 @@ class PatchManagerGUI(QWidget):
         patch_button_layout.addWidget(self.header_btn_patch_ncam)
 
         self.header_btn_patch_s4 = QPushButton(self.TEXT.get("patch_copy_s4", "Patch → S4"))
-        self.header_btn_patch_s4.setMinimumSize(170, 32)
+        self.header_btn_patch_s4.setMinimumSize(130, 32)
         self.header_btn_patch_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_s4.clicked.connect(
             lambda checked=False: self.copy_patch_to_target("s4")
@@ -11023,7 +11023,7 @@ class PatchManagerGUI(QWidget):
         log_text = "Log speichern" if lang == "de" else "Save Log"
 
         self.log_button = QPushButton(log_text)
-        self.log_button.setFixedSize(170, 32)
+        self.log_button.setFixedSize(100, 32)
         self.log_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.log_button.setIcon(
             self.style().standardIcon(
@@ -11039,7 +11039,7 @@ class PatchManagerGUI(QWidget):
         # --- STATS ---
         self.telemetry_cb = QPushButton("Stats")
         self.telemetry_cb.setCheckable(True)
-        self.telemetry_cb.setFixedSize(170, 32)
+        self.telemetry_cb.setFixedSize(65, 32)
         self.telemetry_cb.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.telemetry_cb.setChecked(
             bool(get_setting("allow_telemetry", True))
@@ -11058,9 +11058,9 @@ class PatchManagerGUI(QWidget):
 
         # --- OSCAM-GIT-URL ---
         self.oscam_source_button = QPushButton("Oscam-git-url")
-        self.oscam_source_button.setFixedSize(170, 32)
+        self.oscam_source_button.setFixedSize(85, 32)
         self.oscam_source_button.setFont(
-            QFont("Segoe UI", 9, QFont.Weight.Bold)
+            QFont("Segoe UI", 8, QFont.Weight.Bold)
         )
         self.oscam_source_button.setCursor(
             Qt.CursorShape.PointingHandCursor
@@ -11075,13 +11075,9 @@ class PatchManagerGUI(QWidget):
 
         # --- OBERE REIHE ---
         header_actions_layout.addWidget(
-            self.log_button, 0, 0,
+            self.log_button, 0, 0, 1, 2,
             alignment=Qt.AlignmentFlag.AlignCenter
-        )
-        header_actions_layout.addWidget(
-            self.telemetry_cb, 0, 1,
-            alignment=Qt.AlignmentFlag.AlignCenter
-        )
+        ) 
 
         # --- UNTERE REIHE ---
         # Eigener Container, damit nur Oscam-git-url nach links
@@ -11173,7 +11169,19 @@ class PatchManagerGUI(QWidget):
         version_text_layout.addWidget(self.by_label)
 
         # Den Container zum Header-Layout hinzufügen
+        # Versionsanzeige und schmaler STATS-Button oben rechts
+        right_header_layout.setSpacing(8)
         right_header_layout.addWidget(version_text_container)
+
+        self.telemetry_cb.setSizePolicy(
+            QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Fixed
+        )
+        right_header_layout.addWidget(
+            self.telemetry_cb,
+            0,
+            Qt.AlignmentFlag.AlignVCenter
+        )
 
         # Zum Haupt-Header hinzufügen
         header_layout.addWidget(right_header_container, 1)
