@@ -11180,7 +11180,7 @@ class PatchManagerGUI(QWidget):
         right_header_layout.addWidget(
             self.telemetry_cb,
             0,
-            Qt.AlignmentFlag.AlignVCenter
+            Qt.AlignmentFlag.AlignTop
         )
 
         # Zum Haupt-Header hinzufügen
