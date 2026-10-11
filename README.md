@@ -68,19 +68,7 @@ Convenience launchers are also included:
 6. Start with a patch check or another non-destructive operation to verify your setup.
 # 🚀 OSCam Patch Manager
 
-**Manage. Patch. Update. Upload.** 🛠️
-
-A Python-based GUI tool for managing OSCam patches, Git revisions, repositories, and GitHub uploads.
-
-## ✨ Highlights
-
-- 🔧 Fixed Streamboard revision checkout
-- 🔄 Fixed OSCam-Emu revision management
-- 📤 Fixed GitHub patch and repository uploads
-- ⚙️ Improved configuration loading and repository paths
-- 🖥️ Windows and Linux startup scripts
-- 🐙 GitHub integration for easier workflow management
-
+**Install.** 🛠️
 ## 📥 Get Started
 
 Clone the repository:
