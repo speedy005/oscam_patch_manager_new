@@ -176,7 +176,7 @@ def main():
         nonlocal main_window
         try:
             main_window = PatchManagerGUI()
-            main_window.setWindowTitle("OSCam Emu Patch Manager v4.0 - by speedy005")
+            main_window.setWindowTitle("OSCam Emu Patch Manager new - by speedy005")
             main_window.showMaximized()
             main_window.raise_()
 
