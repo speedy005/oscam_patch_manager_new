@@ -30,8 +30,8 @@ from git_manager import find_git_executable, get_oscam_version, git_command, git
 from github_patch_upload import github_upload_patch_file
 from github_repo_upload import github_upload_oscam_emu_folder, run_bash
 from patch_format import load_github_config
-from patch_operations import backup_old_patch, clean_patch_folder, create_patch, ensure_git_repository, patch_oscam_emu_git
-from paths import ALT_PATCH_FILE, APP_VERSION, CONFIG_FILE, OLD_PATCH_DIR, OLD_PATCH_FILE, STREAM_REPO_CHOICES, TEMP_REPO, get_selected_stream_repo_name, get_selected_stream_repo_url, now
+from patch_operations import backup_old_patch, clean_patch_folder, create_patch, ensure_git_repository, patch_oscam_emu_git, get_emu_repository_config
+from paths import ALT_PATCH_FILE, APP_VERSION, CONFIG_FILE, OLD_PATCH_DIR, OLD_PATCH_FILE, PATCH_EMU_GIT_DIR, STREAM_REPO_CHOICES, TEMP_REPO, get_selected_stream_repo_name, get_selected_stream_repo_url, now
 from system_check import SystemCheckWorker
 from themes import DIFF_COLORS, current_color_name, current_diff_colors
 from translations import LANG, TEXTS
@@ -7776,16 +7776,51 @@ class PatchManagerGUI(QWidget):
 
             return False
 
+        def set_pbar(value, text):
+            """Aktualisiert die Fortschrittsanzeige (Legacy-Funktionalität)."""
+            pbar = getattr(self, "progress_bar", None)
+            if pbar:
+                pbar.setValue(value)
+                pbar.setFormat(text)
+                QApplication.processEvents()
+
+        def action_log(text_key, level="info", **kwargs):
+            """Schreibt einen lokalisierten Status in das Info-Feld, falls vorhanden."""
+            info_widget = getattr(self, "info_text", None)
+            if info_widget is None:
+                return
+            safe_vars = {
+                "version": latest_version or "???",
+                "current": globals().get("APP_VERSION", "0"),
+            }
+            safe_vars.update(kwargs)
+            lang_pack = (
+                globals().get("TEXTS", {}).get(
+                    str(getattr(self, "LANG", "de")).lower()[:2],
+                    globals().get("TEXTS", {}).get("en", {}),
+                )
+            )
+            text_template = lang_pack.get(text_key, text_key)
+            try:
+                text = text_template.format(**safe_vars)
+            except Exception:
+                text = text_template
+            color = (
+                "#00FF41" if level == "success"
+                else "#FB0A2A" if level == "error"
+                else "cyan"
+            )
+            info_widget.append(
+                f'<span style="color:{color}; font-weight:700;">{text}</span>'
+            )
+            QApplication.processEvents()
+
         def update_progress(value, message):
             """Aktualisiert Fortschritt und Oberfläche."""
             if progress_callback:
                 progress_callback(value, message)
-
-            pbar = getattr(self, "progress_bar", None)
-            if pbar:
-                pbar.setValue(value)
-                pbar.setFormat(message)
-                QApplication.processEvents()
+            set_pbar(value, message)
+            action_log(message)
 
         backup_files = []
         new_files = []
@@ -8244,7 +8279,7 @@ class PatchManagerGUI(QWidget):
             repo_dir = os.path.abspath(str(repo_dir or "").strip())
             commit = str(selected_commit or "").strip()
 
-            if not commit and repo_dir and os.path.isdir(os.path.join(repo_dir, ".git")):
+            if not commit and repo_dir and os.path.exists(os.path.join(repo_dir, ".git")):
                 try:
                     result = git_command(["rev-parse", "HEAD"], cwd=repo_dir)
                     commit = (result.stdout or "").strip()
@@ -8255,7 +8290,7 @@ class PatchManagerGUI(QWidget):
 
             # Die Version wird immer aus globals.h des exakt verwendeten
             # Commits gelesen, nicht aus einer eventuell alten Arbeitsdatei.
-            if repo_dir and commit and os.path.isdir(os.path.join(repo_dir, ".git")):
+            if repo_dir and commit and os.path.exists(os.path.join(repo_dir, ".git")):
                 try:
                     version = str(get_oscam_version(repo_dir, commit) or "").strip()
                 except Exception:
@@ -8284,7 +8319,7 @@ class PatchManagerGUI(QWidget):
             return revision
 
         stream_revision = revision_for(
-            globals().get("STREAMREPO", ""),
+            globals().get("STREAMREPO") or TEMP_REPO,
             (
                 getattr(self, "selected_streamboard_commit", None)
                 or getattr(self, "display_streamboard_commit", None)
@@ -8292,7 +8327,7 @@ class PatchManagerGUI(QWidget):
             "streamboard_revision_number",
         )
 
-        emu_dir = globals().get("PATCH_EMU_GIT_DIR", "")
+        emu_dir = globals().get("PATCH_EMU_GIT_DIR") or PATCH_EMU_GIT_DIR
         if not emu_dir:
             emu_dir = getattr(self, "PATCH_EMU_GIT_DIR", "")
 
@@ -11797,9 +11832,23 @@ class PatchManagerGUI(QWidget):
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
 
-        stream_dir = os.path.abspath(
-            globals().get("STREAMREPO", "")
-        )
+        # Das GUI legt das Streamboard-Repository unter TEMP_REPO an.
+        # Nicht globals().get("STREAMREPO", "") verwenden: ein fehlender
+        # globaler Wert würde sonst fälschlich das aktuelle Arbeitsverzeichnis
+        # als Repository verwenden.
+        stream_dir_value = str(
+            getattr(self, "TEMP_REPO", "")
+            or globals().get("TEMP_REPO", "")
+            or ""
+        ).strip()
+        if not stream_dir_value:
+            QMessageBox.critical(
+                self, "Streamboard",
+                "Streamboard-Repository-Pfad ist nicht definiert."
+                if is_de else "Streamboard repository path is not configured."
+            )
+            return False
+        stream_dir = os.path.abspath(stream_dir_value)
         stream_url = str(
             get_selected_stream_repo_url()
         ).strip()
@@ -12217,9 +12266,20 @@ class PatchManagerGUI(QWidget):
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
 
-        emu_dir = os.path.abspath(
-            globals().get("PATCH_EMU_GIT_DIR", "")
-        )
+        # Das GUI verwendet den zur Laufzeit konfigurierten lokalen Pfad.
+        emu_dir_value = str(
+            getattr(self, "PATCH_EMU_GIT_DIR", "")
+            or globals().get("PATCH_EMU_GIT_DIR", "")
+            or ""
+        ).strip()
+        if not emu_dir_value:
+            QMessageBox.critical(
+                self, "OSCam-Emu",
+                "OSCam-Emu-Repository-Pfad ist nicht definiert."
+                if is_de else "OSCam-Emu repository path is not configured."
+            )
+            return False
+        emu_dir = os.path.abspath(emu_dir_value)
 
         # Die aktive OSCam-Emu-URL kommt aus der bestehenden GUI-Konfiguration.
         try:
@@ -17074,6 +17134,65 @@ class PatchManagerGUI(QWidget):
             )
 
     
+
+    def close_final(self):
+        """Schließt das Fenster nach der kurzen Abschlussanzeige endgültig."""
+        self._final_close_allowed = True
+        self.close()
+
+    def closeEvent(self, event):
+        """Speichert den Zustand und schließt mit kurzer Abschlussverzögerung."""
+        from PyQt6.QtCore import QTimer
+
+        if getattr(self, "_final_close_allowed", False):
+            event.accept()
+            return
+
+        if hasattr(self, "hide_final_label"):
+            self.hide_final_label()
+        elif getattr(self, "final_label", None):
+            self.final_label.hide()
+
+        try:
+            self.is_closing = True
+            exit_updates = {
+                "s3_custom_path": getattr(self, "S3_PATH", r"C:\s3"),
+                "ncam_custom_path": getattr(self, "NCAM_PATH", r"C:\opt\ncam"),
+                "s4_custom_path": getattr(self, "S4_PATH", r"C:\opt\simplebuild4"),
+                "last_session_exit": "success",
+            }
+            old_cfg = getattr(self, "cfg", getattr(self, "current_config", {}))
+            if isinstance(old_cfg, dict):
+                for key in (
+                    "color", "language", "commit_count", "theme_mode",
+                    "blink_speed", "led_enabled", "EMUREPO",
+                    "patch_modifier", "s3_patch_path",
+                ):
+                    if key in old_cfg:
+                        exit_updates[key] = old_cfg[key]
+            save_config(exit_updates, gui_instance=self)
+
+            if platform.system() == "Windows":
+                try:
+                    import winsound
+                    winsound.MessageBeep(winsound.MB_ICONASTERISK)
+                except Exception:
+                    pass
+            else:
+                for cmd in ("paplay", "canberra-gtk-play", "aplay"):
+                    if shutil.which(cmd):
+                        sound_path = "/usr/share/sounds/freedesktop/stereo/service-logout.oga"
+                        try:
+                            subprocess.Popen([cmd, sound_path], stderr=subprocess.DEVNULL)
+                        except Exception:
+                            pass
+                        break
+            event.ignore()
+            QTimer.singleShot(1000, self.close_final)
+        except Exception as error:
+            print(f"Fehler im closeEvent: {error}")
+            event.accept()
+
 def auto_install_emoji_font():
     """Installiert Noto Color Emoji plattformübergreifend."""
     def _run_install():
