@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 
 from git_manager import git_command
 from patch_format import load_github_config
+from paths import PATCH_FILE
 from translations import TEXTS
 from workers import safe_play
 
@@ -620,8 +621,9 @@ sys.stdout.write(value)
         # ========================================================
         # Patch prüfen
         # ========================================================
-        patch_file = globals().get(
-            "PATCH_FILE"
+        patch_file = (
+            getattr(gui_instance, "PATCH_FILE", None)
+            or PATCH_FILE
         )
 
         if not patch_file:

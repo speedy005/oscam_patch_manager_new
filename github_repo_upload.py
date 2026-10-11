@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 
 from translations import TEXTS
 from workers import safe_play
+from patch_format import load_github_config
+from paths import PATCH_EMU_GIT_DIR
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
