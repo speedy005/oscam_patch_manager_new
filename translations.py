@@ -447,8 +447,8 @@ TEXTS = {
     },
     "de": {
         # Grid Buttons / Patch Aktionen
-        "patch_folder_s3_ncam": "S3-NCam-Pfad patch",
-        "patch_folder_s4": "S4 - Pfad patch",
+        "patch_folder_s3_ncam": "S3-NCam Patch Pfad",
+        "patch_folder_s4": "S4-Patch Pfad",
         "patch_copy_s3_ncam": "Patch zu S3-NCam",
         "patch_copy_s4": "Patch zu S4",
         "patch_folder_s3_ncam_tooltip": "S3-NCam-Bonecrew Patch-Ordner wählen",

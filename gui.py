@@ -3748,7 +3748,7 @@ class PatchManagerGUI(QWidget):
                 json.dump(config, handle, indent=4, ensure_ascii=False)
             # Aktuelle Laufzeit-Workflows verwenden ebenfalls die Auswahl.
             globals()["STREAMREPO_URL"] = STREAM_REPO_CHOICES[selected]
-            self.oscam_source_button.setText("Oscam-git-url")
+            self.oscam_source_button.setText("Oscam Git URL")
             message = f"OSCam-Quelle eingestellt: {selected}\n{STREAM_REPO_CHOICES[selected]}"
             if hasattr(self, "append_info"):
                 self.append_info(self.info_text, message, "success")
@@ -7729,6 +7729,11 @@ class PatchManagerGUI(QWidget):
         """
         super().resizeEvent(event)
 
+        # Banner an den tatsächlich verfügbaren Platz zwischen den Bereichen anpassen.
+        # Nach dem Layout-Pass sind die echten Maße des mittleren QLabel bekannt.
+        if getattr(self, "original_pixmap", None) is not None and hasattr(self, "logo_label"):
+            QTimer.singleShot(0, self._fit_header_logo)
+
         # 1. Basis-Schriftgröße berechnen (Faktor 90 statt 75 für kompaktere Schriften)
         dynamic_size = max(10, int(self.width() / 90))
 
@@ -7763,7 +7768,7 @@ class PatchManagerGUI(QWidget):
         
         # 5. Logo-Skalierung
         if hasattr(self, "original_pixmap") and self.original_pixmap:
-            self.update_logo(width=150, height=80)
+            QTimer.singleShot(0, self._fit_header_logo)
 
 
         # 6. Info-Text-Skalierung (Courier braucht oft etwas mehr Platz)
@@ -8529,9 +8534,20 @@ class PatchManagerGUI(QWidget):
         return buttons
 
     
-    def update_logo(self, width=None, height=None):
+    def _fit_header_logo(self):
+        """Skaliert das Banner in die komplette verfügbare mittlere Header-Lücke."""
+        if not hasattr(self, "logo_label") or getattr(self, "original_pixmap", None) is None:
+            return
+        available_width = max(220, self.logo_label.width() - 4)
+        # Die Bannerhöhe bleibt auf die verfügbare Headerhöhe begrenzt;
+        # die Breite füllt die komplette Lücke zwischen linker und rechter Gruppe.
+        available_height = max(100, self.logo_label.height() - 8)
+        self.update_logo(width=available_width, height=available_height, fill_gap=True)
+
+    def update_logo(self, width=None, height=None, fill_gap=False):
         """
-        Skaliert das Logo proportional auf die vorgegebene Maximalgröße.
+        Skaliert das Logo in der Höhe proportional oder füllt bei fill_gap=True
+        die gesamte verfügbare Header-Lücke bei gleichbleibender Höhe.
         """
         if not hasattr(self, "original_pixmap") or self.original_pixmap is None:
             return
@@ -8544,12 +8560,17 @@ class PatchManagerGUI(QWidget):
         scaled_pixmap = self.original_pixmap.scaled(
             width,
             height,
-            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.AspectRatioMode.IgnoreAspectRatio if fill_gap else Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
 
         self.logo_label.setPixmap(scaled_pixmap)
-        self.logo_label.setFixedSize(width, height)
+        # Das QLabel darf vom Header-Layout automatisch angepasst werden.
+        self.logo_label.setMinimumSize(220, 100)
+        self.logo_label.setMaximumSize(16777215, 16777215)
+        self.logo_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
 
 
     # 🔹 HIER EINSETZEN 🔹
@@ -10757,7 +10778,7 @@ class PatchManagerGUI(QWidget):
         # =========================================================
 
         header_widget = QFrame()
-        header_widget.setMinimumHeight(110)
+        header_widget.setMinimumHeight(190)
         header_widget.setStyleSheet(
             """
             QFrame {
@@ -10787,7 +10808,7 @@ class PatchManagerGUI(QWidget):
         )
 
         header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(15, 5, 15, 5)
+        header_layout.setContentsMargins(18, 12, 18, 12)
         header_layout.setSpacing(12)
         header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
@@ -10798,8 +10819,8 @@ class PatchManagerGUI(QWidget):
 
         left_header_container = QWidget()
         left_header_layout = QHBoxLayout(left_header_container)
-        left_header_layout.setContentsMargins(0, 0, 0, 0)
-        left_header_layout.setSpacing(12)
+        left_header_layout.setContentsMargins(18, 0, 0, 0)
+        left_header_layout.setSpacing(28)
         left_header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
 
@@ -10825,8 +10846,8 @@ class PatchManagerGUI(QWidget):
         time_date_layout.setSpacing(2)
         time_date_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        bold_font_time = QFont("Segoe UI", 24, QFont.Weight.Bold)
-        bold_font_date = QFont("Segoe UI", 24, QFont.Weight.Bold)
+        bold_font_time = QFont("Segoe UI", 20, QFont.Weight.Bold)
+        bold_font_date = QFont("Segoe UI", 15, QFont.Weight.Bold)
 
         # --- CLOCK ---
         self.digital_clock = QLabel("--:--:--")
@@ -10855,9 +10876,9 @@ class PatchManagerGUI(QWidget):
         s3_s4_h_layout.setSpacing(8)
         s3_s4_h_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.btn_s3.setFixedSize(140, self.UI_BUTTON_H)
-        self.btn_s4.setFixedSize(140, self.UI_BUTTON_H)
-        self.btn_ncam.setFixedSize(140, self.UI_BUTTON_H)
+        self.btn_s3.setFixedSize(250, self.UI_BUTTON_H)
+        self.btn_s4.setFixedSize(250, self.UI_BUTTON_H)
+        self.btn_ncam.setFixedSize(250, self.UI_BUTTON_H)
 
         s3_s4_h_layout.addWidget(self.btn_s3)
         s3_s4_h_layout.addWidget(self.btn_s4)
@@ -10882,8 +10903,7 @@ class PatchManagerGUI(QWidget):
         #         FINAL HEADER ASSEMBLY
         # =========================================================
 
-        header_layout.addWidget(left_header_container, 1)
-
+        # LEFT-HEADER wird erst beim finalen Layout einmalig eingefügt.
 
         # =========================================================
         # SIGNALS (UNCHANGED)
@@ -10906,13 +10926,21 @@ class PatchManagerGUI(QWidget):
         # FINAL HEADER ATTACH
         # =========================================================
 
-        header_layout.addWidget(left_header_container, 1)
+        header_layout.addWidget(left_header_container, 0)
+        header_layout.addStretch(1)
 
-        # --- MIDDLE: Logo ---
+        # --- MIDDLE: Logo (responsive) ---
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.logo_label.setMinimumWidth(400)
-        header_layout.addWidget(self.logo_label, 2)
+        self.logo_label.setMinimumSize(220, 100)
+        self.logo_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        header_layout.addWidget(
+            self.logo_label, 3,
+            Qt.AlignmentFlag.AlignCenter
+        )
+        header_layout.addStretch(1)
 
         try:
             url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/oscam_emu_toolkit2.png"
@@ -10920,7 +10948,7 @@ class PatchManagerGUI(QWidget):
             resp.raise_for_status()
             self.original_pixmap = QPixmap()
             self.original_pixmap.loadFromData(resp.content)
-            self.update_logo(width=150, height=80)
+            QTimer.singleShot(0, self._fit_header_logo)
         except Exception:
             self.logo_label.setText("OSCAM TOOLKIT")
             self.logo_label.setStyleSheet("color: white; font-size: 18px;")
@@ -10930,7 +10958,7 @@ class PatchManagerGUI(QWidget):
         right_header_container = QWidget()
         right_header_layout = QHBoxLayout(right_header_container)
         right_header_layout.setContentsMargins(0, 0, 0, 0)
-        right_header_layout.setSpacing(15)
+        right_header_layout.setSpacing(24)
         right_header_layout.setAlignment(
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
         )
@@ -10959,8 +10987,10 @@ class PatchManagerGUI(QWidget):
         patch_button_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.header_btn_s3_ncam = QPushButton(self.TEXT.get("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad"))
-        self.header_btn_s3_ncam.setMinimumSize(130, 32)
+        self.header_btn_s3_ncam.setMinimumSize(255, 34)
         self.header_btn_s3_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.header_btn_s3_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
+        self.header_btn_s3_ncam.setIconSize(QSize(20, 20))
         self.header_btn_s3_ncam.setToolTip(
             self.TEXT.get("patch_folder_s3_ncam_tooltip", "S3-NCam-Bonecrew-Pfad wählen")
         )
@@ -10968,8 +10998,10 @@ class PatchManagerGUI(QWidget):
         path_button_layout.addWidget(self.header_btn_s3_ncam)
 
         self.header_btn_s4 = QPushButton(self.TEXT.get("patch_folder_s4", "S4-Pfad"))
-        self.header_btn_s4.setMinimumSize(130, 32)
+        self.header_btn_s4.setMinimumSize(255, 34)
         self.header_btn_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.header_btn_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
+        self.header_btn_s4.setIconSize(QSize(20, 20))
         self.header_btn_s4.setToolTip(
             self.TEXT.get("patch_folder_s4_tooltip", "S4-Pfad wählen")
         )
@@ -10978,16 +11010,20 @@ class PatchManagerGUI(QWidget):
 
         # Die beiden Patch-Kopieraktionen ebenfalls untereinander.
         self.header_btn_patch_ncam = QPushButton(self.TEXT.get("patch_copy_s3_ncam", "Patch → S3-NCam"))
-        self.header_btn_patch_ncam.setMinimumSize(130, 32)
+        self.header_btn_patch_ncam.setMinimumSize(255, 34)
         self.header_btn_patch_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.header_btn_patch_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
+        self.header_btn_patch_ncam.setIconSize(QSize(20, 20))
         self.header_btn_patch_ncam.clicked.connect(
             lambda checked=False: self.copy_patch_to_target("ncam")
         )
         patch_button_layout.addWidget(self.header_btn_patch_ncam)
 
         self.header_btn_patch_s4 = QPushButton(self.TEXT.get("patch_copy_s4", "Patch → S4"))
-        self.header_btn_patch_s4.setMinimumSize(130, 32)
+        self.header_btn_patch_s4.setMinimumSize(255, 34)
         self.header_btn_patch_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.header_btn_patch_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
+        self.header_btn_patch_s4.setIconSize(QSize(20, 20))
         self.header_btn_patch_s4.clicked.connect(
             lambda checked=False: self.copy_patch_to_target("s4")
         )
@@ -11000,7 +11036,7 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         # HEADER-AKTIONEN
         # Log speichern | Stats
-        # Oscam-git-url leicht nach links versetzt darunter
+        # Oscam Git URL leicht nach links versetzt darunter
         # ---------------------------------------------------------
 
         header_actions_container = QWidget()
@@ -11038,7 +11074,7 @@ class PatchManagerGUI(QWidget):
         log_text = "Log speichern" if lang == "de" else "Save Log"
 
         self.log_button = QPushButton(log_text)
-        self.log_button.setFixedSize(100, 32)
+        self.log_button.setFixedSize(220, 34)
         self.log_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.log_button.setIcon(
             self.style().standardIcon(
@@ -11054,7 +11090,7 @@ class PatchManagerGUI(QWidget):
         # --- STATS ---
         self.telemetry_cb = QPushButton("Stats")
         self.telemetry_cb.setCheckable(True)
-        self.telemetry_cb.setFixedSize(65, 32)
+        self.telemetry_cb.setFixedSize(82, 34)
         self.telemetry_cb.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.telemetry_cb.setChecked(
             bool(get_setting("allow_telemetry", True))
@@ -11072,11 +11108,13 @@ class PatchManagerGUI(QWidget):
         self.telemetry_cb.toggled.connect(self.on_telemetry_changed)
 
         # --- OSCAM-GIT-URL ---
-        self.oscam_source_button = QPushButton("Oscam-git-url")
-        self.oscam_source_button.setFixedSize(85, 32)
+        self.oscam_source_button = QPushButton("Oscam Git URL")
+        self.oscam_source_button.setFixedSize(220, 34)
         self.oscam_source_button.setFont(
             QFont("Segoe UI", 8, QFont.Weight.Bold)
         )
+        self.oscam_source_button.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirLinkIcon))
+        self.oscam_source_button.setIconSize(QSize(20, 20))
         self.oscam_source_button.setCursor(
             Qt.CursorShape.PointingHandCursor
         )
@@ -11099,7 +11137,7 @@ class PatchManagerGUI(QWidget):
         # versetzt wird, ohne die obere Reihe zu verschieben.
         oscam_row_container = QWidget()
         oscam_row_layout = QHBoxLayout(oscam_row_container)
-        oscam_row_layout.setContentsMargins(0, 0, 170, 0)
+        oscam_row_layout.setContentsMargins(0, 0, 0, 0)
         oscam_row_layout.setSpacing(0)
         oscam_row_layout.addWidget(
             self.oscam_source_button,
@@ -11143,19 +11181,17 @@ class PatchManagerGUI(QWidget):
                 }
             """)
 
-        # Genau zwischen dem mittleren Header-Bereich und dem Log-Button.
-        header_layout.addWidget(install_path_container, 1, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-
-        # Die Aktionsbuttons liegen jetzt direkt rechts neben den Patch-Buttons.
+        # Die Installations-/Patch-Aktionen sind Teil des rechten Header-Bereichs;
+        # das Logo bleibt dadurch mittig zwischen linker und rechter Seite.
 
         # Fonts definieren, BEVOR sie benutzt werden (löst NameError)
         bold_font_header = QFont("Segoe UI", 25, QFont.Weight.Bold)
-        bold_font_version = QFont("Segoe UI", 25, QFont.Weight.Bold)
+        bold_font_version = QFont("Segoe UI", 21, QFont.Weight.Bold)
 
         # Container für die Labels rechts oben
         version_text_container = QWidget()
         version_text_layout = QVBoxLayout(version_text_container)
-        version_text_layout.setContentsMargins(10, 0, 35, 0)
+        version_text_layout.setContentsMargins(8, 0, 8, 0)
         version_text_layout.setSpacing(2)
         version_text_layout.setAlignment(
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
@@ -11176,16 +11212,17 @@ class PatchManagerGUI(QWidget):
 
         # Autor Label (Blau im Screenshot)
         self.by_label = QLabel("by speedy005")
-        self.by_label.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
+        self.by_label.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         self.by_label.setStyleSheet("color: #0055ff; background: transparent;")
 
         # In den kleinen Container packen
         version_text_layout.addWidget(self.version_label)
         version_text_layout.addWidget(self.by_label)
 
-        # Den Container zum Header-Layout hinzufügen
-        # Versionsanzeige und schmaler STATS-Button oben rechts
-        right_header_layout.setSpacing(8)
+        # Installations-/Patch-Buttons rechts neben dem mittigen Banner.
+        # Version, Stats und "by speedy005" bleiben ganz rechts.
+        right_header_layout.addWidget(install_path_container)
+        right_header_layout.setSpacing(24)
         right_header_layout.addWidget(version_text_container)
 
         self.telemetry_cb.setSizePolicy(
@@ -11199,7 +11236,7 @@ class PatchManagerGUI(QWidget):
         )
 
         # Zum Haupt-Header hinzufügen
-        header_layout.addWidget(right_header_container, 1)
+        header_layout.addWidget(right_header_container, 0)
 
         main_layout.addWidget(header_widget)
         self.apply_global_button_style("#EAFF00")
