@@ -1067,6 +1067,15 @@ def clean_patch_folder(
         )
     )
 
+    # 1b. oscam-emu.patch.alt löschen
+    patch_alt_file = os.path.join(PLUGIN_DIR, "oscam-emu.patch.alt")
+
+    if os.path.isfile(patch_alt_file):
+        try:
+            os.remove(patch_alt_file)
+            log_message(f"🗑️ Gelöscht: {patch_alt_file}")
+        except Exception as e:
+            log_message(f"❌ Fehler beim Löschen von {patch_alt_file}: {e}")
     # ---------------------------------------------------------
     # oscam-emu.zip
     # ---------------------------------------------------------
@@ -1078,7 +1087,7 @@ def clean_patch_folder(
     if not zip_path:
         zip_path = os.path.join(
             PLUGIN_DIR,
-            "oscam-emu.zip"
+            "oscam-emu.patch.zip"
         )
 
     targets.append(
