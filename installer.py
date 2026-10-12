@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 OWNER = "speedy005"
 REPO = "oscam_patch_manager_new"
-BRANCH = "main"
+BRANCH = "master"
 
 API_URL = (
     f"https://api.github.com/repos/{OWNER}/{REPO}"
