@@ -782,6 +782,8 @@ TEXTS = {
         "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
         "yes": "Ja",
         "no": "Nein",
+        "Yes": "Ja",
+        "No": "Nein",
         "installed_version": "Installierte Version ist",
         "new_version_found": "Neue Version verfügbar",
         "oscam_emu_patch_upload": "OSCam EMU Patch hochladen",
