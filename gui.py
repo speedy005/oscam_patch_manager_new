@@ -8111,7 +8111,7 @@ class PatchManagerGUI(QWidget):
             "final-englisch.png",
             "README.md",
             "version.txt",
-            "requirements.txt",
+            
         }
 
         # Lokale Konfigurationsdateien erhalten.
