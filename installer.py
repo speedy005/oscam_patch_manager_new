@@ -1,218 +1,348 @@
 #!/usr/bin/env python3
-"""Cross-platform installer for OSCam Patch Manager New.
+"""Cross-platform installer for OSCam Emu Patch Manager."""
 
-Run this script from the repository root. It copies application files to a
-user-selected directory, excluding installer files and .png/.zip/.md/.php files.
-"""
-from __future__ import annotations
-
-import locale
+import json
 import os
-import shutil
+import platform
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
+from urllib.parse import quote
 
-REPOSITORY_URL = "https://github.com/speedy005/oscam_patch_manager_new"
-BLOCKED_EXTENSIONS = {".png", ".zip", ".md", ".php"}
-INSTALLER_FILES = {
-    "installer.py", "installer.sh", "installer.bat",
-    "install.sh", "install.bat", "install.py",
+OWNER = "speedy005"
+REPO = "oscam_patch_manager_new"
+BRANCH = "main"
+
+API_URL = (
+    f"https://api.github.com/repos/{OWNER}/{REPO}"
+    f"/git/trees/{BRANCH}?recursive=1"
+)
+RAW_URL = (
+    f"https://raw.githubusercontent.com/{OWNER}/{REPO}/{BRANCH}/"
+)
+
+SKIP_EXTENSIONS = {".png", ".zip", ".md", ".php"}
+SKIP_DIRS = {
+    ".git", ".github", "__pycache__", ".pytest_cache",
+    ".mypy_cache", ".venv", "venv", "env", "node_modules",
 }
-SKIP_DIRS = {".git", ".github", "__pycache__", ".pytest_cache", ".mypy_cache", ".venv", "venv", "env"}
+SKIP_FILES = {
+    "installer.py", "installer.sh", "installer.bat",
+    "install.py", "install.sh", "install.bat",
+}
+
+IS_WINDOWS = platform.system() == "Windows"
 
 TEXT = {
     "en": {
-        "title": "OSCam Patch Manager — Installer",
-        "language": "Language: [E]nglish / [D]eutsch (default: English): ",
-        "welcome": "This installer copies the application to a directory you choose.",
-        "source": "Source directory: {}",
-        "path": "Installation path (press Enter for the default) [{}]: ",
-        "missing": "Error: required application file not found: {}",
-        "same": "Error: the installation directory must not be the source repository or a subdirectory of it.",
-        "confirm": "Install to this directory? [Y/n]: ",
+        "title": "OSCam Emu Patch Manager Installer",
+        "language": "Choose language: [1] English  [2] Deutsch",
+        "folder": "Choose installation folder",
+        "path": "Installation path",
+        "confirm": "Install into this directory? [y/N]: ",
+        "overwrite": "Existing files found. Overwrite matching project files? [y/N]: ",
         "cancel": "Installation cancelled.",
-        "copying": "Copying application files…",
-        "excluded": "Excluded files: .png, .zip, .md, .php, installer-related files, and development/cache folders.",
-        "deps": "Install Python dependencies from requirements.txt now? [Y/n]: ",
-        "pip_start": "Installing Python dependencies…",
-        "pip_fail": "Warning: dependency installation failed. You can retry with: python -m pip install -r requirements.txt",
-        "pip_skip": "Dependency installation skipped.",
-        "done": "Installation complete!",
-        "installed": "Installed to: {}",
-        "run": "Start the app with: {}",
-        "no_req": "requirements.txt was not found; dependencies were not installed.",
-        "blocked_dest": "Error: the destination already contains files with excluded extensions. Choose an empty folder or remove these files first: {}",
-        "error": "Installation failed: {}",
+        "loading": "Reading GitHub repository...",
+        "download": "Downloading",
+        "venv": "Creating Python virtual environment...",
+        "deps": "Installing Python dependencies...",
+        "done": "Installation completed.",
+        "failed": "Installation failed",
+        "missing_main": "main.py was not found in the repository.",
+        "no_files": "No project files were found.",
+        "python": "Python 3.9 or newer is required.",
+        "launcher": "Start the application using",
+        "kept": "Keeping existing file",
     },
     "de": {
-        "title": "OSCam Patch Manager — Installer",
-        "language": "Sprache: [D]eutsch / [E]nglish (Standard: Deutsch): ",
-        "welcome": "Dieser Installer kopiert die Anwendung in einen Ordner deiner Wahl.",
-        "source": "Quellordner: {}",
-        "path": "Installationspfad (Enter für Standardpfad) [{}]: ",
-        "missing": "Fehler: benötigte Anwendungsdatei nicht gefunden: {}",
-        "same": "Fehler: Der Installationsordner darf nicht das Quell-Repository oder ein Unterordner davon sein.",
-        "confirm": "In diesen Ordner installieren? [J/n]: ",
+        "title": "OSCam Emu Patch Manager Installation",
+        "language": "Sprache wählen: [1] Englisch  [2] Deutsch",
+        "folder": "Installationsordner auswählen",
+        "path": "Installationspfad",
+        "confirm": "In dieses Verzeichnis installieren? [j/N]: ",
+        "overwrite": "Vorhandene Dateien gefunden. Passende Projektdateien überschreiben? [j/N]: ",
         "cancel": "Installation abgebrochen.",
-        "copying": "Anwendungsdateien werden kopiert…",
-        "excluded": "Ausgeschlossen: .png, .zip, .md, .php, Installer-Dateien sowie Entwicklungs-/Cache-Ordner.",
-        "deps": "Python-Abhängigkeiten aus requirements.txt jetzt installieren? [J/n]: ",
-        "pip_start": "Python-Abhängigkeiten werden installiert…",
-        "pip_fail": "Warnung: Installation der Abhängigkeiten fehlgeschlagen. Erneut versuchen mit: python -m pip install -r requirements.txt",
-        "pip_skip": "Installation der Abhängigkeiten übersprungen.",
-        "done": "Installation abgeschlossen!",
-        "installed": "Installiert nach: {}",
-        "run": "Programm starten mit: {}",
-        "no_req": "requirements.txt wurde nicht gefunden; Abhängigkeiten wurden nicht installiert.",
-        "blocked_dest": "Fehler: Im Zielordner liegen bereits Dateien mit ausgeschlossenen Endungen. Bitte einen leeren Ordner wählen oder diese Dateien vorher entfernen: {}",
-        "error": "Installation fehlgeschlagen: {}",
+        "loading": "Lese GitHub-Repository...",
+        "download": "Lade herunter",
+        "venv": "Erstelle virtuelle Python-Umgebung...",
+        "deps": "Installiere Python-Abhängigkeiten...",
+        "done": "Installation abgeschlossen.",
+        "failed": "Installation fehlgeschlagen",
+        "missing_main": "main.py wurde im Repository nicht gefunden.",
+        "no_files": "Keine Projektdateien gefunden.",
+        "python": "Python 3.9 oder neuer wird benötigt.",
+        "launcher": "Starte die Anwendung mit",
+        "kept": "Vorhandene Datei bleibt erhalten",
     },
 }
 
 
-def detect_language() -> str:
+def detect_language():
+    locale = (
+        os.environ.get("LC_ALL")
+        or os.environ.get("LC_MESSAGES")
+        or os.environ.get("LANG")
+        or ""
+    ).lower()
+    return "de" if locale.startswith("de") else "en"
+
+
+def choose_language():
+    default = detect_language()
+    print(TEXT[default]["language"])
+    answer = input("> ").strip()
+    if answer == "1":
+        return "en"
+    if answer == "2":
+        return "de"
+    return default
+
+
+def yes(answer):
+    return answer.strip().lower() in {"y", "yes", "j", "ja"}
+
+
+def choose_folder(default, lang):
     try:
-        lang = (locale.getlocale()[0] or "").lower()
-    except (ValueError, TypeError):
-        lang = ""
-    return "de" if lang.startswith("de") else "en"
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        selected = filedialog.askdirectory(
+            title=TEXT[lang]["folder"],
+            initialdir=str(default),
+            mustexist=False,
+        )
+        root.destroy()
+        if selected:
+            return Path(selected).expanduser().resolve()
+    except Exception:
+        pass
+
+    entered = input(f'{TEXT[lang]["path"]} [{default}]: ').strip()
+    return Path(entered or str(default)).expanduser().resolve()
 
 
-def ask_yes_no(prompt: str, lang: str, default: bool = True) -> bool:
-    answer = input(prompt).strip().lower()
-    if not answer:
-        return default
-    yes = {"y", "yes", "j", "ja", "d", "e"}
-    no = {"n", "no", "nein"}
-    return answer in (yes if default else no)
+def github_get(url):
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "OSCam-Emu-Patch-Manager-Installer",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=45) as response:
+        return response.read()
 
 
-def is_installer_file(path: Path) -> bool:
+def should_skip(relative_path):
+    path = Path(relative_path)
+    parts = {part.lower() for part in path.parts}
     name = path.name.lower()
-    if name in INSTALLER_FILES:
-        return True
-    # Keep any future installer-specific scripts/docs out of the installed app.
-    return name.startswith("installer_") or name.startswith("install_helper")
 
-
-def should_skip(path: Path, source: Path) -> bool:
-    rel = path.relative_to(source)
-    if any(part in SKIP_DIRS for part in rel.parts):
+    if parts & SKIP_DIRS:
         return True
-    if path.is_file() and path.suffix.lower() in BLOCKED_EXTENSIONS:
+    if name in SKIP_FILES:
         return True
-    if path.is_file() and is_installer_file(path):
+    if path.suffix.lower() in SKIP_EXTENSIONS:
         return True
     return False
 
 
-def install(source: Path, destination: Path, lang: str) -> int:
-    t = TEXT[lang]
-    source = source.resolve()
-    destination = destination.expanduser().resolve()
+def get_repository_files():
+    data = json.loads(github_get(API_URL).decode("utf-8"))
 
-    required = ["main.py", "requirements.txt"]
-    if not (source / "main.py").is_file():
-        print(t["missing"].format("main.py"))
+    if data.get("truncated"):
+        raise RuntimeError("GitHub returned an incomplete file list.")
+
+    files = [
+        item["path"]
+        for item in data.get("tree", [])
+        if item.get("type") == "blob"
+        and not should_skip(item.get("path", ""))
+    ]
+
+    if not files:
+        raise RuntimeError(TEXT[LANG]["no_files"])
+
+    if "main.py" not in files:
+        raise RuntimeError(TEXT[LANG]["missing_main"])
+
+    return files
+
+
+def download_project(files, destination, overwrite, lang):
+    root = destination.resolve()
+
+    for relative in files:
+        target = (root / relative).resolve()
+
+        # Prevent paths in the repository from escaping the install folder.
+        if not target.is_relative_to(root):
+            raise RuntimeError(f"Unsafe repository path: {relative}")
+
+        if target.exists() and not overwrite:
+            print(f'{TEXT[lang]["kept"]}: {relative}')
+            continue
+
+        url = RAW_URL + quote(relative, safe="/")
+        print(f'{TEXT[lang]["download"]}: {relative}')
+        content = github_get(url)
+
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+
+
+def create_virtual_environment(destination, lang):
+    print(TEXT[lang]["venv"])
+    venv_dir = destination / ".venv"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "venv", str(venv_dir)],
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "Could not create the virtual environment. "
+            "On Debian/Ubuntu, install the python3-venv package."
+        )
+
+    python_exe = (
+        venv_dir / "Scripts" / "python.exe"
+        if IS_WINDOWS
+        else venv_dir / "bin" / "python"
+    )
+
+    if not python_exe.is_file():
+        raise RuntimeError("Virtual environment Python executable not found.")
+
+    return python_exe
+
+
+def install_dependencies(destination, python_exe, lang):
+    requirements = destination / "requirements.txt"
+
+    if not requirements.is_file():
+        print("requirements.txt not found; skipping dependency installation.")
+        return
+
+    print(TEXT[lang]["deps"])
+    result = subprocess.run(
+        [
+            str(python_exe), "-m", "pip", "install",
+            "-r", str(requirements),
+        ],
+        check=False,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            "Dependency installation failed. Check your internet connection "
+            "and requirements.txt."
+        )
+
+
+def write_launchers(destination):
+    if IS_WINDOWS:
+        launcher = destination / "start_windows.bat"
+        launcher.write_text(
+            '@echo off\r\n'
+            'setlocal\r\n'
+            'cd /d "%~dp0"\r\n'
+            'if not exist ".venv\\Scripts\\python.exe" (\r\n'
+            '  echo Virtual environment not found. Run the installer again.\r\n'
+            '  pause\r\n'
+            '  exit /b 1\r\n'
+            ')\r\n'
+            '".venv\\Scripts\\python.exe" main.py %*\r\n'
+            'if errorlevel 1 pause\r\n',
+            encoding="utf-8",
+        )
+    else:
+        launcher = destination / "start_linux.sh"
+        launcher.write_text(
+            '#!/bin/sh\n'
+            'set -eu\n'
+            'SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\n'
+            'cd "$SCRIPT_DIR"\n'
+            'if [ ! -x ".venv/bin/python" ]; then\n'
+            '  echo "Virtual environment not found. Run the installer again." >&2\n'
+            '  exit 1\n'
+            'fi\n'
+            'exec ".venv/bin/python" main.py "$@"\n',
+            encoding="utf-8",
+        )
+        launcher.chmod(launcher.stat().st_mode | 0o111)
+
+
+def main():
+    global LANG
+
+    if sys.version_info < (3, 9):
+        print("Python 3.9 or newer is required.")
         return 1
 
-    if destination == source or source in destination.parents:
-        print(t["same"])
+    LANG = choose_language()
+    text = TEXT[LANG]
+
+    print(f'\n{text["title"]}\n')
+
+    default = Path.home() / "OSCamEmuPatchManager"
+    destination = choose_folder(default, LANG)
+
+    if destination == Path(destination.anchor):
+        print("Choose a normal directory, not a filesystem root.")
         return 1
 
-    print("\n" + t["title"])
-    print("=" * len(t["title"]))
-    print(t["welcome"])
-    print(t["source"].format(source))
-    print(t["excluded"])
-    if not ask_yes_no(t["confirm"], lang, True):
-        print(t["cancel"])
+    print(f"\n{destination}")
+
+    if not yes(input(text["confirm"])):
+        print(text["cancel"])
         return 0
+
+    destination.mkdir(parents=True, exist_ok=True)
+
+    existing = any(destination.iterdir())
+    overwrite = False
+
+    if existing:
+        overwrite = yes(input(text["overwrite"]))
 
     try:
-        destination.mkdir(parents=True, exist_ok=True)
-        # Avoid deleting user data: require a clean destination if it already
-        # contains files with extensions that are forbidden in the install tree.
-        conflicts = [p for p in destination.rglob("*")
-                     if p.is_file() and p.suffix.lower() in BLOCKED_EXTENSIONS]
-        if conflicts:
-            preview = ", ".join(str(p) for p in conflicts[:5])
-            if len(conflicts) > 5:
-                preview += f" (+{len(conflicts) - 5} more)"
-            print(t["blocked_dest"].format(preview))
-            return 1
+        print(text["loading"])
+        files = get_repository_files()
 
-        print(t["copying"])
-        copied = 0
-        for current, dirs, files in os.walk(source):
-            current_path = Path(current)
-            rel_dir = current_path.relative_to(source)
-            dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not is_installer_file(Path(d))]
-            target_dir = destination / rel_dir
-            target_dir.mkdir(parents=True, exist_ok=True)
-            for filename in files:
-                src_file = current_path / filename
-                if should_skip(src_file, source):
-                    continue
-                # Never copy files into the installer's own source tree.
-                dest_file = destination / src_file.relative_to(source)
-                dest_file.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_file, dest_file)
-                copied += 1
+        download_project(files, destination, overwrite, LANG)
 
-        req = destination / "requirements.txt"
-        if req.is_file():
-            if ask_yes_no(t["deps"], lang, True):
-                print(t["pip_start"])
-                result = subprocess.run(
-                    [sys.executable, "-m", "pip", "install", "--user", "-r", str(req)],
-                    check=False,
-                )
-                if result.returncode != 0:
-                    print(t["pip_fail"])
-            else:
-                print(t["pip_skip"])
+        python_exe = create_virtual_environment(destination, LANG)
+        install_dependencies(destination, python_exe, LANG)
+        write_launchers(destination)
+
+        print(f'\n{text["done"]}')
+        print(f'{text["launcher"]}:')
+
+        if IS_WINDOWS:
+            print(destination / "start_windows.bat")
         else:
-            print(t["no_req"])
+            print(f'sh "{destination / "start_linux.sh"}"')
 
-        launcher = "start_windows.bat" if os.name == "nt" else "start_linux.sh"
-        launcher_path = destination / launcher
-        if os.name != "nt" and launcher_path.exists():
-            try:
-                launcher_path.chmod(launcher_path.stat().st_mode | 0o111)
-            except OSError:
-                pass
-        print("\n" + t["done"])
-        print(t["installed"].format(destination))
-        if (destination / "main.py").exists():
-            if os.name == "nt":
-                command = f'cd /d "{destination}" && python main.py'
-            else:
-                command = f'cd "{destination}" && python3 main.py'
-            print(t["run"].format(command))
-        print(f"Files copied: {copied}")
         return 0
-    except (OSError, shutil.Error) as exc:
-        print(t["error"].format(exc))
+
+    except (
+        OSError,
+        urllib.error.URLError,
+        urllib.error.HTTPError,
+        json.JSONDecodeError,
+        RuntimeError,
+        ValueError,
+        subprocess.SubprocessError,
+    ) as error:
+        print(f'\n{text["failed"]}: {error}', file=sys.stderr)
         return 1
-
-
-def main() -> int:
-    lang = detect_language()
-    prompt = TEXT[lang]["language"]
-    answer = input(prompt).strip().lower()
-    if answer:
-        if answer.startswith(("d", "j")):
-            lang = "de"
-        elif answer.startswith("e"):
-            lang = "en"
-
-    source = Path(__file__).resolve().parent
-    default = Path.home() / "OSCamPatchManager"
-    chosen = input(TEXT[lang]["path"].format(default)).strip()
-    destination = Path(chosen.strip('"')) if chosen else default
-    return install(source, destination, lang)
 
 
 if __name__ == "__main__":
