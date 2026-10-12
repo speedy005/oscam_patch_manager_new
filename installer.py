@@ -1,9 +1,11 @@
+
 #!/usr/bin/env python3
 """Cross-platform installer for OSCam Emu Patch Manager."""
 
 import json
 import os
 import platform
+import shutil
 import subprocess
 import sys
 import urllib.error
@@ -31,9 +33,11 @@ SKIP_DIRS = {
 SKIP_FILES = {
     "installer.py", "installer.sh", "installer.bat",
     "install.py", "install.sh", "install.bat",
+    "version.txt",
 }
 
 IS_WINDOWS = platform.system() == "Windows"
+LANG = "en"
 
 TEXT = {
     "en": {
@@ -42,11 +46,12 @@ TEXT = {
         "folder": "Choose installation folder",
         "path": "Installation path",
         "confirm": "Install into this directory? [y/N]: ",
-        "overwrite": "Existing files found. Overwrite matching project files? [y/N]: ",
+        "overwrite": (
+            "Existing files found. Overwrite matching project files? [y/N]: "
+        ),
         "cancel": "Installation cancelled.",
         "loading": "Reading GitHub repository...",
         "download": "Downloading",
-        "venv": "Creating Python virtual environment...",
         "deps": "Installing Python dependencies...",
         "done": "Installation completed.",
         "failed": "Installation failed",
@@ -55,6 +60,15 @@ TEXT = {
         "python": "Python 3.9 or newer is required.",
         "launcher": "Start the application using",
         "kept": "Keeping existing file",
+        "venv_remove": "Removing old virtual environment...",
+        "requirements_missing": (
+            "requirements.txt not found; skipping dependency installation."
+        ),
+        "linux_pip_error": (
+            "Linux blocked the package installation. This system may use "
+            "PEP 668 to protect its Python installation. Install the required "
+            "packages using your distribution's supported method."
+        ),
     },
     "de": {
         "title": "OSCam Emu Patch Manager Installation",
@@ -62,11 +76,13 @@ TEXT = {
         "folder": "Installationsordner auswählen",
         "path": "Installationspfad",
         "confirm": "In dieses Verzeichnis installieren? [j/N]: ",
-        "overwrite": "Vorhandene Dateien gefunden. Passende Projektdateien überschreiben? [j/N]: ",
+        "overwrite": (
+            "Vorhandene Dateien gefunden. "
+            "Passende Projektdateien überschreiben? [j/N]: "
+        ),
         "cancel": "Installation abgebrochen.",
         "loading": "Lese GitHub-Repository...",
         "download": "Lade herunter",
-        "venv": "Erstelle virtuelle Python-Umgebung...",
         "deps": "Installiere Python-Abhängigkeiten...",
         "done": "Installation abgeschlossen.",
         "failed": "Installation fehlgeschlagen",
@@ -75,6 +91,17 @@ TEXT = {
         "python": "Python 3.9 oder neuer wird benötigt.",
         "launcher": "Starte die Anwendung mit",
         "kept": "Vorhandene Datei bleibt erhalten",
+        "venv_remove": "Entferne alte virtuelle Umgebung...",
+        "requirements_missing": (
+            "requirements.txt nicht gefunden; "
+            "Paketinstallation wird übersprungen."
+        ),
+        "linux_pip_error": (
+            "Linux hat die Paketinstallation blockiert. "
+            "Dieses System schützt Python möglicherweise mit PEP 668. "
+            "Installiere die benötigten Pakete mit der von deiner "
+            "Distribution unterstützten Methode."
+        ),
     },
 }
 
@@ -93,6 +120,7 @@ def choose_language():
     default = detect_language()
     print(TEXT[default]["language"])
     answer = input("> ").strip()
+
     if answer == "1":
         return "en"
     if answer == "2":
@@ -112,12 +140,14 @@ def choose_folder(default, lang):
         root = tk.Tk()
         root.withdraw()
         root.attributes("-topmost", True)
+
         selected = filedialog.askdirectory(
             title=TEXT[lang]["folder"],
             initialdir=str(default),
             mustexist=False,
         )
         root.destroy()
+
         if selected:
             return Path(selected).expanduser().resolve()
     except Exception:
@@ -150,6 +180,7 @@ def should_skip(relative_path):
         return True
     if path.suffix.lower() in SKIP_EXTENSIONS:
         return True
+
     return False
 
 
@@ -181,7 +212,7 @@ def download_project(files, destination, overwrite, lang):
     for relative in files:
         target = (root / relative).resolve()
 
-        # Prevent paths in the repository from escaping the install folder.
+        # Prevent repository paths from escaping the install folder.
         if not target.is_relative_to(root):
             raise RuntimeError(f"Unsafe repository path: {relative}")
 
@@ -197,83 +228,92 @@ def download_project(files, destination, overwrite, lang):
         target.write_bytes(content)
 
 
-def create_virtual_environment(destination, lang):
-    print(TEXT[lang]["venv"])
-    venv_dir = destination / ".venv"
+def find_pip_command():
+    """Return a Python executable that has pip available."""
+    if IS_WINDOWS:
+        candidates = [["py", "-3"], ["python"]]
+    else:
+        candidates = [["python3"]]
 
-    result = subprocess.run(
-        [sys.executable, "-m", "venv", str(venv_dir)],
-        check=False,
+    for candidate in candidates:
+        try:
+            result = subprocess.run(
+                candidate + ["-m", "pip", "--version"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return candidate
+        except OSError:
+            continue
+
+    raise RuntimeError(
+        "Python 3 with pip is required. Install Python and pip, then retry."
     )
-    if result.returncode != 0:
-        raise RuntimeError(
-            "Could not create the virtual environment. "
-            "On Debian/Ubuntu, install the python3-venv package."
-        )
-
-    python_exe = (
-        venv_dir / "Scripts" / "python.exe"
-        if IS_WINDOWS
-        else venv_dir / "bin" / "python"
-    )
-
-    if not python_exe.is_file():
-        raise RuntimeError("Virtual environment Python executable not found.")
-
-    return python_exe
 
 
-def install_dependencies(destination, python_exe, lang):
+def install_dependencies(destination, lang):
     requirements = destination / "requirements.txt"
 
     if not requirements.is_file():
-        print("requirements.txt not found; skipping dependency installation.")
+        print(TEXT[lang]["requirements_missing"])
         return
 
+    python_command = find_pip_command()
+
     print(TEXT[lang]["deps"])
-    result = subprocess.run(
-        [
-            str(python_exe), "-m", "pip", "install",
-            "-r", str(requirements),
-        ],
-        check=False,
-    )
+
+    command = python_command + [
+        "-m", "pip", "install",
+    ]
+
+    # Windows: install for the selected Python installation.
+    # Linux: prefer per-user installation to avoid modifying OS packages.
+    if not IS_WINDOWS:
+        command.append("--user")
+
+    command += ["-r", str(requirements)]
+
+    result = subprocess.run(command, check=False)
 
     if result.returncode != 0:
+        if not IS_WINDOWS:
+            raise RuntimeError(TEXT[lang]["linux_pip_error"])
+
         raise RuntimeError(
-            "Dependency installation failed. Check your internet connection "
-            "and requirements.txt."
+            "Dependency installation failed. Check Python, pip, "
+            "your internet connection and requirements.txt."
         )
+
+
+def remove_virtual_environment(destination, lang):
+    venv_dir = destination / ".venv"
+
+    if venv_dir.exists():
+        print(TEXT[lang]["venv_remove"])
+        shutil.rmtree(venv_dir)
 
 
 def write_launchers(destination):
     if IS_WINDOWS:
         launcher = destination / "start_windows.bat"
         launcher.write_text(
-            '@echo off\r\n'
-            'setlocal\r\n'
+            "@echo off\r\n"
+            "setlocal\r\n"
             'cd /d "%~dp0"\r\n'
-            'if not exist ".venv\\Scripts\\python.exe" (\r\n'
-            '  echo Virtual environment not found. Run the installer again.\r\n'
-            '  pause\r\n'
-            '  exit /b 1\r\n'
-            ')\r\n'
-            '".venv\\Scripts\\python.exe" main.py %*\r\n'
-            'if errorlevel 1 pause\r\n',
+            "py -3 main.py %*\r\n"
+            "if errorlevel 1 pause\r\n",
             encoding="utf-8",
         )
     else:
         launcher = destination / "start_linux.sh"
         launcher.write_text(
-            '#!/bin/sh\n'
-            'set -eu\n'
+            "#!/bin/sh\n"
+            "set -eu\n"
             'SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\n'
             'cd "$SCRIPT_DIR"\n'
-            'if [ ! -x ".venv/bin/python" ]; then\n'
-            '  echo "Virtual environment not found. Run the installer again." >&2\n'
-            '  exit 1\n'
-            'fi\n'
-            'exec ".venv/bin/python" main.py "$@"\n',
+            'exec python3 main.py "$@"\n',
             encoding="utf-8",
         )
         launcher.chmod(launcher.stat().st_mode | 0o111)
@@ -283,7 +323,7 @@ def main():
     global LANG
 
     if sys.version_info < (3, 9):
-        print("Python 3.9 or newer is required.")
+        print(TEXT[detect_language()]["python"])
         return 1
 
     LANG = choose_language()
@@ -318,9 +358,14 @@ def main():
 
         download_project(files, destination, overwrite, LANG)
 
-        python_exe = create_virtual_environment(destination, LANG)
-        install_dependencies(destination, python_exe, LANG)
+        # Install dependencies before removing any previous virtual environment.
+        install_dependencies(destination, LANG)
+
+        # Launchers use system Python, not .venv.
         write_launchers(destination)
+
+        # Remove a previous .venv only after successful installation steps.
+        remove_virtual_environment(destination, LANG)
 
         print(f'\n{text["done"]}')
         print(f'{text["launcher"]}:')
