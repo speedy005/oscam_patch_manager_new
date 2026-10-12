@@ -11014,6 +11014,11 @@ class PatchManagerGUI(QWidget):
         self.header_btn_patch_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
         self.header_btn_patch_ncam.setIconSize(QSize(20, 20))
+        self.header_btn_patch_ncam.setToolTip(
+            "Kopiert oscam-emu.patch in den konfigurierten S3-NCam-Bonecrew-Patch-Ordner."
+            if str(getattr(self, "LANG", "de")).lower().startswith("de")
+            else "Copies oscam-emu.patch to the configured S3-NCam-Bonecrew patch folder."
+        )
         self.header_btn_patch_ncam.clicked.connect(
             lambda checked=False: self.copy_patch_to_target("ncam")
         )
@@ -11024,6 +11029,11 @@ class PatchManagerGUI(QWidget):
         self.header_btn_patch_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
         self.header_btn_patch_s4.setIconSize(QSize(20, 20))
+        self.header_btn_patch_s4.setToolTip(
+            "Kopiert oscam-emu.patch in den konfigurierten S4-Patch-Ordner."
+            if str(getattr(self, "LANG", "de")).lower().startswith("de")
+            else "Copies oscam-emu.patch to the configured S4 patch folder."
+        )
         self.header_btn_patch_s4.clicked.connect(
             lambda checked=False: self.copy_patch_to_target("s4")
         )
@@ -11082,6 +11092,11 @@ class PatchManagerGUI(QWidget):
             )
         )
         self.log_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.log_button.setToolTip(
+            "Speichert den aktuellen Log-/Protokollinhalt in einer Datei."
+            if str(getattr(self, "LANG", "de")).lower().startswith("de")
+            else "Saves the current log output to a file."
+        )
         self.log_button.setStyleSheet(action_button_style)
 
         if hasattr(self, "export_log"):
@@ -16544,6 +16559,27 @@ class PatchManagerGUI(QWidget):
         safe_ui("header_btn_patch_s4", "setText", get_t("patch_copy_s4", "Patch → S4"))
         safe_ui("header_btn_s3_ncam", "setToolTip", get_t("patch_folder_s3_ncam_tooltip", "S3-NCam-Bonecrew-Pfad wählen"))
         safe_ui("header_btn_s4", "setToolTip", get_t("patch_folder_s4_tooltip", "S4-Pfad wählen"))
+        safe_ui(
+            "header_btn_patch_ncam",
+            "setToolTip",
+            "Kopiert oscam-emu.patch in den konfigurierten S3-NCam-Bonecrew-Patch-Ordner."
+            if lang == "de"
+            else "Copies oscam-emu.patch to the configured S3-NCam-Bonecrew patch folder.",
+        )
+        safe_ui(
+            "header_btn_patch_s4",
+            "setToolTip",
+            "Kopiert oscam-emu.patch in den konfigurierten S4-Patch-Ordner."
+            if lang == "de"
+            else "Copies oscam-emu.patch to the configured S4 patch folder.",
+        )
+        safe_ui(
+            "log_button",
+            "setToolTip",
+            "Speichert den aktuellen Log-/Protokollinhalt in einer Datei."
+            if lang == "de"
+            else "Saves the current log output to a file.",
+        )
 
         # --- E) LABELS & SYSTEM ---
         safe_ui("lang_label", "setText", get_t("language_label", "Sprache:"))
