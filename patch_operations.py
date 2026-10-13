@@ -865,17 +865,19 @@ def clean_patch_folder(
     progress_callback=None
 ):
     """
-    Löscht alle Dateien und Ordner, die zur Patch-Erstellung gehören.
+    Löscht die Dateien und temporären Ordner der Patch-Erstellung.
 
     GELÖSCHT:
         - oscam-emu.patch
+        - oscam-emu.patch.alt
+        - oscam-emu.patch.zip
         - oscam-emu.zip
         - oscam-emu-git/
         - TEMP_REPO/
         - TEMP_PATCH_GIT/ (falls vorhanden)
 
     NICHT GELÖSCHT:
-        - streamboard-git/
+        - streamboard-git/ (geschütztes Repository)
     """
 
     import os
@@ -888,10 +890,7 @@ def clean_patch_folder(
     # GUI
     # ---------------------------------------------------------
 
-    if gui_instance and hasattr(
-        gui_instance,
-        "hide_final_label"
-    ):
+    if gui_instance and hasattr(gui_instance, "hide_final_label"):
         try:
             gui_instance.hide_final_label()
         except Exception:
@@ -899,19 +898,11 @@ def clean_patch_folder(
 
     widget = (
         info_widget
-        or getattr(
-            gui_instance,
-            "info_text",
-            None
-        )
+        or getattr(gui_instance, "info_text", None)
     )
 
     lang = str(
-        getattr(
-            gui_instance,
-            "LANG",
-            "de"
-        )
+        getattr(gui_instance, "LANG", "de")
     ).lower()
 
     is_de = lang.startswith("de")
@@ -923,24 +914,15 @@ def clean_patch_folder(
     )
 
     # ---------------------------------------------------------
-    # Progress
+    # Fortschrittsanzeige
     # ---------------------------------------------------------
 
-    def update_progress(
-        value,
-        text=None
-    ):
+    def update_progress(value, text=None):
         if pbar:
             try:
                 pbar.setValue(value)
-
-                if text:
-                    pbar.setFormat(text)
-                else:
-                    pbar.setFormat("%p%")
-
+                pbar.setFormat(text if text else "%p%")
                 pbar.show()
-
             except Exception:
                 pass
 
@@ -950,22 +932,19 @@ def clean_patch_folder(
             except Exception:
                 pass
 
-        QApplication.processEvents()
+        try:
+            QApplication.processEvents()
+        except Exception:
+            pass
 
     # ---------------------------------------------------------
     # Logging
     # ---------------------------------------------------------
 
-    def log(
-        text,
-        level="info"
-    ):
+    def log(text, level="info"):
         if (
             gui_instance
-            and hasattr(
-                gui_instance,
-                "append_info"
-            )
+            and hasattr(gui_instance, "append_info")
         ):
             try:
                 gui_instance.append_info(
@@ -978,44 +957,34 @@ def clean_patch_folder(
             except Exception:
                 pass
 
-        if isinstance(
-            widget,
-            QTextEdit
-        ):
+        if isinstance(widget, QTextEdit):
             color = {
                 "success": "green",
                 "warning": "orange",
                 "error": "red"
-            }.get(
-                level,
-                "gray"
-            )
+            }.get(level, "gray")
 
-            widget.append(
-                f'<span style="color:{color}">'
-                f'{text}'
-                f'</span>'
-            )
-
-            QApplication.processEvents()
+            try:
+                widget.append(
+                    f'<span style="color:{color}">'
+                    f'{text}'
+                    f'</span>'
+                )
+                QApplication.processEvents()
+            except Exception:
+                pass
 
     # ---------------------------------------------------------
     # Schreibschutz entfernen
     # ---------------------------------------------------------
 
-    def remove_readonly(
-        func,
-        path,
-        exc_info
-    ):
+    def remove_readonly(func, path, exc_info):
         try:
             os.chmod(
                 path,
-                stat.S_IWRITE
+                stat.S_IWRITE | stat.S_IREAD
             )
-
             func(path)
-
         except Exception:
             pass
 
@@ -1026,22 +995,14 @@ def clean_patch_folder(
     start_text = (
         "🧹 Patch-Ordner wird geleert..."
         if is_de
-        else
-        "🧹 Cleaning patch folder..."
+        else "🧹 Cleaning patch folder..."
     )
 
-    update_progress(
-        5,
-        start_text
-    )
-
-    log(
-        start_text,
-        "info"
-    )
+    update_progress(5, start_text)
+    log(start_text, "info")
 
     # ---------------------------------------------------------
-    # PATCH-DATEIEN / ORDNERN
+    # ZU LÖSCHENDE DATEIEN UND ORDNER
     # ---------------------------------------------------------
 
     targets = []
@@ -1050,9 +1011,7 @@ def clean_patch_folder(
     # oscam-emu.patch
     # ---------------------------------------------------------
 
-    patch_path = globals().get(
-        "PATCH_FILE"
-    )
+    patch_path = globals().get("PATCH_FILE")
 
     if not patch_path:
         patch_path = os.path.join(
@@ -1060,50 +1019,51 @@ def clean_patch_folder(
             "oscam-emu.patch"
         )
 
-    targets.append(
-        (
-            patch_path,
-            "file"
-        )
+    patch_path = os.path.abspath(patch_path)
+
+    targets.append((patch_path, "file"))
+
+    # ---------------------------------------------------------
+    # oscam-emu.patch.alt
+    # ---------------------------------------------------------
+
+    patch_alt_path = os.path.join(
+        os.path.dirname(patch_path),
+        "oscam-emu.patch.alt"
     )
 
-    # 1b. oscam-emu.patch.alt löschen
-    patch_alt_file = os.path.join(PLUGIN_DIR, "oscam-emu.patch.alt")
+    targets.append((patch_alt_path, "file"))
 
-    if os.path.isfile(patch_alt_file):
-        try:
-            os.remove(patch_alt_file)
-            log_message(f"🗑️ Gelöscht: {patch_alt_file}")
-        except Exception as e:
-            log_message(f"❌ Fehler beim Löschen von {patch_alt_file}: {e}")
+    # ---------------------------------------------------------
+    # oscam-emu.patch.zip
+    # ---------------------------------------------------------
+
+    patch_zip_path = os.path.join(
+        os.path.dirname(patch_path),
+        "oscam-emu.patch.zip"
+    )
+
+    targets.append((patch_zip_path, "file"))
+
     # ---------------------------------------------------------
     # oscam-emu.zip
     # ---------------------------------------------------------
 
-    zip_path = globals().get(
-        "ZIP_FILE"
-    )
+    zip_path = globals().get("ZIP_FILE")
 
     if not zip_path:
         zip_path = os.path.join(
             PLUGIN_DIR,
-            "oscam-emu.patch.zip"
+            "oscam-emu.zip"
         )
 
-    targets.append(
-        (
-            zip_path,
-            "file"
-        )
-    )
+    targets.append((zip_path, "file"))
 
     # ---------------------------------------------------------
-    # oscam-emu-git
+    # oscam-emu-git/
     # ---------------------------------------------------------
 
-    emu_git_path = globals().get(
-        "PATCH_EMU_GIT_DIR"
-    )
+    emu_git_path = globals().get("PATCH_EMU_GIT_DIR")
 
     if not emu_git_path:
         emu_git_path = os.path.join(
@@ -1111,48 +1071,55 @@ def clean_patch_folder(
             "oscam-emu-git"
         )
 
-    targets.append(
-        (
-            emu_git_path,
-            "folder"
-        )
-    )
-
-    
-    # ---------------------------------------------------------
-    # STREAMBOARD REPOSITORY: streamboard-git
-    # ---------------------------------------------------------
-
-    temp_repo_path = os.path.abspath(TEMP_REPO)
-
-    targets.append(
-        (
-            temp_repo_path,
-            "folder"
-        )
-    )
-
-    log(
-        f"[CLEAN] Streamboard-Repository: {temp_repo_path}",
-        "info"
-    )
-    
+    targets.append((emu_git_path, "folder"))
 
     # ---------------------------------------------------------
-    # TEMP_PATCH_GIT
+    # TEMP_REPO/
     # ---------------------------------------------------------
 
-    temp_patch_git_path = globals().get(
-        "TEMP_PATCH_GIT"
-    )
+    temp_repo = globals().get("TEMP_REPO")
 
-    if temp_patch_git_path:
-        targets.append(
-            (
-                temp_patch_git_path,
-                "folder"
+    if temp_repo:
+        temp_repo_path = os.path.abspath(temp_repo)
+
+        protected_repo = os.path.abspath(
+            os.path.join(
+                PLUGIN_DIR,
+                "streamboard-git"
             )
         )
+
+        if os.path.normcase(
+            os.path.normpath(temp_repo_path)
+        ) == os.path.normcase(
+            os.path.normpath(protected_repo)
+        ):
+            log(
+                "⚠️ TEMP_REPO verweist auf streamboard-git. "
+                "Das Repository wird geschützt.",
+                "warning"
+            )
+        else:
+            targets.append((temp_repo_path, "folder"))
+
+            log(
+                f"[CLEAN] TEMP_REPO: {temp_repo_path}",
+                "info"
+            )
+    else:
+        log(
+            "⚠️ TEMP_REPO ist nicht definiert und wird übersprungen.",
+            "warning"
+        )
+
+    # ---------------------------------------------------------
+    # TEMP_PATCH_GIT/ (falls vorhanden)
+    # ---------------------------------------------------------
+
+    temp_patch_git_path = globals().get("TEMP_PATCH_GIT")
+
+    if temp_patch_git_path:
+        targets.append((temp_patch_git_path, "folder"))
 
     # ---------------------------------------------------------
     # Doppelte Pfade entfernen
@@ -1162,111 +1129,94 @@ def clean_patch_folder(
     seen = set()
 
     for path, target_type in targets:
-
         if not path:
             continue
 
-        path = os.path.abspath(
-            path
+        path = os.path.abspath(path)
+
+        normalized_path = os.path.normcase(
+            os.path.normpath(path)
         )
 
-        if path in seen:
+        if normalized_path in seen:
             continue
 
-        seen.add(path)
-
-        unique_targets.append(
-            (
-                path,
-                target_type
-            )
-        )
+        seen.add(normalized_path)
+        unique_targets.append((path, target_type))
 
     targets = unique_targets
 
     # ---------------------------------------------------------
-    # Löschen
+    # LÖSCHEN
     # ---------------------------------------------------------
 
     deleted_count = 0
     failed_count = 0
-
     total = len(targets)
 
-    for index, (
-        path,
-        target_type
-    ) in enumerate(
+    for index, (path, target_type) in enumerate(
         targets,
         start=1
     ):
-
-        name = os.path.basename(
-            path
-        )
+        name = os.path.basename(path)
 
         try:
-
-            if not os.path.exists(
-                path
-            ):
-                # Nicht vorhanden = bereits sauber
-                continue
-
-            log(
-                f"🗑️ Lösche: {name}",
-                "info"
-            )
-
-            # ---------------------------------------------
-            # Ordner
-            # ---------------------------------------------
-
-            if target_type == "folder":
-
-                shutil.rmtree(
-                    path,
-                    onerror=remove_readonly
+            if not os.path.lexists(path):
+                log(
+                    f"ℹ️ Nicht vorhanden: {name}",
+                    "info"
                 )
-
-            # ---------------------------------------------
-            # Datei
-            # ---------------------------------------------
-
             else:
+                log(
+                    f"🗑️ Lösche: {name}",
+                    "info"
+                )
 
-                try:
-                    os.chmod(
-                        path,
-                        stat.S_IWRITE
+                if target_type == "folder":
+                    if os.path.islink(path):
+                        os.remove(path)
+                    elif os.path.isdir(path):
+                        shutil.rmtree(
+                            path,
+                            onerror=remove_readonly
+                        )
+                    else:
+                        raise RuntimeError(
+                            "Der Pfad ist kein Ordner."
+                        )
+
+                else:
+                    if (
+                        os.path.isdir(path)
+                        and not os.path.islink(path)
+                    ):
+                        raise RuntimeError(
+                            "Dateipfad verweist auf einen Ordner."
+                        )
+
+                    try:
+                        os.chmod(
+                            path,
+                            stat.S_IWRITE | stat.S_IREAD
+                        )
+                    except Exception:
+                        pass
+
+                    os.remove(path)
+
+                if os.path.lexists(path):
+                    raise RuntimeError(
+                        "Löschen fehlgeschlagen."
                     )
-                except Exception:
-                    pass
 
-                os.remove(
-                    path
+                deleted_count += 1
+
+                log(
+                    f"✓ Gelöscht: {name}",
+                    "success"
                 )
-
-            # ---------------------------------------------
-            # Kontrolle
-            # ---------------------------------------------
-
-            if os.path.exists(
-                path
-            ):
-                raise RuntimeError(
-                    "Löschen fehlgeschlagen."
-                )
-
-            deleted_count += 1
-
-            log(
-                f"✓ Gelöscht: {name}",
-                "success"
-            )
 
         except Exception as error:
-
             failed_count += 1
 
             log(
@@ -1275,85 +1225,58 @@ def clean_patch_folder(
                 "error"
             )
 
-        progress = (
-            10
-            + int(
-                85 * index / total
-            )
+        progress = 10 + int(
+            85 * index / max(total, 1)
         )
 
-        update_progress(
-            progress
-        )
+        update_progress(progress)
 
     # ---------------------------------------------------------
-    # Abschluss
+    # ABSCHLUSS
     # ---------------------------------------------------------
 
     if failed_count == 0:
-
         final_text = (
-            "✅ Patch-Ordner vollständig geleert"
+            "✅ Patch-Ordner vollständig geleert "
+            f"({deleted_count} entfernt)"
             if is_de
             else
-            "✅ Patch folder completely cleaned"
+            "✅ Patch folder completely cleaned "
+            f"({deleted_count} removed)"
         )
 
-        log(
-            final_text,
-            "success"
-        )
+        log(final_text, "success")
+        update_progress(100, final_text)
 
-        update_progress(
-            100,
-            final_text
-        )
-
-        # Windows OK-Sound
         try:
             import winsound
-
-            winsound.MessageBeep(
-                winsound.MB_OK
-            )
-
+            winsound.MessageBeep(winsound.MB_OK)
         except Exception:
             pass
 
         return True
 
-    else:
+    final_text = (
+        f"⚠️ Bereinigung teilweise fehlgeschlagen "
+        f"({failed_count} Fehler, "
+        f"{deleted_count} entfernt)"
+        if is_de
+        else
+        f"⚠️ Cleanup partially failed "
+        f"({failed_count} errors, "
+        f"{deleted_count} removed)"
+    )
 
-        final_text = (
-            f"⚠️ Bereinigung teilweise fehlgeschlagen "
-            f"({failed_count})"
-            if is_de
-            else
-            f"⚠️ Cleanup partially failed "
-            f"({failed_count})"
-        )
+    log(final_text, "warning")
+    update_progress(100, final_text)
 
-        log(
-            final_text,
-            "warning"
-        )
+    try:
+        import winsound
+        winsound.MessageBeep(winsound.MB_ICONWARNING)
+    except Exception:
+        pass
 
-        update_progress(
-            100,
-            final_text
-        )
-
-        try:
-            import winsound
-
-            winsound.MessageBeep(
-                winsound.MB_ICONWARNING
-            )
-
-        except Exception:
-            pass
-
-        return False
+    return False
 
 def get_streamboard_version():
     """

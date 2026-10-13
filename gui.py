@@ -8110,7 +8110,7 @@ class PatchManagerGUI(QWidget):
             "final-oscam-emu-patch-maker.png",
             "installer.bat", 
             "installer.py",
-             "installer.sh", 
+            "installer.sh", 
             "final-englisch.png",
             "README.md",
             "version.txt",
