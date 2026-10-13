@@ -5,9 +5,9 @@
 
 A desktop toolkit for managing the OSCam-Emu patch workflow — from creating and validating patches to applying changes locally and publishing updates to GitHub.
 
-Ein Desktop-Werkzeug zur Verwaltung des OSCam-Emu-Patch-Workflows – von der Erstellung und Prüfung von Patches über lokale Änderungen bis hin zur Veröffentlichung auf GitHub.
+Ein Desktop-Werkzeug zur Verwaltung von OSCam-Emu-Patches – von der Erstellung und Prüfung bis zur lokalen Anwendung und Veröffentlichung auf GitHub.
 
-🇩🇪 Deutsch · 🇬🇧 English · [📦 GitHub Repository](https://github.com/speedy005/oscam_patch_manager_new)
+[🇩🇪 Deutsch](#deutsch) · [🇬🇧 English](#english) · [📦 GitHub Repository](https://github.com/speedy005/oscam_patch_manager_new)
 
 ---
 
@@ -15,327 +15,144 @@ Ein Desktop-Werkzeug zur Verwaltung des OSCam-Emu-Patch-Workflows – von der Er
 
 ## 📖 Über das Projekt
 
-**OSCam Emu Patch Manager** ist ein Desktop-Werkzeug zur Verwaltung von OSCam-Emu-Patches und zugehörigen Git-Arbeitsabläufen.
-
-Das Projekt kombiniert eine grafische Benutzeroberfläche mit Werkzeugen zur Patch-Verwaltung, lokalen Git-Operationen und GitHub-bezogenen Arbeitsabläufen.
-
-Der separate Python-Installer ist für Windows und Linux vorgesehen. Er lädt ausgewählte Projektdateien einzeln aus dem GitHub-Repository herunter, erstellt eine virtuelle Python-Umgebung und installiert Abhängigkeiten aus `requirements.txt`, sofern diese Datei vorhanden ist.
-
-> Hinweis: Die verfügbaren Funktionen hängen von der installierten Programmversion und deren Konfiguration ab.
+**OSCam Emu Patch Manager** ist ein Python-basiertes Desktop-Werkzeug zur Verwaltung von OSCam-Emu-Patches und zugehörigen Git-Arbeitsabläufen.
 
 ## ✨ Funktionen
 
-### 🧩 Patch-Verwaltung
-
-- Erstellen und Aktualisieren von Patches für unterstützte OSCam-Quellcode-Repositories.
-- Prüfen und Anwenden von Patches.
-- Sichern und Verpacken von Patches als ZIP-Dateien innerhalb der Anwendung.
-- Bearbeiten von Patch-Headern und Metadaten.
-- Verwalten temporärer Patch-Arbeitsverzeichnisse.
-
-### 🌐 Git- und GitHub-Integration
-
-- Unterstützung Git-basierter Arbeitsabläufe.
-- Konfiguration von Repository-URLs und Branches.
-- Konfiguration der Git-Identität für lokale Git-Operationen.
-- GitHub-bezogene Upload-Funktionen, sofern diese in der installierten Version implementiert und eingerichtet sind.
-- Anzeige von Statusmeldungen und Fehlern, soweit unterstützt.
-
-**Sicherheit:** GitHub-Tokens dürfen nicht in öffentlichen Dateien oder im Repository veröffentlicht werden. Prüfe Änderungen und Upload-Ziele vor jeder Veröffentlichung.
-
-### 🎨 Desktop-Oberfläche
-
-- Grafische Benutzeroberfläche auf Basis von PyQt6.
-- Deutsche und englische Texte, soweit in der jeweiligen Version implementiert.
-- Statusmeldungen und Fortschrittsanzeigen, sofern unterstützt.
-- Konfigurationsmöglichkeiten der Anwendung.
-
-### 📦 Plattformübergreifender Python-Installer
-
-- Unterstützung für Windows und Linux.
-- Auswahl zwischen Deutsch und Englisch.
-- Vorauswahl der Sprache anhand der System-Locale.
-- Frei wählbares Installationsverzeichnis.
-- Einzelner Download ausgewählter Projektdateien von GitHub.
-- Ausschluss von PNG-, ZIP-, Markdown- und PHP-Dateien.
-- Ausschluss definierter Cache-Verzeichnisse, Git-Metadaten und virtueller Umgebungen.
-- Erstellung einer virtuellen Python-Umgebung unter `.venv`.
-- Installation der Abhängigkeiten aus `requirements.txt`, sofern vorhanden.
-- Erstellung eines plattformspezifischen Startskripts.
-- Nachfrage vor dem Überschreiben vorhandener Projektdateien.
-
-Der Installer lädt das Projekt nicht als vollständiges ZIP-Archiv herunter.
+- 🧩 Patches erstellen, prüfen und anwenden
+- 📦 Patches sichern und als ZIP-Datei exportieren
+- ✏️ Patch-Header und Metadaten bearbeiten
+- 🖥️ Grafische Oberfläche mit PyQt6
+- 🌐 Git- und GitHub-Funktionen, soweit implementiert
+- 🐍 Python-Installer für Windows und Linux
+- 🌍 Deutsche und englische Sprachoptionen, sofern unterstützt
+- ⚙️ Einrichtung der Python-Umgebung und Abhängigkeiten, soweit implementiert
 
 ## 📋 Voraussetzungen
 
-- Python 3.9 oder neuer.
-- Internetzugang für GitHub und Python-Pakete.
-- Schreibrechte im ausgewählten Installationsverzeichnis.
-- Git, sofern die Anwendung Git-Befehle verwendet.
-- Unter Linux gegebenenfalls das zusätzliche Paket für `venv`.
-- Für bestimmte Python-Pakete möglicherweise zusätzliche Systembibliotheken.
+- Python **3.9 oder neuer**
+- Internetverbindung
+- Windows 10/11 oder Linux
+- Schreibrechte im Installationsverzeichnis
+- Git, sofern von den verwendeten Funktionen benötigt
 
-**Wichtig:** Der Installer installiert Python nicht automatisch. Python muss vorher über die offizielle Python-Website oder den Paketmanager des Betriebssystems installiert werden.
+Python herunterladen: [python.org](https://www.python.org/downloads/)
+
+Unter Windows während der Installation nach Möglichkeit **Add Python to PATH** aktivieren.
 
 ## 🚀 Installation
 
-### 🪟 Windows
+### 🪟 Windows 10 / Windows 11
 
-**1. Python installieren**
+**1. Python überprüfen**
 
-Lade Python 3.9 oder neuer von der offiziellen Website herunter:
+Öffne die Eingabeaufforderung (`Win + R` → `cmd`):
 
-https://www.python.org/downloads/windows/
-
-Aktiviere während der Installation nach Möglichkeit die Option, Python zum `PATH` hinzuzufügen.
-
-Prüfe anschließend in PowerShell:
-
-```powershell
+```bat
 py -3 --version
 ```
 
-**2. Installer herunterladen**
+**2. Installer direkt von GitHub herunterladen und starten**
 
-Öffne PowerShell in dem Ordner, in dem du den Installer speichern möchtest, und führe aus:
-
-```powershell
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py" `
-  -OutFile "installer.py"
+```bat
+curl -fL "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py" -o "%TEMP%\oscam_installer.py" && py -3 "%TEMP%\oscam_installer.py"
 ```
 
-Damit wird zunächst nur `installer.py` heruntergeladen.
+Der Befehl lädt `installer.py` herunter und startet ihn mit Python 3.
 
-**3. Installer starten**
+**3. Installation abschließen**
 
-```powershell
-py -3 installer.py
-```
+Folge den Anweisungen des Installers, wähle dein Installationsverzeichnis und prüfe eventuelle Überschreibungsabfragen.
 
-Falls `py -3` nicht verfügbar ist, versuche:
+**4. Anwendung starten**
 
-```powershell
-python installer.py
-```
+Falls vorhanden, starte im Installationsverzeichnis:
 
-**4. Installation abschließen**
-
-- Wähle Deutsch oder Englisch.
-- Wähle dein gewünschtes Installationsverzeichnis.
-- Bestätige gegebenenfalls das Überschreiben vorhandener Dateien.
-- Warte, bis die Projektdateien heruntergeladen und die Abhängigkeiten installiert wurden.
-
-**5. Anwendung starten**
-
-Öffne das Installationsverzeichnis und starte:
-
-```text
+```bat
 start_windows.bat
 ```
 
 ### 🐧 Linux
 
-**1. Python prüfen**
+**1. Voraussetzungen installieren**
 
-```bash
-python3 --version
-```
-
-Benötigt wird Python 3.9 oder neuer.
-
-**2. Voraussetzungen installieren**
-
-Debian, Ubuntu und Linux Mint:
+Für Debian, Ubuntu und Linux Mint:
 
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip curl
 ```
 
-Fedora:
+**2. Installer herunterladen und starten**
 
 ```bash
-sudo dnf install -y python3 python3-pip curl
-```
-
-Arch Linux und Manjaro:
-
-```bash
-sudo pacman -S --needed python curl
-```
-
-**3. Installer herunterladen**
-
-```bash
-mkdir -p "$HOME/oscam-installer"
-cd "$HOME/oscam-installer"
-
-curl -fL \
-  "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py" \
-  -o installer.py
-```
-
-Alternativ kannst du `wget` verwenden, sofern es installiert ist:
-
-```bash
-wget -O installer.py \
-  "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py"
-```
-
-**4. Installer starten**
-
-```bash
+curl -fL "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py" -o installer.py
 python3 installer.py
 ```
 
-Wähle die Sprache und das Installationsverzeichnis. Der Installer lädt anschließend die ausgewählten Projektdateien herunter und richtet die Python-Umgebung ein.
+**3. Anwendung starten**
 
-**5. Anwendung starten**
-
-Wechsle in das ausgewählte Installationsverzeichnis und führe aus:
+Wechsle in das Installationsverzeichnis und führe aus, sofern vorhanden:
 
 ```bash
 chmod +x start_linux.sh
 ./start_linux.sh
 ```
 
-Falls `venv` nicht verfügbar ist, installiere das passende Paket für deine Python-Version. Unter Debian oder Ubuntu kann dies beispielsweise `python3-venv` oder ein versionsspezifisches Paket wie `python3.12-venv` sein.
+## ⚙️ Installer und ausgeschlossene Dateien
 
-## ⚙️ Was macht der Installer?
+Der Installer lädt ausgewählte Dateien einzeln von GitHub herunter. Je nach Implementierung richtet er eine virtuelle Python-Umgebung unter `.venv` ein, installiert Abhängigkeiten aus `requirements.txt` und erstellt Startskripte.
 
-1. Der Benutzer lädt zunächst nur `installer.py` herunter.
-2. Der Installer bietet Deutsch oder Englisch an und kann die Systemsprache vorauswählen.
-3. Der Benutzer wählt das Installationsverzeichnis.
-4. Der Installer ruft die Dateiliste des konfigurierten GitHub-Branches `master` ab.
-5. Definierte Dateien und Verzeichnisse werden übersprungen.
-6. Ausgewählte Projektdateien werden einzeln heruntergeladen.
-7. Im Installationsverzeichnis wird `.venv` erstellt.
-8. Die Abhängigkeiten aus `requirements.txt` werden installiert, sofern vorhanden.
-9. Ein Startskript für das jeweilige Betriebssystem wird erzeugt.
+Die konfigurierte Ausschlussliste umfasst:
 
-Die Installation setzt voraus, dass das Repository erreichbar ist und die erwarteten Projektdateien enthält.
+- **Dateiendungen:** `.png`, `.zip`, `.md`, `.php`
+- **Verzeichnisse:** `.git`, `.github`, `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.venv`, `venv`, `env`, `node_modules`
+- **Installer-Dateien:** `installer.py`, `installer.sh`, `installer.bat`, `install.py`, `install.sh`, `install.bat`
 
-## 🚫 Vom Installer ausgeschlossene Dateien
+**Wichtig:** Ausgeschlossene PNG-Dateien können Icons oder andere Ressourcen enthalten. Prüfe deshalb, ob die Anwendung ohne diese Dateien funktioniert.
 
-**Ausgeschlossene Dateiendungen:**
+## 🔄 Aktualisierung
 
-- `.png`
-- `.zip`
-- `.md`
-- `.php`
+Führe den Installationsbefehl erneut aus, um den Installer erneut herunterzuladen.
 
-**Ausgeschlossene Verzeichnisse:**
-
-- `.git`
-- `.github`
-- `__pycache__`
-- `.pytest_cache`
-- `.mypy_cache`
-- `.venv`
-- `venv`
-- `env`
-- `node_modules`
-
-**Ausgeschlossene Installer-Dateien:**
-
-- `installer.py`
-- `installer.sh`
-- `installer.bat`
-- `install.py`
-- `install.sh`
-- `install.bat`
-
-**Wichtig:** PNG-Dateien werden auch dann übersprungen, wenn sie als Icons oder Ressourcen verwendet werden. Die Anwendung muss deshalb ohne zwingend benötigte PNG-Dateien funktionieren.
-
-## 🗂️ Installationsverzeichnis
-
-Ein mögliches Installationsverzeichnis sieht folgendermaßen aus:
-
-```text
-OSCamEmuPatchManager/
-├── .venv/
-├── main.py
-├── requirements.txt
-├── start_windows.bat
-├── start_linux.sh
-└── weitere Projektdateien
-```
-
-Die tatsächliche Dateistruktur hängt vom Inhalt des Repositorys ab. Die Startskripte verwenden die Python-Umgebung unter `.venv`.
-
-## 🔄 Aktualisierung und vorhandene Dateien
-
-Bei einer erneuten Installation kann der Installer vorhandene Dateien erkennen und vor dem Überschreiben nachfragen.
-
-Bitte beachte:
-
-- Bestehende Dateien können erhalten bleiben, wenn das Überschreiben abgelehnt wird.
-- Es erfolgt kein vollständiger automatischer Abgleich aller installierten Dateien.
-- Entfernte Dateien aus älteren Versionen werden nicht automatisch gelöscht.
-- Sichere eigene Änderungen und Konfigurationsdateien vor einer Aktualisierung.
-
-## 🛡️ Sicherheit und verantwortungsvolle Nutzung
-
-Patch- und Repository-Operationen können lokale Dateien verändern.
-
-- Erstelle vor größeren Änderungen eine Sicherung oder einen Git-Checkpoint.
-- Prüfe Repository, Branch und Zielpfade vor jeder Operation.
-- Kontrolliere Änderungen mit `git diff`.
-- Führe Bereinigungen nur in eindeutig geprüften Verzeichnissen aus.
-- Halte GitHub-Tokens geheim.
-- Verwende nur die erforderlichen Zugriffsrechte.
-- Veröffentliche keine privaten Konfigurationen oder Zugangsdaten.
+- Eine erneute Installation garantiert nicht, dass alle vorhandenen Dateien aktualisiert werden.
+- Abgelehnte Überschreibungen können alte Dateien zurücklassen.
+- Nicht mehr benötigte Dateien werden möglicherweise nicht automatisch gelöscht.
+- Sichere eigene Änderungen und Konfigurationen vor jedem Update.
 
 ## 🛠️ Fehlerbehebung
 
-**Python wird nicht gefunden**
+| Problem | Lösung |
+|---|---|
+| `py` wird nicht erkannt | Python installieren und PATH prüfen. Alternativ `python installer.py` versuchen. |
+| `python3` fehlt | Python über den Linux-Paketmanager installieren. |
+| `curl` fehlt | Installer manuell über die [GitHub-Dateiseite](https://github.com/speedy005/oscam_patch_manager_new/blob/master/installer.py) herunterladen. |
+| `venv` fehlt | Unter Debian/Ubuntu `sudo apt install python3-venv` ausführen. |
+| Abhängigkeiten fehlen | Installer-Ausgabe und `requirements.txt` prüfen, sofern vorhanden. |
+| `SyntaxError` oder `UnicodeDecodeError` | Originaldatei direkt herunterladen und bearbeitete Python-Dateien als UTF-8 speichern. |
+| Installation schlägt fehl | Internetverbindung, Python-Version, Schreibrechte und vollständige Fehlermeldung prüfen. |
 
-Installiere Python 3.9 oder neuer und prüfe, ob es über die Kommandozeile erreichbar ist.
+## 🔒 Sicherheit
 
-**Linux: `venv` fehlt**
-
-Auf Debian oder Ubuntu:
-
-```bash
-sudo apt install python3-venv
-```
-
-Falls erforderlich, installiere das zu deiner Python-Version passende Paket.
-
-**Linux: `Permission denied`**
-
-```bash
-chmod +x start_linux.sh
-./start_linux.sh
-```
-
-**Download fehlgeschlagen**
-
-Prüfe die Internetverbindung und stelle sicher, dass GitHub erreichbar ist.
-
-**Installation der Abhängigkeiten fehlgeschlagen**
-
-Prüfe die Fehlermeldung, die Python-Version und mögliche fehlende Systembibliotheken.
+- Quellcode vor der Ausführung prüfen.
+- Vor Patch-Operationen und Updates Sicherungen erstellen.
+- Änderungen vor dem Commit mit `git diff` kontrollieren.
+- GitHub-Tokens und Zugangsdaten niemals veröffentlichen.
+- Bereinigungsoperationen nur in geprüften Verzeichnissen durchführen.
 
 ## 🤝 Mitwirken
 
-Fehlerberichte, reproduzierbare Testfälle und gezielte Verbesserungen sind willkommen.
+Fehlerberichte, reproduzierbare Testfälle und Pull Requests sind willkommen. Bitte gib bei Fehlern die Reproduktionsschritte, das Betriebssystem, die Python-Version und relevante Fehlermeldungen an. Entferne Zugangsdaten und Tokens vor dem Teilen.
 
-Ein hilfreicher Fehlerbericht enthält:
+## ⚠️ Disclaimer
 
-- Erwartetes und tatsächliches Verhalten.
-- Schritte zur Reproduktion.
-- Betriebssystem und Python-Version.
-- Relevante Fehlermeldungen ohne Zugangsdaten oder Tokens.
+Dieses Projekt wird ohne Garantie bereitgestellt. Die Kompatibilität hängt vom System, dem Quellcode und der Konfiguration ab. Sichere wichtige Dateien, bevor du Änderungen an einer bestehenden Installation vornimmst.
 
-## 🎯 Projektziel
+## 📦 Projektlinks
 
-OSCam-Patch- und Repository-Verwaltung einfacher, übersichtlicher und zuverlässiger machen.
-
-⭐ **Gefällt dir das Projekt? Gib ihm einen Stern auf GitHub!**
-
-[➡️ Repository öffnen](https://github.com/speedy005/oscam_patch_manager_new)
+- [GitHub Repository](https://github.com/speedy005/oscam_patch_manager_new)
+- [Installer anzeigen](https://github.com/speedy005/oscam_patch_manager_new/blob/master/installer.py)
+- [Installer direkt herunterladen](https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py)
 
 ---
 
@@ -343,327 +160,144 @@ OSCam-Patch- und Repository-Verwaltung einfacher, übersichtlicher und zuverläs
 
 ## 📖 About the Project
 
-**OSCam Emu Patch Manager** is a desktop toolkit for managing OSCam-Emu patches and related Git workflows.
-
-The project combines a graphical interface with tools for patch management, local Git operations, and GitHub-related workflows.
-
-The separate Python installer is designed for Windows and Linux. It downloads selected project files individually from GitHub, creates a virtual Python environment, and installs dependencies listed in `requirements.txt`, when available.
-
-> Note: Available functionality depends on the installed application version and its configuration.
+**OSCam Emu Patch Manager** is a Python-based desktop toolkit for managing OSCam-Emu patches and related Git workflows.
 
 ## ✨ Features
 
-### 🧩 Patch Management
-
-- Create and update patches for supported OSCam source repositories.
-- Check and apply patches.
-- Back up and package patches as ZIP files within the application.
-- Edit patch headers and metadata.
-- Manage temporary patch work directories.
-
-### 🌐 Git & GitHub Integration
-
-- Support for Git-based workflows.
-- Configure repository URLs and branches.
-- Configure the Git identity used for local operations.
-- GitHub-related upload functionality when implemented and configured in the installed version.
-- Display status messages and errors where supported.
-
-**Security:** Never publish GitHub tokens in public files or repositories. Verify changes and upload destinations before publishing.
-
-### 🎨 Desktop Interface
-
-- PyQt6 graphical user interface.
-- German and English text where implemented in the relevant version.
-- Status messages and progress indicators where supported.
-- Application configuration options.
-
-### 📦 Cross-Platform Python Installer
-
-- Designed for Windows and Linux.
-- English and German language selection.
-- Language preselection based on the system locale.
-- Custom installation directory.
-- Individual downloads of selected project files from GitHub.
-- Excludes PNG, ZIP, Markdown, and PHP files.
-- Excludes configured cache directories, Git metadata, and virtual environments.
-- Creates a local Python virtual environment under `.venv`.
-- Installs dependencies from `requirements.txt`, when available.
-- Generates a platform-specific startup script.
-- Asks before overwriting existing project files.
-
-The installer does not download the entire repository as a ZIP archive.
+- 🧩 Create, check, and apply patches
+- 📦 Back up and export patches as ZIP files
+- ✏️ Edit patch headers and metadata
+- 🖥️ PyQt6 graphical interface
+- 🌐 Git and GitHub functionality where implemented
+- 🐍 Python installer for Windows and Linux
+- 🌍 German and English language options where supported
+- ⚙️ Python environment and dependency setup where implemented
 
 ## 📋 Requirements
 
-- Python 3.9 or newer.
-- Internet access to retrieve project files and Python packages.
-- Write permission for the selected installation directory.
-- Git if the application uses Git commands.
-- On Linux, the additional `venv` operating-system package may be required.
-- Some Python packages may require additional system libraries.
+- Python **3.9 or newer**
+- Internet connection
+- Windows 10/11 or Linux
+- Write permissions for the installation directory
+- Git if required by the selected features
 
-**Important:** The installer does not install Python itself. If Python is missing, install it first using the official Python website or your operating system's package manager.
+Download Python: [python.org](https://www.python.org/downloads/)
+
+On Windows, enable **Add Python to PATH** during installation if available.
 
 ## 🚀 Installation
 
-### 🪟 Windows
+### 🪟 Windows 10 / Windows 11
 
-**1. Install Python**
+**1. Check Python**
 
-Download Python 3.9 or newer from the official website:
+Open Command Prompt (`Win + R` → `cmd`):
 
-https://www.python.org/downloads/windows/
-
-If possible, enable the option to add Python to `PATH`.
-
-Check your installation in PowerShell:
-
-```powershell
+```bat
 py -3 --version
 ```
 
-**2. Download the installer**
+**2. Download and run the installer directly from GitHub**
 
-Open PowerShell in the directory where you want to save the installer and run:
-
-```powershell
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py" `
-  -OutFile "installer.py"
+```bat
+curl -fL "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py" -o "%TEMP%\oscam_installer.py" && py -3 "%TEMP%\oscam_installer.py"
 ```
 
-This initially downloads only `installer.py`.
+This downloads `installer.py` and launches it using Python 3.
 
-**3. Run the installer**
+**3. Complete setup**
 
-```powershell
-py -3 installer.py
-```
+Follow the installer's instructions, choose your installation directory, and review any overwrite prompts.
 
-If `py -3` is unavailable, try:
+**4. Launch the application**
 
-```powershell
-python installer.py
-```
+If the startup script exists, run it from the installation directory:
 
-**4. Complete the installation**
-
-- Select English or German.
-- Choose your installation directory.
-- Confirm any overwrite prompts.
-- Wait for the selected project files and dependencies to finish installing.
-
-**5. Start the application**
-
-Open the installation directory and run:
-
-```text
+```bat
 start_windows.bat
 ```
 
 ### 🐧 Linux
 
-**1. Check Python**
+**1. Install prerequisites**
 
-```bash
-python3 --version
-```
-
-Python 3.9 or newer is required.
-
-**2. Install prerequisites**
-
-Debian, Ubuntu, and Linux Mint:
+For Debian, Ubuntu, and Linux Mint:
 
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip curl
 ```
 
-Fedora:
+**2. Download and run the installer**
 
 ```bash
-sudo dnf install -y python3 python3-pip curl
-```
-
-Arch Linux and Manjaro:
-
-```bash
-sudo pacman -S --needed python curl
-```
-
-**3. Download the installer**
-
-```bash
-mkdir -p "$HOME/oscam-installer"
-cd "$HOME/oscam-installer"
-
-curl -fL \
-  "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py" \
-  -o installer.py
-```
-
-Alternatively, use `wget` if it is installed:
-
-```bash
-wget -O installer.py \
-  "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py"
-```
-
-**4. Run the installer**
-
-```bash
+curl -fL "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py" -o installer.py
 python3 installer.py
 ```
 
-Select your language and installation directory. The installer then downloads the selected project files and sets up the Python environment.
+**3. Launch the application**
 
-**5. Start the application**
-
-Navigate to the selected installation directory and run:
+Navigate to the installation directory and run the following commands if the script exists:
 
 ```bash
 chmod +x start_linux.sh
 ./start_linux.sh
 ```
 
-If `venv` is unavailable, install the appropriate package for your Python version. On Debian or Ubuntu, this may be `python3-venv` or a version-specific package such as `python3.12-venv`.
+## ⚙️ Installer and Excluded Files
 
-## ⚙️ What Does the Installer Do?
+The installer downloads selected files individually from GitHub. Depending on its implementation, it creates a virtual Python environment under `.venv`, installs dependencies from `requirements.txt`, and generates startup scripts.
 
-1. The user initially downloads only `installer.py`.
-2. The installer offers English or German and may preselect a language based on the system locale.
-3. The user selects the installation directory.
-4. The installer retrieves the file list from the configured GitHub branch, `master`.
-5. Configured files and directories are skipped.
-6. Selected project files are downloaded individually.
-7. A virtual environment is created under `.venv`.
-8. Dependencies are installed from `requirements.txt`, when available.
-9. A startup script is generated for the target operating system.
+The configured exclusion list includes:
 
-Installation requires the GitHub repository to be accessible and contain the expected project files.
+- **File extensions:** `.png`, `.zip`, `.md`, `.php`
+- **Directories:** `.git`, `.github`, `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.venv`, `venv`, `env`, `node_modules`
+- **Installer files:** `installer.py`, `installer.sh`, `installer.bat`, `install.py`, `install.sh`, `install.bat`
 
-## 🚫 Files Excluded by the Installer
+**Important:** Excluded PNG files may contain application icons or other resources. Verify that the application works without them.
 
-**Excluded file extensions:**
+## 🔄 Updating
 
-- `.png`
-- `.zip`
-- `.md`
-- `.php`
+Run the installation command again to download the installer again.
 
-**Excluded directories:**
-
-- `.git`
-- `.github`
-- `__pycache__`
-- `.pytest_cache`
-- `.mypy_cache`
-- `.venv`
-- `venv`
-- `env`
-- `node_modules`
-
-**Excluded installer files:**
-
-- `installer.py`
-- `installer.sh`
-- `installer.bat`
-- `install.py`
-- `install.sh`
-- `install.bat`
-
-**Important:** PNG files are skipped even if they are used as application icons or resources. The application must therefore work without any required PNG files.
-
-## 🗂️ Installation Directory
-
-A possible installation directory looks like this:
-
-```text
-OSCamEmuPatchManager/
-├── .venv/
-├── main.py
-├── requirements.txt
-├── start_windows.bat
-├── start_linux.sh
-└── additional project files
-```
-
-The actual file structure depends on the contents of the repository. The generated launchers use the Python environment under `.venv`.
-
-## 🔄 Updates and Existing Files
-
-During a subsequent installation, the installer may detect existing files and ask before overwriting them.
-
-Please note:
-
-- Existing files may be preserved if overwriting is declined.
-- A complete automatic comparison against all installed files is not performed.
-- Files removed from newer repository versions are not automatically deleted.
+- Re-running the installer does not guarantee that every existing file will be updated.
+- Files may remain unchanged if overwriting is declined.
+- Obsolete files may not be removed automatically.
 - Back up local changes and configuration files before updating.
-
-## 🛡️ Security and Responsible Use
-
-Patch and repository operations may modify local files.
-
-- Create a backup or Git checkpoint before major changes.
-- Verify the repository, branch, and destination paths before each operation.
-- Review changes using `git diff`.
-- Run cleanup operations only in verified directories.
-- Keep GitHub tokens private.
-- Use only the required access permissions.
-- Never publish private configuration files or credentials.
 
 ## 🛠️ Troubleshooting
 
-**Python is not found**
+| Problem | Solution |
+|---|---|
+| `py` is not recognized | Install Python and check PATH. Alternatively, try `python installer.py`. |
+| `python3` is missing | Install Python through your Linux package manager. |
+| `curl` is missing | Download the installer manually from the [GitHub file page](https://github.com/speedy005/oscam_patch_manager_new/blob/master/installer.py). |
+| `venv` is missing | On Debian/Ubuntu, run `sudo apt install python3-venv`. |
+| Missing dependencies | Check the installer output and `requirements.txt`, if available. |
+| `SyntaxError` or `UnicodeDecodeError` | Download the original file and save edited Python files as UTF-8. |
+| Installation fails | Check internet access, Python version, directory permissions, and the full error message. |
 
-Install Python 3.9 or newer and make sure it is accessible from the command line.
+## 🔒 Security
 
-**Linux: `venv` is missing**
-
-On Debian or Ubuntu:
-
-```bash
-sudo apt install python3-venv
-```
-
-If necessary, install the package matching your Python version.
-
-**Linux: `Permission denied`**
-
-```bash
-chmod +x start_linux.sh
-./start_linux.sh
-```
-
-**Download failed**
-
-Check your internet connection and make sure GitHub is accessible.
-
-**Dependency installation failed**
-
-Check the error message, your Python version, and any missing system libraries.
+- Review source code before running it.
+- Back up files before patching or updating.
+- Review changes with `git diff` before committing.
+- Never publish GitHub tokens or credentials.
+- Run cleanup operations only in verified directories.
 
 ## 🤝 Contributing
 
-Bug reports, reproducible test cases, and focused improvements are welcome.
+Bug reports, reproducible test cases, and pull requests are welcome. Please include reproduction steps, your operating system, Python version, and relevant error messages. Remove credentials and tokens before sharing.
 
-Please include the following in bug reports:
+## ⚠️ Disclaimer
 
-- Expected and actual behavior.
-- Steps to reproduce the issue.
-- Operating system and Python version.
-- Relevant error messages without credentials or tokens.
+This project is provided without warranties. Compatibility depends on your system, source tree, and configuration. Back up important files before modifying an existing installation.
 
-## 🎯 Mission
+## 📦 Project Links
 
-Make OSCam patch and repository management simpler, clearer, and more reliable.
-
-⭐ **Like the project? Give it a star on GitHub!**
-
-[➡️ Open the Repository](https://github.com/speedy005/oscam_patch_manager_new)
+- [GitHub Repository](https://github.com/speedy005/oscam_patch_manager_new)
+- [View Installer](https://github.com/speedy005/oscam_patch_manager_new/blob/master/installer.py)
+- [Download Installer Directly](https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/installer.py)
 
 ---
 
