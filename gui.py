@@ -225,6 +225,10 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "toggle_matrix"):
             self.toggle_matrix(force_state=target_theme)
 
+        # Einheitliche Hover-/Matrix-Effekte für alle vorhandenen und später
+        # dynamisch erzeugten QPushButton-Widgets aktivieren.
+        self._start_button_effect_monitor()
+
         # ----------------------------
         # 8. FINALER SLIDER- & LED-FIX
         # ----------------------------
@@ -3844,6 +3848,81 @@ class PatchManagerGUI(QWidget):
         return None  # Nichts gefunden
 
 
+    def _start_button_effect_monitor(self):
+        """Hält Hover- und Matrix-Effekte für alle QPushButtons konsistent."""
+        try:
+            # Einmalig starten; der Timer erfasst auch Buttons, die später
+            # durch Dialoge, Plugins oder dynamische UI-Updates entstehen.
+            timer = getattr(self, "_button_effect_timer", None)
+            if timer is None:
+                timer = QTimer(self)
+                timer.setInterval(1000)
+                timer.timeout.connect(self._apply_button_visual_effects)
+                self._button_effect_timer = timer
+                timer.start()
+            self._apply_button_visual_effects()
+        except Exception as exc:
+            print(f"[BUTTON EFFECTS] Initialisierung fehlgeschlagen: {exc}", flush=True)
+
+    def _apply_button_visual_effects(self):
+        """Ergänzt bei jedem QPushButton Hover-, Pressed- und Matrix-QSS-Regeln."""
+        try:
+            from PyQt6.QtWidgets import QPushButton
+
+            cfg = getattr(self, "current_config", {})
+            if not isinstance(cfg, dict):
+                cfg = {}
+            matrix_active = str(cfg.get("theme_mode", "standard")).lower() == "matrix"
+
+            effect_css = """
+/* __UNIVERSAL_BUTTON_EFFECTS__ */
+QPushButton:hover {
+    border: 1px solid #00FF41;
+    background-color: #16451F;
+    color: #FFFFFF;
+}
+QPushButton:pressed {
+    border: 2px solid #00FF41;
+    background-color: #008F11;
+    color: #000000;
+}
+QPushButton[matrixMode="true"] {
+    background-color: #050805;
+    color: #00FF41;
+    border: 1px solid #008F11;
+}
+QPushButton[matrixMode="true"]:hover {
+    background-color: #00FF41;
+    color: #000000;
+    border: 2px solid #B6FFB6;
+}
+QPushButton[matrixMode="true"]:pressed {
+    background-color: #008F11;
+    color: #FFFFFF;
+    border: 2px solid #00FF41;
+}
+"""
+            for button in self.findChildren(QPushButton):
+                try:
+                    if not button or button.property("skip_universal_button_effects"):
+                        continue
+                    button.setCursor(Qt.CursorShape.PointingHandCursor)
+                    button.setProperty("matrixMode", "true" if matrix_active else "false")
+
+                    style = button.styleSheet() or ""
+                    if "__UNIVERSAL_BUTTON_EFFECTS__" not in style:
+                        button.setStyleSheet(style.rstrip() + "\n" + effect_css)
+                    # QSS-Propertyänderungen benötigen ein Re-Polish, damit
+                    # Matrix-Farben beim Themewechsel sofort aktualisiert werden.
+                    button.style().unpolish(button)
+                    button.style().polish(button)
+                    button.update()
+                except RuntimeError:
+                    # Widget wurde während der Iteration bereits zerstört.
+                    continue
+        except Exception as exc:
+            print(f"[BUTTON EFFECTS] Aktualisierung fehlgeschlagen: {exc}", flush=True)
+
     def apply_global_button_style(self, text_color="#EAFF00"):
         """Setzt die Schriftfarbe für ALLE Buttons in der GUI zentral."""
         style = f"""
@@ -5770,6 +5849,10 @@ class PatchManagerGUI(QWidget):
             )
             traceback.print_exc()
             return
+
+        # Button-Styles unmittelbar nach dem Themewechsel synchronisieren.
+        if hasattr(self, "_apply_button_visual_effects"):
+            self._apply_button_visual_effects()
 
         # 8. Uhr aktualisieren
         analog_clock = getattr(self, "analog_clock", None)
@@ -9066,10 +9149,10 @@ class PatchManagerGUI(QWidget):
             QTimer.singleShot(50, self._fit_header_logo)
             return
 
-        min_width = getattr(self, "BANNER_MIN_WIDTH", 150)
-        max_width = getattr(self, "BANNER_MAX_WIDTH", 900)
+        min_width = getattr(self, "BANNER_MIN_WIDTH", 80)
+        max_width = getattr(self, "BANNER_MAX_WIDTH", 300)
         min_height = getattr(self, "BANNER_MIN_HEIGHT", 45)
-        max_height = getattr(self, "BANNER_MAX_HEIGHT", 100)
+        max_height = getattr(self, "BANNER_MAX_HEIGHT", 60)
 
         # Verfügbare Breite und Höhe begrenzen.
         width = max(min_width, min(rect.width(), max_width))
@@ -12586,7 +12669,7 @@ class PatchManagerGUI(QWidget):
         saved_color = self.cfg.get("theme_color", "Classics")
         index = self.color_box.findText(saved_color)
         self.color_box.setCurrentIndex(index if index >= 0 else 0)
-        self.color_box.setFixedSize(150, CONTROL_HEIGHT)
+        self.color_box.setFixedSize(170, CONTROL_HEIGHT)
         self.color_box.setStyleSheet(control_style)
         self.color_box.currentIndexChanged.connect(self.change_colors)
 
@@ -12906,42 +12989,56 @@ class PatchManagerGUI(QWidget):
         left_layout.addStretch()
         h_layout.addWidget(self.left_badge)
 
-        # --- B) RECHTER BADGE (OSCam Status - Länge 280) ---
+       
+        # --- B) RECHTER BADGE (OSCam Status) ---
         self.right_badge = QFrame()
-        self.right_badge.setFixedSize(600, self.UI_BADGE_H)
-        self.right_badge.setStyleSheet(
-            f"""
-            QFrame {{
+        self.right_badge.setMinimumWidth(550)
+        self.right_badge.setMaximumWidth(16777215)
+        self.right_badge.setFixedHeight(self.UI_BADGE_H)
+        self.right_badge.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed
+        )
+
+        self.right_badge.setStyleSheet("""
+            QFrame {
                 background-color: transparent;
                 border: 1px solid #444444;
                 border-radius: 6px;
-            }}
-            QFrame:hover {{
+            }
+            QFrame:hover {
                 background-color: transparent;
                 border: 1px solid #777777;
-            }}
-        """
-        )
+            }
+        """)
 
         right_layout = QHBoxLayout(self.right_badge)
-        right_layout.setContentsMargins(
-            10, 0, 10, 0
-        )  # Margins setzen, um Platz für Text zu schaffen
+        right_layout.setContentsMargins(10, 0, 10, 0)
+        right_layout.setSpacing(0)
 
-        # Status-Label (Zwingend WEISSE Schrift)
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet(
-            "color: white; font-weight: bold; font-size: 18px; background: transparent; border: none;"
+        self.status_label.setMinimumWidth(0)
+        self.status_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred
         )
+        self.status_label.setStyleSheet("""
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            background: transparent;
+            border: none;
+        """)
 
-        # Füge das Label ohne Stretch hin
         right_layout.addWidget(self.status_label)
 
-        # Keine weiteren Strecken mehr erforderlich
-        h_layout.addWidget(self.right_badge)
+        # Den rechten Badge NUR EINMAL hinzufügen
+        h_layout.addWidget(self.right_badge, 1)
+
+
 
         # --- Integration ins Grid (Zeile 0) ---
-        grid_layout.addWidget(self.header_container, 0, 0, 1, 4)
+        grid_layout.addWidget(self.header_container, 0, 0, 1, 5)
 
         grid_layout.addWidget(self.btn_open_work, 0, 6)
         grid_layout.addWidget(self.btn_open_temp, 0, 7)
@@ -12956,7 +13053,7 @@ class PatchManagerGUI(QWidget):
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
         grid_layout.addWidget(self.color_label, 1, 2)
-        self.color_box.setFixedWidth(130)
+        self.color_box.setFixedWidth(170)
         grid_layout.addWidget(self.color_box, 1, 3)
 
         self.commit_label.setMinimumWidth(160)
@@ -12998,7 +13095,7 @@ class PatchManagerGUI(QWidget):
         # --- 2. KOMPAKTHEIT DER BOXEN ERZWINGEN ---
         # Damit die Boxen nicht breiter werden als nötig
         self.language_box.setFixedWidth(70)
-        self.color_box.setFixedWidth(130)
+        self.color_box.setFixedWidth(170)
         self.commit_spin.setFixedWidth(70)
 
         # --- 3. LABEL-ABSTÄNDE KORRIGIEREN ---
