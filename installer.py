@@ -62,7 +62,7 @@ SKIP_FILES = {
     "install.py", "install.sh", "install.bat",
     "version.txt",
 }
-SKIP_EXTENSIONS = {".zip", ".php"}
+SKIP_EXTENSIONS = {".zip", ".php" ,".png" ,".md"}
 
 
 # ---------------------------------------------------------------------------
