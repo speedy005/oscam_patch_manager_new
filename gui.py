@@ -8639,7 +8639,8 @@ QPushButton[matrixMode="true"]:pressed {
         # Sie werden weder kopiert noch überschrieben.
         excluded_files = {
             "Noto_Color_Emoji.zip",
-            "oscam_emu_toolkit2.png",
+            "oscam_emu_toolkit2.png",  
+            "speedy_oscam_managert.png",  
             "oscam-patch-generator.png",
             "final-oscam-emu-patch-maker.png",
             "final-englisch.png",
@@ -11856,7 +11857,7 @@ QPushButton[matrixMode="true"]:pressed {
 
 
         try:
-            url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/oscam_emu_toolkit2.png"
+            url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/speedy_oscam_managert.png"
             resp = requests.get(url, timeout=5)
             resp.raise_for_status()
             self.original_pixmap = QPixmap()
