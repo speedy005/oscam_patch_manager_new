@@ -10811,7 +10811,7 @@ QPushButton[matrixMode="true"]:pressed {
             ),
             (
                 getattr(self, "btn_fix_perms", None),
-                "Rechte fixen",
+                "Rechte setzen",
                 "Fix Permissions",
                 QStyle.StandardPixmap.SP_DialogNoButton,
                 "🔐 <b>Rechte:</b> Setzt Schreibrechte für Tool-Dateien und Ordner neu.",
