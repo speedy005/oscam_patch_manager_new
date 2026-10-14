@@ -6709,6 +6709,15 @@ class PatchManagerGUI(QWidget):
 
         if update_available:
             title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
+            
+            # Update-Meldung zusätzlich im großen Infoscreen anzeigen
+            self.append_info(
+                self.info_text,
+                f"🚀 [{timestamp}] {title} "
+                f"(r{old_rev} → r{new_rev})",
+                "warning",
+            )
+
             if status_label:
                 html = (
                     f"🚀 <span style='font-size:{F_TIME_SIZE}; font-family:{F_TIME}; color:{C_TIME}; font-weight:{F_TIME_WEIGHT};'>[{timestamp}]</span> "
@@ -6734,9 +6743,18 @@ class PatchManagerGUI(QWidget):
                     lambda c=blink_colors[i]: blink_revision(c)
                 )
 
+        
         else:
             # --- Up-to-date ---
             set_status_ui()
+
+            # Status zusätzlich im großen Infoscreen anzeigen
+            self.append_info(
+                self.info_text,
+                f"✅ [{timestamp}] {msg} (r{old_rev})",
+                "success",
+            )
+
             play_system_sound("uptodate" if new_rev else "error")
 
             # --- Blink-Sequenz für Revision ---
@@ -6755,95 +6773,6 @@ class PatchManagerGUI(QWidget):
                     lambda c=blink_colors[i]: blink_revision(c)
                 )
 
-        # --- ProgressBar ---
-        pbar = getattr(self, "progress_bar", None)
-        if pbar:
-            pbar.setValue(100)
-            pbar.setTextVisible(True)
-
-        # --- Final Label ---
-        def show_final_label():
-            if hasattr(self, "final_label") and self.final_label:
-                final_label = self.final_label
-                final_label.show()
-            else:
-                final_label = QLabel(self)
-                self.final_label = final_label
-                final_label.setText(
-                    self.TEXT.get("final_label", "🛠️ Was bauen wir heute?")
-                )
-                final_label.setAlignment(
-                    Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
-                )
-                pbar = getattr(self, "progress_bar", None)
-                if pbar:
-                    final_label.setGeometry(pbar.geometry())
-                else:
-                    final_label.setGeometry(20, 20, 400, 40)
-                final_label.setStyleSheet(
-                    f"""
-                    QLabel {{
-                        border: 2px solid {C_FINAL_COLOR};
-                        background-color: {BG_FINAL_LABEL};
-                        color: {C_FINAL_COLOR};
-                        font-weight: {F_FINAL_LABEL_WEIGHT};
-                        font-size: {F_FINAL_LABEL_SIZE};
-                        font-family: {F_FINAL_LABEL};
-                        border-radius: {FINAL_LABEL_BORDER_RADIUS}px;
-                    }}
-                    """
-                )
-                final_label.show()
-
-            # --- Blink-Sequenz 3x für Text ---
-            delays = [0, 300, 600, 900, 1200, 1500]  # ms
-            blink_colors = [
-                "transparent",
-                C_FINAL_COLOR,
-                "transparent",
-                C_FINAL_COLOR,
-                "transparent",
-                C_FINAL_COLOR,
-            ]
-
-            for i, delay in enumerate(delays):
-                QTimer.singleShot(
-                    delay,
-                    lambda c=blink_colors[i]: final_label.setStyleSheet(
-                        f"""
-                        QLabel {{
-                            border: 2px solid {C_FINAL_COLOR};
-                            background-color: {BG_FINAL_LABEL};
-                            color: {c};
-                            font-weight: {F_FINAL_LABEL_WEIGHT};
-                            font-size: {F_FINAL_LABEL_SIZE};
-                            font-family: {F_FINAL_LABEL};
-                            border-radius: {FINAL_LABEL_BORDER_RADIUS}px;
-                        }}
-                        """
-                    ),
-                )
-
-            # Text am Ende wieder dauerhaft anzeigen
-            QTimer.singleShot(
-                delays[-1] + 100,
-                lambda: final_label.setStyleSheet(
-                    f"""
-                QLabel {{
-                    border: 2px solid {C_FINAL_COLOR};
-                    background-color: {BG_FINAL_LABEL};
-                    color: {C_FINAL_COLOR};
-                    font-weight: {F_FINAL_LABEL_WEIGHT};
-                    font-size: {F_FINAL_LABEL_SIZE};
-                    font-family: {F_FINAL_LABEL};
-                    border-radius: {FINAL_LABEL_BORDER_RADIUS}px;
-                }}
-                """
-                ),
-            )
-
-        # --- Label anzeigen und Blink starten ---
-        QTimer.singleShot(800, show_final_label)
 
     def trigger_alert_animation(self, widget):
         """Lässt ein Widget dezent rot pulsieren."""
@@ -8633,8 +8562,9 @@ class PatchManagerGUI(QWidget):
 
             return False
 
+        
         def update_progress(value, message):
-            """Aktualisiert Fortschritt und Oberfläche."""
+            """Aktualisiert Fortschrittsbalken und großen Infoscreen."""
             if progress_callback:
                 progress_callback(value, message)
 
@@ -8642,7 +8572,18 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setValue(value)
                 pbar.setFormat(message)
-                QApplication.processEvents()
+
+            # Update-Schritte im großen Infoscreen anzeigen.
+            info = getattr(self, "info_text", None)
+            if info is not None:
+                timestamp = QTime.currentTime().toString("HH:mm:ss")
+                self.append_info(
+                    info,
+                    f"🔄 [{timestamp}] Update {value}% – {message}",
+                    "info",
+                )
+
+            QApplication.processEvents()
 
         backup_files = []
         new_files = []
@@ -8660,6 +8601,8 @@ class PatchManagerGUI(QWidget):
                 headers={"Accept": "application/vnd.github+json"},
             )
             response.raise_for_status()
+
+            update_progress(20, "Download abgeschlossen. ZIP wird geprüft...")
 
             # --------------------------------------------------
             # 2. ZIP prüfen und Update-Dateien ermitteln
@@ -8720,6 +8663,11 @@ class PatchManagerGUI(QWidget):
                         "Keine aktualisierbaren Projektdateien gefunden."
                     )
 
+                update_progress(
+                    23,
+                    f"{len(updates)} Update-Dateien gefunden. Backup wird vorbereitet...",
+                )
+
                 # --------------------------------------------------
                 # 3. Backup vorhandener, zu ändernder Dateien
                 # --------------------------------------------------
@@ -8739,12 +8687,13 @@ class PatchManagerGUI(QWidget):
                     else:
                         new_files.append(target)
 
+                update_progress(35, "Backup abgeschlossen.")
+
                 # --------------------------------------------------
                 # 4. Projektdateien ersetzen
                 # --------------------------------------------------
                 update_progress(40, "Projektdateien werden ersetzt...")
 
-                
                 for index, (member, target) in enumerate(updates):
                     # Vorhandene WAV-Dateien im sounds-Ordner
                     # beim Update nicht überschreiben.
@@ -8756,7 +8705,6 @@ class PatchManagerGUI(QWidget):
                         continue
 
                     target.parent.mkdir(parents=True, exist_ok=True)
-
 
                     temp_target = target.with_name(
                         target.name + ".update_tmp"
@@ -8771,7 +8719,6 @@ class PatchManagerGUI(QWidget):
                         # Windows-Zugriffsfehler begrenzt erneut versuchen.
                         replace_error = None
 
-                        
                         for attempt in range(4):
                             try:
                                 os.replace(temp_target, target)
@@ -8791,7 +8738,6 @@ class PatchManagerGUI(QWidget):
                         if replace_error is not None:
                             raise replace_error
 
-
                     finally:
                         if temp_target.exists():
                             temp_target.unlink()
@@ -8809,18 +8755,41 @@ class PatchManagerGUI(QWidget):
                         f"Installiere Datei {index + 1}/{len(updates)}",
                     )
 
-            
             # --------------------------------------------------
             # 5. Update erfolgreich
             # --------------------------------------------------
-            update_progress(
-                100,
-                "Update erfolgreich" if str(getattr(self, "LANG", "de")).lower()[:2] == "de"
-                else "Update successful"
-            )
-
             lang = str(getattr(self, "LANG", "de")).lower()[:2]
             is_de = lang == "de"
+
+            success_message = (
+                "Update erfolgreich abgeschlossen."
+                if is_de
+                else "Update completed successfully."
+            )
+
+            update_progress(
+                100,
+                "Update erfolgreich" if is_de else "Update successful",
+            )
+
+            timestamp = QTime.currentTime().toString("HH:mm:ss")
+            self.append_info(
+                self.info_text,
+                f"✅ [{timestamp}] "
+                + (
+                    "Update erfolgreich abgeschlossen."
+                    if str(getattr(self, "LANG", "de")).lower()[:2] == "de"
+                    else "Update completed successfully."
+                ),
+                "success",
+            )
+
+            timestamp = QTime.currentTime().toString("HH:mm:ss")
+            self.append_info(
+                self.info_text,
+                f"✅ [{timestamp}] {success_message}",
+                "success",
+            )
 
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Question)
@@ -8842,12 +8811,12 @@ class PatchManagerGUI(QWidget):
 
             yes_btn = msg_box.addButton(
                 "Ja" if is_de else "Yes",
-                QMessageBox.ButtonRole.YesRole
+                QMessageBox.ButtonRole.YesRole,
             )
 
             no_btn = msg_box.addButton(
                 "Nein" if is_de else "No",
-                QMessageBox.ButtonRole.NoRole
+                QMessageBox.ButtonRole.NoRole,
             )
 
             msg_box.setDefaultButton(yes_btn)
@@ -8867,11 +8836,24 @@ class PatchManagerGUI(QWidget):
 
             return True
 
-
         except Exception as error:
             # --------------------------------------------------
-            # 6. Rollback bei Fehler
+            # 6. Fehler und Rollback im Infoscreen protokollieren
             # --------------------------------------------------
+            timestamp = QTime.currentTime().toString("HH:mm:ss")
+
+            self.append_info(
+                self.info_text,
+                f"❌ [{timestamp}] Update fehlgeschlagen: {error}",
+                "error",
+            )
+
+            self.append_info(
+                self.info_text,
+                f"↩️ [{timestamp}] Rollback wird ausgeführt...",
+                "warning",
+            )
+
             for target in reversed(new_files):
                 try:
                     if target.exists() and target.is_file():
@@ -8887,7 +8869,23 @@ class PatchManagerGUI(QWidget):
                 except Exception as rollback_error:
                     rollback_errors.append(str(rollback_error))
 
+           
             details = f"Update fehlgeschlagen:\n{error}"
+
+            timestamp = QTime.currentTime().toString("HH:mm:ss")
+            self.append_info(
+                self.info_text,
+                f"❌ [{timestamp}] Update fehlgeschlagen: {error}",
+                "error",
+            )
+            self.append_info(
+                self.info_text,
+                f"↩️ [{timestamp}] Rollback wird ausgeführt...",
+                "warning",
+            )
+
+
+            timestamp = QTime.currentTime().toString("HH:mm:ss")
 
             if rollback_errors:
                 details += (
@@ -8895,9 +8893,40 @@ class PatchManagerGUI(QWidget):
                     f"Backup-Verzeichnis:\n{backup_dir}\n\n"
                     + "\n".join(rollback_errors)
                 )
+
+                self.append_info(
+                    self.info_text,
+                    f"⚠️ [{timestamp}] Rollback unvollständig. "
+                    f"Backup prüfen: {backup_dir}",
+                    "error",
+                )
             else:
                 details += "\nDie geänderten Dateien wurden wiederhergestellt."
                 shutil.rmtree(backup_dir, ignore_errors=True)
+
+                self.append_info(
+                    self.info_text,
+                    f"✅ [{timestamp}] Rollback abgeschlossen; "
+                    "Dateien wiederhergestellt.",
+                    "success",
+                )
+
+            timestamp = QTime.currentTime().toString("HH:mm:ss")
+
+            if rollback_errors:
+                self.append_info(
+                    self.info_text,
+                    f"⚠️ [{timestamp}] Rollback unvollständig. "
+                    f"Backup prüfen: {backup_dir}",
+                    "error",
+                )
+            else:
+                self.append_info(
+                    self.info_text,
+                    f"✅ [{timestamp}] Rollback abgeschlossen; "
+                    "Dateien wiederhergestellt.",
+                    "success",
+                )
 
             QMessageBox.critical(
                 self,
@@ -8906,6 +8935,7 @@ class PatchManagerGUI(QWidget):
             )
 
             return False
+
 
 
 
