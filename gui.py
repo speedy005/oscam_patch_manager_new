@@ -8536,8 +8536,27 @@ class PatchManagerGUI(QWidget):
                             with open(temp_target, "wb") as destination:
                                 shutil.copyfileobj(source, destination)
 
-                        # Datei atomar ersetzen.
-                        os.replace(temp_target, target)
+                        # Datei atomar ersetzen; bei vorübergehendem
+                        # Windows-Zugriffsfehler begrenzt erneut versuchen.
+                        replace_error = None
+
+                        for attempt in range(4):
+                            try:
+                                os.replace(temp_target, target)
+                                replace_error = None
+                                break
+                            except PermissionError as exc:
+                                replace_error = exc
+                                if attempt < 3:
+                                    time.sleep(0.5 * (attempt + 1))
+
+                        if replace_error is not None:
+                            raise PermissionError(
+                                f"Datei konnte nach mehreren Versuchen "
+                                f"nicht ersetzt werden: {target}\n"
+                                f"Bitte prüfen, ob die Datei von einem "
+                                f"anderen Prozess verwendet wird."
+                            ) from replace_error
 
                     finally:
                         if temp_target.exists():
@@ -12652,7 +12671,7 @@ class PatchManagerGUI(QWidget):
         self.color_label.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
-        self.color_box.setFixedWidth(130)
+        self.color_box.setFixedWidth(200)
 
         settings_row.addWidget(self.color_label)
         settings_row.addWidget(self.color_box)
