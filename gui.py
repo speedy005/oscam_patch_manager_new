@@ -8556,20 +8556,54 @@ class PatchManagerGUI(QWidget):
                         f"Installiere Datei {index + 1}/{len(updates)}",
                     )
 
+            
             # --------------------------------------------------
             # 5. Update erfolgreich
             # --------------------------------------------------
-            update_progress(100, "Update erfolgreich")
+            update_progress(
+                100,
+                "Update erfolgreich" if str(getattr(self, "LANG", "de")).lower()[:2] == "de"
+                else "Update successful"
+            )
 
-            answer = QMessageBox.question(
-                self,
-                "Update erfolgreich",
+            lang = str(getattr(self, "LANG", "de")).lower()[:2]
+            is_de = lang == "de"
+
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Question)
+
+            msg_box.setWindowTitle(
+                "Update erfolgreich" if is_de else "Update successful"
+            )
+
+            msg_box.setText(
                 "Das Projekt wurde aktualisiert.\n\n"
                 "Lokale Configs und Git-Repositories wurden geschützt.\n\n"
-                "Programm jetzt neu starten?",
+                "Programm jetzt neu starten?"
+                if is_de
+                else
+                "The project has been updated.\n\n"
+                "Local configs and Git repositories have been preserved.\n\n"
+                "Restart the application now?"
+            )
+
+            yes_btn = msg_box.addButton(
+                "Ja" if is_de else "Yes",
+                QMessageBox.ButtonRole.YesRole
+            )
+
+            no_btn = msg_box.addButton(
+                "Nein" if is_de else "No",
+                QMessageBox.ButtonRole.NoRole
+            )
+
+            msg_box.setDefaultButton(yes_btn)
+            msg_box.exec()
+
+            answer = (
                 QMessageBox.StandardButton.Yes
-                | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
+                if msg_box.clickedButton() == yes_btn
+                else QMessageBox.StandardButton.No
             )
 
             # Backup wird nach erfolgreicher Installation nicht mehr benötigt.
@@ -8579,6 +8613,7 @@ class PatchManagerGUI(QWidget):
                 os.execl(sys.executable, sys.executable, *sys.argv)
 
             return True
+
 
         except Exception as error:
             # --------------------------------------------------
