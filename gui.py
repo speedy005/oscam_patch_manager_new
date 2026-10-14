@@ -8320,46 +8320,45 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtWidgets import QMessageBox, QApplication
 
         project_dir = Path(__file__).resolve().parent
+
+        # Dauerhaftes ZIP-Backup vor jedem Update erstellen und überschreiben.
+        # Das Backup-Verzeichnis selbst sowie die beiden Git-Ordner werden ausgelassen.
+        persistent_backup_dir = project_dir / "backup"
+        persistent_backup_zip = persistent_backup_dir / "backup.zip"
+        backup_excluded_dirs = {"oscam-emu-git", "streamboard-git", "backup"}
+
+        persistent_backup_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            with zipfile.ZipFile(
+                persistent_backup_zip,
+                mode="w",
+                compression=zipfile.ZIP_DEFLATED,
+            ) as backup_archive:
+                for source_file in project_dir.rglob("*"):
+                    if not source_file.is_file():
+                        continue
+
+                    relative_path = source_file.relative_to(project_dir)
+
+                    # Niemals backup.zip selbst oder Dateien aus ausgeschlossenen
+                    # Verzeichnissen in das ZIP aufnehmen.
+                    if any(part in backup_excluded_dirs for part in relative_path.parts):
+                        continue
+                    if source_file.resolve() == persistent_backup_zip.resolve():
+                        continue
+
+                    backup_archive.write(source_file, arcname=relative_path.as_posix())
+        except Exception as backup_error:
+            QMessageBox.critical(
+                self,
+                "Backup-Fehler",
+                f"Das Backup konnte nicht erstellt werden:\n{backup_error}\n\n"
+                "Das Update wurde nicht gestartet.",
+            )
+            return False
+
+        # Separates temporäres Backup nur für Rollback bei einem Update-Fehler.
         backup_dir = Path(tempfile.mkdtemp(prefix="oscam_backup_"))
-        backup_zip = project_dir / "backup.zip"
-
-        def create_full_backup():
-            """Sichert vor jedem Update alle Dateien des Installationsordners."""
-            temp_backup_zip = project_dir / "backup.zip.tmp"
-            try:
-                with zipfile.ZipFile(
-                    temp_backup_zip,
-                    mode="w",
-                    compression=zipfile.ZIP_DEFLATED,
-                    compresslevel=6,
-                ) as archive:
-                    for file_path in project_dir.rglob("*"):
-                        if not file_path.is_file():
-                            continue
-
-                        # Das Backup darf sich nicht selbst enthalten.
-                        if file_path.resolve() == backup_zip.resolve():
-                            continue
-                        # Temporäre Dateien dieses Backup-Vorgangs auslassen.
-                        if file_path.name == temp_backup_zip.name:
-                            continue
-
-                        try:
-                            archive.write(
-                                file_path,
-                                arcname=file_path.relative_to(project_dir),
-                            )
-                        except OSError as backup_error:
-                            raise RuntimeError(
-                                f"Datei konnte nicht ins Backup aufgenommen werden: {file_path}\n"
-                                f"{backup_error}"
-                            ) from backup_error
-
-                # Erst nach erfolgreichem Erstellen das alte backup.zip ersetzen.
-                os.replace(temp_backup_zip, backup_zip)
-            finally:
-                if temp_backup_zip.exists():
-                    temp_backup_zip.unlink()
 
         download_url = (
             "https://api.github.com/repos/"
@@ -8382,7 +8381,7 @@ class PatchManagerGUI(QWidget):
             "Noto_Color_Emoji.zip",
             "oscam_emu_toolkit2.png",  
             "oscam-patch-generator.png",  
-            "speedy_oscam_managert.png",
+            "speedy_oscam_managert.png"
             "final-oscam-emu-patch-maker.png",
             "final-englisch.png",
             "README.md",
@@ -8394,7 +8393,6 @@ class PatchManagerGUI(QWidget):
         protected_files = {
             "config.json",
             "settings.json",
-            "backup.zip",
         }
 
         def is_protected(path):
@@ -8432,13 +8430,7 @@ class PatchManagerGUI(QWidget):
 
         try:
             # --------------------------------------------------
-            # 1. Vollständiges, dauerhaftes Backup erstellen/überschreiben
-            # --------------------------------------------------
-            update_progress(5, "Backup des Installationsordners wird erstellt...")
-            create_full_backup()
-
-            # --------------------------------------------------
-            # 2. GitHub-Archiv herunterladen
+            # 1. GitHub-Archiv herunterladen
             # --------------------------------------------------
             update_progress(10, "GitHub wird heruntergeladen...")
 
