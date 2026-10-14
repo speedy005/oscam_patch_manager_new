@@ -8813,9 +8813,9 @@ class PatchManagerGUI(QWidget):
         """Skaliert das Banner in die komplette verfügbare mittlere Header-Lücke."""
         if not hasattr(self, "logo_label") or getattr(self, "original_pixmap", None) is None:
             return
-        available_width = max(150, self.logo_label.contentsRect().width() - 4)
-        # Das Banner nutzt seinen zugewiesenen Platz vollständig, mindestens 150 x 45 px.
-        available_height = max(45, self.logo_label.contentsRect().height() - 8)
+        available_width = max(350, self.logo_label.contentsRect().width() - 2)
+        # Das Banner nutzt seinen zugewiesenen Platz vollständig, mindestens 350 x 45 px.
+        available_height = max(60, self.logo_label.contentsRect().height() - 7)
         self.update_logo(width=available_width, height=available_height, fill_gap=True)
 
     def update_logo(self, width=None, height=None, fill_gap=False):
