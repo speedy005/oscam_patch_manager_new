@@ -81,18 +81,7 @@ class PatchManagerGUI(QWidget):
         self._blink_state = True
 
         super().__init__()
-        # =========================================================
-        # BANNER-EINSTELLUNGEN
-        # =========================================================
-        self.BANNER_MIN_WIDTH = 480
-        self.BANNER_MAX_WIDTH = 480
 
-        self.BANNER_MIN_HEIGHT = 140
-        self.BANNER_MAX_HEIGHT = 140
-
-        # True = Banner füllt die Lücke vollständig, ggf. verzerrt
-        # False = Seitenverhältnis bleibt erhalten
-        self.BANNER_FILL_GAP = True
         # --- TIMER-SEKTION ---
         # 3. INFOSCREEN & REDIRECTOR FIX
         self.current_rev = getattr(
@@ -224,10 +213,6 @@ class PatchManagerGUI(QWidget):
         target_theme = self.current_config.get("theme_mode", "standard")
         if hasattr(self, "toggle_matrix"):
             self.toggle_matrix(force_state=target_theme)
-
-        # Einheitliche Hover-/Matrix-Effekte für alle vorhandenen und später
-        # dynamisch erzeugten QPushButton-Widgets aktivieren.
-        self._start_button_effect_monitor()
 
         # ----------------------------
         # 8. FINALER SLIDER- & LED-FIX
@@ -576,7 +561,15 @@ class PatchManagerGUI(QWidget):
                 }}
                 """
             )
-                # ============================================================
+
+        # Die drei Installationsbuttons wurden oben dynamisch neu beschriftet.
+        # Jetzt sofort den individuellen Hardcode-Style durch das aktive Theme ersetzen.
+        try:
+            self.apply_global_button_style()
+        except Exception as exc:
+            print(f"[change_language] Installationsbutton-Theme fehlgeschlagen: {exc}")
+
+        # ============================================================
         # BUTTON-TEXTE NACH SPRACHWECHSEL ERNEUT ANPASSEN
         #
         # Wichtig:
@@ -686,36 +679,22 @@ class PatchManagerGUI(QWidget):
                         "GitHub Konfiguration" if is_de else "GitHub Configuration"
                     )
 
-            
-            
-            # Autor-Ansicht vorbereiten
+            # Autor Ansicht vorbereiten
             if hasattr(self, "btn_modifier"):
                 self.btn_modifier.setText(
-                    f"👤 {strip_icons(lang_dict.get('modifier_button_text', 'Patch Autor' if is_de else 'Patch Author'))}"
+                    f"👤 {strip_icons(lang_dict.get('modifier_button_text','Patch Autor' if is_de else 'Patch Author'))}"
                 )
-
-            # Online-Patches aus Git-Repositories
             if hasattr(self, "btn_patch_online"):
                 self.btn_patch_online.setText(
-                    f"🌐 {strip_icons(lang_dict.get('patch_online_download', 'Patch Online' if is_de else 'Load Patch'))}"
+                    f"🌐 {strip_icons(lang_dict.get('patch_online_download', 'Online-Patches herunterladen' if is_de else 'Download Online Patches'))}"
                 )
 
-                self.btn_patch_online.setToolTip(
-                    "Durchsucht die Git-Repositories online nach verfügbaren Patches."
-                    if is_de
-                    else
-                    "Checks Git repositories online for available patches."
-                )
-
-                self.btn_patch_online.setToolTipDuration(8000)
-                self.btn_patch_online.setStatusTip(
-                    "Sucht online nach verfügbaren Patches in den Git-Repositories."
-                    if is_de
-                    else
-                    "Searches Git repositories online for available patches."
-                )
-
-
+            # Nach den letzten setText()-Aufrufen Hover, Farbschema und Tooltips
+            # erneut synchronisieren, damit nichts aus der alten Sprache bleibt.
+            try:
+                self.apply_global_button_style()
+            except Exception as exc:
+                print(f"[change_language] Button-Theme/Tooltips konnten nicht aktualisiert werden: {exc}")
 
             # ============================================================
             # ALLE BUTTON-TEXTE NACH SPRACHWECHSEL FINAL ANPASSEN
@@ -778,7 +757,7 @@ class PatchManagerGUI(QWidget):
                         color: cyan;
                         font-weight: bold;
                         font-size: 24px;
-                        font-family: Segoe UI, Segoe UI, sans-serif;
+                        font-family: Arial, Segoe UI, sans-serif;
                         border-radius: 6px;
                     }}
                     """
@@ -806,7 +785,7 @@ class PatchManagerGUI(QWidget):
                                 color: {c};
                                 font-weight: bold;
                                 font-size: 24px;
-                                font-family: Segoe UI, Segoe UI, sans-serif;
+                                font-family: Arial, Segoe UI, sans-serif;
                                 border-radius: 6px;
                             }}
                             """
@@ -842,148 +821,6 @@ class PatchManagerGUI(QWidget):
             after_animation()
 
         QApplication.processEvents()
-    
-  
-    def update_patch_online_style(self):
-        """Passt den Online-Patch-Button an das aktuelle Theme an."""
-
-        if not hasattr(self, "btn_patch_online"):
-            return
-
-        theme = str(
-            globals().get("THEME_MODE", "standard")
-        ).lower()
-
-        if theme == "matrix":
-            c1, c2, b_color = "#000000", "#008F11", "#00FF41"
-            text_color = "#00FF41"
-
-        elif theme == "dark":
-            c1, c2, b_color = "#F37804", "#8B4513", "#444444"
-            text_color = "#FFFFFF"
-
-        else:
-            c1, c2, b_color = "#3498DB", "#2980B9", "#1C5980"
-            text_color = "#FFFFFF"
-
-        self.btn_patch_online.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: qlineargradient(
-                    x1:0, y1:0, x2:0, y2:1,
-                    stop:0 {c1}, stop:1 {c2}
-                );
-                color: {text_color};
-                font-weight: 700;
-                font-size: {self.font_size_buttons}px;
-                border: 1px solid {b_color};
-                border-radius: 10px;
-            }}
-
-            QPushButton:hover {{
-                background-color: {c2};
-                color: {text_color};
-                border: 1px solid #FFFFFF;
-            }}
-
-            QPushButton:pressed {{
-                background-color: {b_color};
-                color: {text_color};
-                padding-top: 2px;
-                border-radius: 10px;
-            }}
-
-            QToolTip {{
-                background-color: #3D3D3D;
-                color: #EAFF00;
-                border: 1px solid #F37804;
-                padding: 6px;
-            }}
-            """
-        )
-        self.update_patch_online_style()
-        
-    def rearrange_option_buttons(self):
-        """Ordnet Aktionsbuttons abhängig von der verfügbaren Fensterbreite neu an."""
-        from PyQt6.QtCore import QTimer
-        from PyQt6.QtGui import QFont, QFontMetrics
-        from PyQt6.QtWidgets import QSizePolicy
-
-        container = getattr(self, "option_buttons_container", None)
-        grid = getattr(self, "option_buttons_grid", None)
-        buttons_dict = getattr(self, "option_buttons", {})
-
-        if container is None or grid is None or not buttons_dict:
-            return
-
-        width = container.contentsRect().width()
-
-        if width <= 0:
-            QTimer.singleShot(50, self.rearrange_option_buttons)
-            return
-
-        spacing = grid.horizontalSpacing()
-        if spacing < 0:
-            spacing = grid.spacing()
-        if spacing < 0:
-            spacing = 6
-
-        # Mindestbreite pro Button; maximal fünf Spalten.
-        min_button_width = 170
-        columns = max(
-            1,
-            min(5, (width + spacing) // (min_button_width + spacing))
-        )
-        columns = int(columns)
-
-        buttons = [
-            entry[0] for entry in buttons_dict.values()
-            if entry and entry[0] is not None
-        ]
-
-        for button in buttons:
-            grid.removeWidget(button)
-
-        for index, button in enumerate(buttons):
-            row, col = divmod(index, columns)
-
-            button.setMinimumWidth(0)
-            button.setSizePolicy(
-                QSizePolicy.Policy.Expanding,
-                QSizePolicy.Policy.Fixed
-            )
-
-            # Schriftgröße an die tatsächliche Buttonbreite anpassen.
-            available_width = max(
-                30,
-                button.contentsRect().width()
-                - button.iconSize().width()
-                - 32
-            )
-
-            font = QFont("Segoe UI", 10, QFont.Weight.Bold)
-            text = button.text()
-
-            while font.pointSize() > 7:
-                if QFontMetrics(font).horizontalAdvance(text) <= available_width:
-                    break
-                font.setPointSize(font.pointSize() - 1)
-
-            button.setFont(font)
-            grid.addWidget(button, row, col)
-
-        for col in range(5):
-            grid.setColumnStretch(col, 1 if col < columns else 0)
-
-        grid.invalidate()
-        grid.activate()
-
-        print(
-            f"[OPTION BUTTONS] Breite={width}px, "
-            f"Spalten={columns}, Buttons={len(buttons)}",
-            flush=True
-        )
-
     
     def run_full_system_check(self, clear_log=True):
         """
@@ -1208,7 +1045,7 @@ class PatchManagerGUI(QWidget):
                 "<div style='"
                 "text-align:center;"
                 "color:#FF0000;"
-                "font-family:Segoe UI Black;"
+                "font-family:Arial Black;"
                 "font-size:18pt;"
                 "'>"
                 f"❌ System Check Error:<br>{message}"
@@ -3848,99 +3685,179 @@ class PatchManagerGUI(QWidget):
         return None  # Nichts gefunden
 
 
-    def _start_button_effect_monitor(self):
-        """Hält Hover- und Matrix-Effekte für alle QPushButtons konsistent."""
+    def apply_global_button_style(self, text_color=None):
+        """Einheitliche, sprachabhängige Tooltips und Theme-Stile für alle Buttons."""
+        from PyQt6.QtWidgets import QPushButton
+        from PyQt6.QtCore import Qt
+
+        global current_diff_colors
+        colors = globals().get("current_diff_colors", {}) or {}
+        # Ein explizit übergebener Textfarbwert wird absichtlich ignoriert, wenn
+        # ein gültiges Theme existiert: so gewinnt immer das ausgewählte Schema.
+        fg = colors.get("fg", colors.get("text", text_color or "#FFFFFF"))
+        bg = colors.get("bg", "#2F2F2F")
+        hover = colors.get("hover", "#444444")
+        active = colors.get("active", "#222222")
+        is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+
+        # Widget-Attribute finden, damit Tooltips bei jedem Sprachwechsel neu
+        # gesetzt werden und keine Texte der vorherigen Sprache zurückbleiben.
+        attr_by_id = {}
         try:
-            # Einmalig starten; der Timer erfasst auch Buttons, die später
-            # durch Dialoge, Plugins oder dynamische UI-Updates entstehen.
-            timer = getattr(self, "_button_effect_timer", None)
-            if timer is None:
-                timer = QTimer(self)
-                timer.setInterval(1000)
-                timer.timeout.connect(self._apply_button_visual_effects)
-                self._button_effect_timer = timer
-                timer.start()
-            self._apply_button_visual_effects()
-        except Exception as exc:
-            print(f"[BUTTON EFFECTS] Initialisierung fehlgeschlagen: {exc}", flush=True)
+            for attr_name, value in vars(self).items():
+                if isinstance(value, QPushButton):
+                    attr_by_id[id(value)] = attr_name
+        except Exception:
+            pass
 
-    def _apply_button_visual_effects(self):
-        """Ergänzt bei jedem QPushButton Hover-, Pressed- und Matrix-QSS-Regeln."""
-        try:
-            from PyQt6.QtWidgets import QPushButton
+        tooltip_texts = {
+            "btn_patch_online": (
+                "Lädt verfügbare Patches aus dem Git-Repository und zeigt deren Versionen an."
+                if is_de else
+                "Loads available patches from the Git repository and shows their versions."
+            ),
+            "telemetry_cb": (
+                "Anonyme Nutzungsstatistik aktivieren oder deaktivieren."
+                if is_de else
+                "Enable or disable anonymous usage statistics."
+            ),
+            "log_button": (
+                "Speichert den aktuellen Log-/Protokollinhalt in einer Datei."
+                if is_de else
+                "Saves the current log output to a file."
+            ),
+            "btn_modifier": (
+                "Ändert den Namen des Patch-Autors."
+                if is_de else
+                "Changes the patch author name."
+            ),
+            "btn_repo_url": (
+                "Zeigt oder ändert die URL des OSCam-Emu-Repositories."
+                if is_de else
+                "Shows or changes the OSCam-Emu repository URL."
+            ),
+            "btn_open_work": (
+                "Öffnet den Arbeitsordner."
+                if is_de else "Opens the working folder."
+            ),
+            "btn_open_temp": (
+                "Öffnet den lokalen temporären Git-Clone."
+                if is_de else "Opens the local temporary Git clone."
+            ),
+            "btn_open_emu": (
+                "Öffnet das OSCam-Emu-Repository."
+                if is_de else "Opens the OSCam-Emu repository."
+            ),
+            "btn_check_tools": (
+                "Prüft Compiler und benötigte Abhängigkeiten."
+                if is_de else "Checks compilers and required dependencies."
+            ),
+            "btn_check_commit": (
+                "Prüft den aktuellen Git-Commit."
+                if is_de else "Checks the current Git commit."
+            ),
+            "header_btn_s3_ncam": (
+                "Wählt den Patch-Ordner für S3/NCam aus."
+                if is_de else "Selects the S3/NCam patch folder."
+            ),
+            "header_btn_s4": (
+                "Wählt den S4-Patch-Ordner aus."
+                if is_de else "Selects the S4 patch folder."
+            ),
+            "header_btn_patch_ncam": (
+                "Kopiert den Patch in den konfigurierten S3/NCam-Ordner."
+                if is_de else "Copies the patch to the configured S3/NCam folder."
+            ),
+            "header_btn_patch_s4": (
+                "Kopiert den Patch in den konfigurierten S4-Ordner."
+                if is_de else "Copies the patch to the configured S4 folder."
+            ),
+            "btn_s3": (
+                "Linksklick: S3 öffnen/starten. Rechtsklick: Installationspfad ändern."
+                if is_de else "Left-click: open/start S3. Right-click: change installation path."
+            ),
+            "btn_s4": (
+                "Linksklick: S4 öffnen/starten. Rechtsklick: Installationspfad ändern."
+                if is_de else "Left-click: open/start S4. Right-click: change installation path."
+            ),
+            "btn_ncam": (
+                "Linksklick: NCam öffnen/starten. Rechtsklick: Installationspfad ändern."
+                if is_de else "Left-click: open/start NCam. Right-click: change installation path."
+            ),
+            "info_button": (
+                "Zeigt Informationen zum Programm."
+                if is_de else "Shows information about the application."
+            ),
+            "matrix_btn": (
+                "Schaltet den Matrix-Modus um."
+                if is_de else "Toggles Matrix mode."
+            ),
+            "oscam_source_button": (
+                "Öffnet oder ändert die OSCam-Quellrepository-URL."
+                if is_de else "Opens or changes the OSCam source repository URL."
+            ),
+            "patch_emu_git_button": (
+                "Verwaltet das OSCam-Emu-Git-Repository und den Patch."
+                if is_de else "Manages the OSCam-Emu Git repository and patch."
+            ),
+            "github_upload_patch_button": (
+                "Lädt den aktuellen Patch zu GitHub hoch."
+                if is_de else "Uploads the current patch to GitHub."
+            ),
+            "clean_emu_button": (
+                "Bereinigt das lokale OSCam-Emu-Git-Repository."
+                if is_de else "Cleans the local OSCam-Emu Git repository."
+            ),
+        }
 
-            cfg = getattr(self, "current_config", {})
-            if not isinstance(cfg, dict):
-                cfg = {}
-            matrix_active = str(cfg.get("theme_mode", "standard")).lower() == "matrix"
+        for btn in self.findChildren(QPushButton):
+            try:
+                attr_name = attr_by_id.get(id(btn), "")
+                label = btn.text().replace("&", "").replace("\n", " ").strip()
+                label = " ".join(label.split())
+                if attr_name in tooltip_texts:
+                    tooltip = tooltip_texts[attr_name]
+                elif label:
+                    tooltip = (f"Aktion: {label}" if is_de else f"Action: {label}")
+                else:
+                    tooltip = ("Aktion ausführen" if is_de else "Perform action")
+                btn.setToolTip(tooltip)
+                btn.setToolTipDuration(10000)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
-            effect_css = """
-/* __UNIVERSAL_BUTTON_EFFECTS__ */
-QPushButton:hover {
-    border: 1px solid #00FF41;
-    background-color: #16451F;
-    color: #FFFFFF;
-}
-QPushButton:pressed {
-    border: 2px solid #00FF41;
-    background-color: #008F11;
-    color: #000000;
-}
-QPushButton[matrixMode="true"] {
-    background-color: #050805;
-    color: #00FF41;
-    border: 1px solid #008F11;
-}
-QPushButton[matrixMode="true"]:hover {
-    background-color: #00FF41;
-    color: #000000;
-    border: 2px solid #B6FFB6;
-}
-QPushButton[matrixMode="true"]:pressed {
-    background-color: #008F11;
-    color: #FFFFFF;
-    border: 2px solid #00FF41;
-}
-"""
-            for button in self.findChildren(QPushButton):
-                try:
-                    if not button or button.property("skip_universal_button_effects"):
-                        continue
-                    button.setCursor(Qt.CursorShape.PointingHandCursor)
-                    button.setProperty("matrixMode", "true" if matrix_active else "false")
-
-                    style = button.styleSheet() or ""
-                    if "__UNIVERSAL_BUTTON_EFFECTS__" not in style:
-                        button.setStyleSheet(style.rstrip() + "\n" + effect_css)
-                    # QSS-Propertyänderungen benötigen ein Re-Polish, damit
-                    # Matrix-Farben beim Themewechsel sofort aktualisiert werden.
-                    button.style().unpolish(button)
-                    button.style().polish(button)
-                    button.update()
-                except RuntimeError:
-                    # Widget wurde während der Iteration bereits zerstört.
-                    continue
-        except Exception as exc:
-            print(f"[BUTTON EFFECTS] Aktualisierung fehlgeschlagen: {exc}", flush=True)
-
-    def apply_global_button_style(self, text_color="#EAFF00"):
-        """Setzt die Schriftfarbe für ALLE Buttons in der GUI zentral."""
-        style = f"""
-            QPushButton {{
-                color: {text_color};
-                font-weight: bold;
-                background-color: #3d3d3d;
-                border: 1px solid #555;
-                border-radius: 8px;
-                padding: 5px;
-            }}
-            QPushButton:hover {{
-                background-color: #4d4d4d;
-                border: 1px solid #00ADFF;
-            }}
-        """
-        # Dies überschreibt die Button-Styles im gesamten Fenster
-        self.setStyleSheet(self.styleSheet() + style)
+                # Ein einheitliches Theme für alle Buttons. Stats bleibt ein
+                # Toggle: aktiv rote Schrift, inaktiv die Theme-Textfarbe.
+                if btn is getattr(self, "telemetry_cb", None):
+                    btn.setStyleSheet(f"""
+                        QPushButton {{ color: {fg}; background-color: {bg};
+                            border: 1px solid {fg}; border-radius: 8px;
+                            padding: 3px 8px; font-weight: bold; }}
+                        QPushButton:hover {{ color: {fg}; background-color: {hover};
+                            border: 2px solid {fg}; }}
+                        QPushButton:checked {{ color: #FF0000; background-color: {bg};
+                            border: 2px solid #FF0000; }}
+                        QPushButton:checked:hover {{ color: #FF0000;
+                            background-color: {hover}; border: 2px solid #FF0000; }}
+                        QPushButton:pressed {{ background-color: {active}; }}
+                        QPushButton:disabled {{ color: #777777; background-color: {active}; }}
+                        QToolTip {{ color: {fg}; background-color: {bg};
+                            border: 1px solid {fg}; padding: 5px; }}
+                    """)
+                else:
+                    btn.setStyleSheet(f"""
+                        QPushButton {{ color: {fg}; background-color: {bg};
+                            border: 1px solid {fg}; border-radius: 8px;
+                            padding: 5px; font-weight: bold; }}
+                        QPushButton:hover {{ color: {fg}; background-color: {hover};
+                            border: 2px solid {fg}; }}
+                        QPushButton:pressed {{ color: {fg}; background-color: {active};
+                            border: 2px solid {fg}; }}
+                        QPushButton:disabled {{ color: #777777; background-color: {active}; }}
+                        QToolTip {{ color: {fg}; background-color: {bg};
+                            border: 1px solid {fg}; padding: 5px; }}
+                    """)
+            except RuntimeError:
+                continue
 
     def on_telemetry_changed(self, checked):
         """Schaltet Stats um und speichert den Zustand dauerhaft."""
@@ -5850,10 +5767,6 @@ QPushButton[matrixMode="true"]:pressed {
             traceback.print_exc()
             return
 
-        # Button-Styles unmittelbar nach dem Themewechsel synchronisieren.
-        if hasattr(self, "_apply_button_visual_effects"):
-            self._apply_button_visual_effects()
-
         # 8. Uhr aktualisieren
         analog_clock = getattr(self, "analog_clock", None)
 
@@ -6013,7 +5926,7 @@ QPushButton[matrixMode="true"]:pressed {
                 "background-color: #DDD; color: #222; border: 1px solid #BBB; border-radius: 4px; font-size: 10px;"
             )
             self.btn_theme.setText("☀️ Light Mode")
-            
+
             pbar = getattr(self, "progress_bar", None)
             if pbar:
                 pbar.setStyleSheet(
@@ -6531,31 +6444,31 @@ QPushButton[matrixMode="true"]:pressed {
 
         # --- Zentrale Farben & Schriftarten ---
         C_TIME = "#FF0000"
-        F_TIME = "Segoe UI, Segoe UI, sans-serif"
+        F_TIME = "Arial, Segoe UI, sans-serif"
         F_TIME_SIZE = "24px"
         F_TIME_WEIGHT = "bold"
 
         C_REV = "#00FF00"
-        F_REV = "Segoe UI, Segoe UI, sans-serif"
+        F_REV = "Arial, Segoe UI, sans-serif"
         F_REV_SIZE = "24px"
         F_REV_WEIGHT = "bold"
 
         C_BLINK = "#F70606"
         C_FINAL_COLOR = "cyan"
         BG_FINAL_LABEL = "black"
-        F_FINAL_LABEL = "Segoe UI, Segoe UI, sans-serif"
+        F_FINAL_LABEL = "Arial, Segoe UI, sans-serif"
         F_FINAL_LABEL_SIZE = "24px"
         F_FINAL_LABEL_WEIGHT = "bold"
         FINAL_LABEL_BORDER_RADIUS = 6
 
         # Nachrichten
         MSG_UPTODATE_COLOR = "#00FF00"
-        MSG_UPTODATE_FONT = "Segoe UI, Segoe UI, sans-serif"
+        MSG_UPTODATE_FONT = "Arial, Segoe UI, sans-serif"
         MSG_UPTODATE_SIZE = "24px"
         MSG_UPTODATE_WEIGHT = "bold"
 
         MSG_UPDATE_COLOR = "#FFAA00"
-        MSG_UPDATE_FONT = "Segoe UI, Segoe UI, sans-serif"
+        MSG_UPDATE_FONT = "Arial, Segoe UI, sans-serif"
         MSG_UPDATE_SIZE = "24px"
         MSG_UPDATE_WEIGHT = "bold"
 
@@ -6897,83 +6810,9 @@ QPushButton[matrixMode="true"]:pressed {
 
 
         # ============================================================
-        # 7. AKTIVEN GRID-BUTTON WIEDERHERSTELLEN
+        # 7/8. KEINE Sonderfarbe für aktive Grid-Buttons:
+        # Alle Buttons bleiben im ausgewählten Farbschema.
         # ============================================================
-        active_key = getattr(self, "active_button_key", None)
-
-        if active_key and hasattr(self, "buttons"):
-            active_btn = self.buttons.get(active_key)
-
-            if active_btn:
-                try:
-                    active_btn.setStyleSheet(
-                        f"""
-                        QPushButton {{
-                            background-color: #00FF00;
-                            color: #000000;
-                            border-radius: {getattr(self, "BUTTON_RADIUS", 8)}px;
-                            min-height: {getattr(self, "BUTTON_HEIGHT", 42)}px;
-                            font-weight: bold;
-                            border: 2px solid white;
-                            padding: 5px 8px;
-                        }}
-
-                        QPushButton:hover {{
-                            background-color: #39FF39;
-                            color: #000000;
-                            border: 2px solid white;
-                        }}
-
-                        QPushButton:pressed {{
-                            background-color: #00CC00;
-                            color: #000000;
-                        }}
-                        """
-                    )
-                except RuntimeError:
-                    pass
-
-
-
-        # ============================================================
-        # 8. AKTIVEN GRID-BUTTON WIEDERHERSTELLEN
-        #
-        # repaint_ui_colors() setzt alle Buttons zurück.
-        # Deshalb aktiven Button danach erneut hervorheben.
-        # ============================================================
-        active_key = getattr(self, "active_button_key", None)
-
-        if active_key and hasattr(self, "buttons"):
-            active_btn = self.buttons.get(active_key)
-
-            if active_btn:
-                try:
-                    active_btn.setStyleSheet(
-                        f"""
-                        QPushButton {{
-                            background-color: #00FF00;
-                            color: #000000;
-                            border-radius: {getattr(self, "BUTTON_RADIUS", 8)}px;
-                            min-height: {getattr(self, "BUTTON_HEIGHT", 42)}px;
-                            font-weight: bold;
-                            border: 2px solid white;
-                            padding: 5px 8px;
-                        }}
-
-                        QPushButton:hover {{
-                            background-color: #39FF39;
-                            color: #000000;
-                            border: 2px solid white;
-                        }}
-
-                        QPushButton:pressed {{
-                            background-color: #00CC00;
-                            color: #000000;
-                        }}
-                        """
-                    )
-                except RuntimeError:
-                    pass
 
         # ============================================================
         # 9. INSTALLATIONSBUTTONS EXPLIZIT SCHÜTZEN
@@ -7338,6 +7177,13 @@ QPushButton[matrixMode="true"]:pressed {
         except Exception as e:
             print(f"[change_colors] Button-Text-Anpassung fehlgeschlagen: {e}")
 
+        # Letzter Schritt: sämtliche Buttons (einschließlich S3/S4/NCam und
+        # Stats) erhalten das ausgewählte Theme, dessen Hover-Farbe und Tooltips.
+        try:
+            self.apply_global_button_style()
+        except Exception as exc:
+            print(f"[change_colors] Button-Theme/Tooltips konnten nicht aktualisiert werden: {exc}")
+
     def log_message(self, message):
         """Zentrale Funktion: Zeit in ROT, Inhalt in CYAN - sauber untereinander."""
         from datetime import datetime
@@ -7465,7 +7311,7 @@ QPushButton[matrixMode="true"]:pressed {
         title_vbox = QVBoxLayout()
 
         title_label = QLabel("OSCam Emu Patch Manager")
-        title_label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title_label.setStyleSheet("color: #0000FF;")
 
         version_label = QLabel(f"Version {APP_VERSION}")
@@ -7575,7 +7421,7 @@ QPushButton[matrixMode="true"]:pressed {
             if is_de
             else "© 2026 speedy005 - All rights reserved."
         )
-        copy_label.setFont(QFont("Segoe UI", 8))
+        copy_label.setFont(QFont("Arial", 8))
         copy_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         copy_label.setStyleSheet(f"color: {text_color};")
 
@@ -8109,212 +7955,68 @@ QPushButton[matrixMode="true"]:pressed {
         if hasattr(self, "pbar_idle"):
             QTimer.singleShot(500, self.pbar_idle)
 
-    
-    def rearrange_grid_buttons(self):
-        """
-        Ordnet die Patch-Buttons abhängig von der verfügbaren
-        Breite automatisch in 1, 2 oder 3 Spalten an.
-        """
-        from PyQt6.QtCore import QTimer
-
-        container = getattr(self, "grid_container", None)
-        layout = getattr(self, "layout_grid_buttons", None)
-        buttons_dict = getattr(self, "buttons", None)
-
-        # Prüfen, ob Container und Layout existieren
-        if container is None or layout is None:
-            return
-
-        if not buttons_dict:
-            return
-
-        # Tatsächlich verfügbare Containerbreite verwenden
-        available_width = container.contentsRect().width()
-
-        # Beim initialen Aufbau kann die Breite noch 0 sein.
-        if available_width <= 0:
-            QTimer.singleShot(
-                50,
-                self.rearrange_grid_buttons
-            )
-            return
-
-        # Abstand zwischen den Spalten ermitteln
-        spacing = layout.horizontalSpacing()
-
-        if spacing < 0:
-            spacing = layout.spacing()
-
-        if spacing < 0:
-            spacing = 8
-
-        # Gewünschte Mindestbreite pro Button
-        min_button_width = 210
-
-        # Anzahl der Spalten automatisch berechnen
-        columns = max(
-            1,
-            min(
-                3,
-                (available_width + spacing)
-                // (min_button_width + spacing)
-            )
-        )
-
-        columns = int(columns)
-
-        # Vorhandene Buttons in ihrer Reihenfolge übernehmen
-        buttons = list(buttons_dict.values())
-
-        # Layout leeren, ohne die Buttons zu löschen
-        for button in buttons:
-            layout.removeWidget(button)
-
-        # Buttons neu positionieren
-        for index, button in enumerate(buttons):
-            row, column = divmod(index, columns)
-
-            layout.addWidget(
-                button,
-                row,
-                column
-            )
-
-            # Buttons dürfen sich der Spaltenbreite anpassen
-            button.setMinimumWidth(0)
-            button.setSizePolicy(
-                button.sizePolicy().Policy.Expanding,
-                button.sizePolicy().Policy.Fixed
-            )
-
-        # Spalten gleichmäßig verteilen
-        for column in range(3):
-            layout.setColumnStretch(
-                column,
-                1 if column < columns else 0
-            )
-
-        # Layout neu berechnen
-        layout.invalidate()
-        layout.activate()
-
-        print(
-            "[RESPONSIVE GRID] "
-            f"Breite={available_width}px, "
-            f"Spalten={columns}, "
-            f"Buttons={len(buttons)}",
-            flush=True
-        )
-
-    
- 
     def resizeEvent(self, event):
-        """Passt die Oberfläche an die aktuelle Fenstergröße an."""
+        """
+        Zentrale Steuerung für die UI-Skalierung bei Auflösungsänderung.
+        Erweitert: Automatische Anpassung des Sprachwechsel-Overlays.
+        """
         super().resizeEvent(event)
 
-        from PyQt6.QtCore import QSize, QTimer
-        from PyQt6.QtGui import QFont
-
-        width = max(1, self.width())
-        dynamic_size = max(9, min(12, int(width / 110)))
-
-        button_font = QFont(
-            "Segoe UI",
-            dynamic_size,
-            QFont.Weight.Bold
-        )
-        label_font = QFont(
-            "Segoe UI",
-            max(9, dynamic_size - 1)
-        )
-        clock_font = QFont(
-            "Segoe UI",
-            max(12, min(30, int(dynamic_size * 2.1))),
-            QFont.Weight.Bold
-        )
-
-        # Option-Buttons identifizieren, damit ihre Schriftgröße
-        # nicht durch die allgemeine Schriftgröße überschrieben wird.
-        option_buttons = getattr(self, "option_buttons", {})
-        option_button_ids = {
-            id(entry[0])
-            for entry in option_buttons.values()
-            if entry and entry[0] is not None
-        }
-
-        # Allgemeine Aktionsbuttons skalieren.
-        for btn in getattr(self, "all_buttons", []):
-            if btn is None:
-                continue
-
-            # Option-Buttons erhalten ihre eigene Textanpassung.
-            if id(btn) not in option_button_ids:
-                btn.setFont(button_font)
-
-            if not btn.icon().isNull():
-                icon_dim = max(16, min(22, dynamic_size * 2))
-                btn.setIconSize(QSize(icon_dim, icon_dim))
-
-        # Patch-Grid-Buttons skalieren.
-        for btn in getattr(self, "buttons", {}).values():
-            if btn is not None:
-                btn.setFont(button_font)
-
-        # Kopfzeile anpassen.
-        if (
-            hasattr(self, "_fit_header_controls")
-            and hasattr(self, "header_widget")
-        ):
+        # Kopfzeile responsiv halten: kompakte Schrift/Abstände auf kleinen Displays.
+        if hasattr(self, "header_widget"):
             QTimer.singleShot(0, self._fit_header_controls)
 
-        # Logo anpassen.
-        if (
-            getattr(self, "original_pixmap", None) is not None
-            and hasattr(self, "_fit_header_logo")
-        ):
+        # Banner an den tatsächlich verfügbaren Platz zwischen den Bereichen anpassen.
+        if getattr(self, "original_pixmap", None) is not None and hasattr(self, "logo_label"):
             QTimer.singleShot(0, self._fit_header_logo)
 
-        # Patch-Grid neu anordnen.
-        if (
-            hasattr(self, "grid_container")
-            and hasattr(self, "layout_grid_buttons")
-            and hasattr(self, "rearrange_grid_buttons")
-        ):
-            QTimer.singleShot(0, self.rearrange_grid_buttons)
+        # 1. Basis-Schriftgröße berechnen (Faktor 90 statt 75 für kompaktere Schriften)
+        dynamic_size = max(10, int(self.width() / 90))
 
-        # Option-Buttons neu anordnen und Schriftgröße anpassen.
-        if hasattr(self, "rearrange_option_buttons"):
-            QTimer.singleShot(0, self.rearrange_option_buttons)
+        # Schriftarten erstellen
+        button_font = QFont("Arial", dynamic_size, QFont.Weight.Bold)
+        label_font = QFont("Arial", max(9, dynamic_size - 1))
 
-        # Uhrzeit und Datum gemeinsam skalieren
-        clock = getattr(self, "digital_clock", None)
-        date_label = getattr(self, "date_label", None)
+        # UHR-FIX: Faktor auf 1.1 reduziert (statt 1.5) und Basis auf 12 (statt 14)
+        clock_font = QFont("Arial", max(12, int(dynamic_size * 1.1)), QFont.Weight.Bold)
 
-        if clock is not None:
-            clock.setFont(clock_font)
+        # 2. Alle Buttons in 'all_buttons' aktualisieren
+        for btn in self.all_buttons:
+            btn.setFont(button_font)
+            if not btn.icon().isNull():
+                # Icons etwas kleiner (2.0 statt 2.5)
+                icon_dim = int(dynamic_size * 2.0)
+                btn.setIconSize(QSize(icon_dim, icon_dim))
 
-        if date_label is not None:
-            date_label.setFont(clock_font)
+        # 3. Buttons im Dictionary 'buttons' (Aktions-Grid)
+        for key in self.buttons:
+            self.buttons[key].setFont(button_font)
 
-        # Beschriftungen.
-        for name in ("lang_label", "color_label", "commit_label"):
-            widget = getattr(self, name, None)
-            if widget is not None:
-                widget.setFont(label_font)
+        # 4. Spezifische GUI-Elemente anpassen
+        if hasattr(self, "digital_clock"):
+            self.digital_clock.setFont(clock_font)
 
-        # Informationstext.
-        info = getattr(self, "info_text", None)
-        if info is not None:
-            info.setFont(
-                QFont("Courier", max(9, min(12, dynamic_size)))
-            )
+        if hasattr(self, "lang_label"):
+            self.lang_label.setFont(label_font)
+            self.color_label.setFont(label_font)
+            self.commit_label.setFont(label_font)
 
-        # Lade-Overlay an die Fenstergröße anpassen.
-        overlay = getattr(self, "loading_overlay", None)
-        if overlay is not None:
-            overlay.setGeometry(self.rect())
+        
+        # 5. Logo-Skalierung
+        if hasattr(self, "original_pixmap") and self.original_pixmap:
+            QTimer.singleShot(0, self._fit_header_logo)
 
 
+        # 6. Info-Text-Skalierung (Courier braucht oft etwas mehr Platz)
+        if hasattr(self, "info_text"):
+            text_font = QFont("Courier", max(10, dynamic_size))
+            self.info_text.setFont(text_font)
+
+        # --- 7. NEU: OVERLAY SKALIERUNG ---
+        # Stellt sicher, dass der Lade-Schleier immer das gesamte Fenster füllt
+        if hasattr(self, "loading_overlay") and self.loading_overlay:
+            # Setzt die Geometrie des Overlays exakt auf die neue Fenstergröße
+            self.loading_overlay.setGeometry(self.rect())
 
     def open_terminal(self, **kwargs):
         """Öffnet Terminal (S3, S4 oder NCam) mit Sudo-Support, Regenbogen-Progress und Sound."""
@@ -8640,7 +8342,8 @@ QPushButton[matrixMode="true"]:pressed {
         excluded_files = {
             "Noto_Color_Emoji.zip",
             "oscam_emu_toolkit2.png",  
-            "speedy_oscam_managert.png",  
+            "oscam_emu_toolkit2.png",  
+            "speedy_oscam_managert.png"
             "oscam-patch-generator.png",
             "final-oscam-emu-patch-maker.png",
             "final-englisch.png",
@@ -9069,26 +8772,18 @@ QPushButton[matrixMode="true"]:pressed {
         return buttons
 
     
-
     def _fit_header_controls(self):
-        """Passt die Kopfzeile an die verfügbare Fensterbreite an."""
-        from PyQt6.QtCore import QTimer
-        from PyQt6.QtGui import QFont
-        from PyQt6.QtWidgets import QSizePolicy
-
+        """Passt die Kopfzeilen-Buttons an die verfügbare Fensterbreite an."""
         if not hasattr(self, "header_widget"):
             return
 
-        width = max(1, self.header_widget.contentsRect().width())
-        compact = width < 1450
+        width = max(480, self.width())
+        # Schrift wird bei schmalen Fenstern kleiner, aber nicht unlesbar.
         font_size = max(7, min(10, int(width / 150)))
+        compact = width < 1450
         gap = 4 if compact else 8
 
-        for layout_name in (
-            "header_layout",
-            "left_header_layout",
-            "right_header_layout",
-        ):
+        for layout_name in ("header_layout", "left_header_layout", "right_header_layout"):
             layout = getattr(self, layout_name, None)
             if layout is not None:
                 layout.setSpacing(gap)
@@ -9099,114 +8794,57 @@ QPushButton[matrixMode="true"]:pressed {
             "header_btn_patch_ncam", "header_btn_patch_s4",
             "log_button", "telemetry_cb", "oscam_source_button",
         )
-
         for name in names:
             button = getattr(self, name, None)
             if button is None:
                 continue
-
-            button.setFont(
-                QFont("Segoe UI", font_size, QFont.Weight.Bold)
-            )
-
+            button.setFont(QFont("Segoe UI", font_size, QFont.Weight.Bold))
             if name != "info_button":
-                button.setMinimumWidth(0)
-                button.setMinimumHeight(28 if compact else 32)
-                button.setMaximumWidth(
-                    260 if name in ("btn_s3", "btn_s4", "btn_ncam")
-                    else 340
-                )
-                button.setSizePolicy(
-                    QSizePolicy.Policy.Preferred,
-                    QSizePolicy.Policy.Fixed,
-                )
+                button.setMinimumHeight(30 if compact else 32)
+                button.setMaximumWidth(260 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
+                button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
-        # Banner darf den ihm zugewiesenen Platz vollständig nutzen.
-        logo = getattr(self, "logo_label", None)
-        if logo is not None:
-            logo.setMinimumSize(0, 0)
-            logo.setSizePolicy(
-                QSizePolicy.Policy.Ignored,
-                QSizePolicy.Policy.Expanding,
-            )
-
+        if hasattr(self, "logo_label"):
+            self.logo_label.setMinimumSize(150, 45)
+            self.logo_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             QTimer.singleShot(0, self._fit_header_logo)
 
-
-  
     def _fit_header_logo(self):
-        """Passt das Banner unabhängig von den Header-Buttons an."""
-        from PyQt6.QtCore import QTimer
-
-        logo = getattr(self, "logo_label", None)
-        pixmap = getattr(self, "original_pixmap", None)
-
-        if logo is None or pixmap is None or pixmap.isNull():
+        """Skaliert das Banner in die komplette verfügbare mittlere Header-Lücke."""
+        if not hasattr(self, "logo_label") or getattr(self, "original_pixmap", None) is None:
             return
-
-        rect = logo.contentsRect()
-
-        if rect.width() <= 0 or rect.height() <= 0:
-            QTimer.singleShot(50, self._fit_header_logo)
-            return
-
-        min_width = getattr(self, "BANNER_MIN_WIDTH", 80)
-        max_width = getattr(self, "BANNER_MAX_WIDTH", 300)
-        min_height = getattr(self, "BANNER_MIN_HEIGHT", 45)
-        max_height = getattr(self, "BANNER_MAX_HEIGHT", 60)
-
-        # Verfügbare Breite und Höhe begrenzen.
-        width = max(min_width, min(rect.width(), max_width))
-        height = max(min_height, min(rect.height(), max_height))
-
-        self.update_logo(
-            width=width,
-            height=height,
-            fill_gap=getattr(self, "BANNER_FILL_GAP", True),
-        )
-
-
+        available_width = max(150, self.logo_label.contentsRect().width() - 4)
+        # Das Banner nutzt seinen zugewiesenen Platz vollständig, mindestens 150 x 45 px.
+        available_height = max(45, self.logo_label.contentsRect().height() - 8)
+        self.update_logo(width=available_width, height=available_height, fill_gap=True)
 
     def update_logo(self, width=None, height=None, fill_gap=False):
-        """Skaliert das Banner auf die vorgegebene Größe."""
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QSizePolicy
-
-        logo = getattr(self, "logo_label", None)
-        pixmap = getattr(self, "original_pixmap", None)
-
-        if logo is None or pixmap is None or pixmap.isNull():
+        """
+        Skaliert das Logo in der Höhe proportional oder füllt bei fill_gap=True
+        die gesamte verfügbare Header-Lücke bei gleichbleibender Höhe.
+        """
+        if not hasattr(self, "original_pixmap") or self.original_pixmap is None:
             return
 
         if width is None:
-            width = max(1, self.TITLE_HEIGHT * 3)
-
+            width = self.TITLE_HEIGHT * 3
         if height is None:
-            height = max(1, self.TITLE_HEIGHT)
+            height = self.TITLE_HEIGHT
 
-        width = max(1, int(width))
-        height = max(1, int(height))
-
-        scaled_pixmap = pixmap.scaled(
+        scaled_pixmap = self.original_pixmap.scaled(
             width,
             height,
-            (
-                Qt.AspectRatioMode.IgnoreAspectRatio
-                if fill_gap
-                else Qt.AspectRatioMode.KeepAspectRatio
-            ),
+            Qt.AspectRatioMode.IgnoreAspectRatio if fill_gap else Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
 
-        logo.setMinimumSize(0, 0)
-        logo.setMaximumSize(16777215, 16777215)
-        logo.setSizePolicy(
-            QSizePolicy.Policy.Ignored,
-            QSizePolicy.Policy.Expanding,
+        self.logo_label.setPixmap(scaled_pixmap)
+        # Das QLabel darf vom Header-Layout automatisch angepasst werden.
+        self.logo_label.setMinimumSize(150, 45)
+        self.logo_label.setMaximumSize(16777215, 16777215)
+        self.logo_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
-        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo.setPixmap(scaled_pixmap)
-
 
 
     # 🔹 HIER EINSETZEN 🔹
@@ -9346,148 +8984,196 @@ QPushButton[matrixMode="true"]:pressed {
             emu_revision,
         )
 
-    
     def setup_option_buttons(self, parent_layout):
-        """
-        Erstellt responsive Aktionsbuttons mit HTML-Tooltips,
-        Regenbogen-Fortschrittsanzeige und Sound.
-        """
+        """Erstellt die mittleren Buttons mit HTML-Tooltips, Regenbogen-Progress und Sound."""
         from PyQt6.QtWidgets import (
             QGridLayout,
             QWidget,
             QSizePolicy,
             QApplication,
+            QPushButton,
         )
-        from PyQt6.QtGui import QFont, QFontMetrics
+        from PyQt6.QtGui import QFont
         from PyQt6.QtCore import QTimer
 
-        # ---------------------------------------------------------
-        # SPRACHE
-        # ---------------------------------------------------------
+        # Sprache abrufen
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
 
-        # ---------------------------------------------------------
-        # BUTTON-DEFINITIONEN
-        # ---------------------------------------------------------
         button_defs = [
             (
-                "git_status", "git_status", "#1E90FF",
-                self.show_commits, "white", "SP_FileDialogContentsView",
+                "git_status",
+                "git_status",
+                "#1E90FF",
+                self.show_commits,
+                "white",
+                "SP_FileDialogContentsView",
                 "🔍 <b>Git Status:</b> Zeigt die neuesten Commits vom Server an.",
                 "🔍 <b>Git Status:</b> Shows the latest commits from the server.",
             ),
             (
-                "plugin_update", "plugin_update", "#FF8C00",
-                self.plugin_update_button_clicked, "white", "SP_ArrowDown",
+                "plugin_update",
+                "plugin_update",
+                "#FF8C00",
+                self.plugin_update_button_clicked,
+                "white",
+                "SP_ArrowDown",
                 "🔄 <b>Update:</b> Sucht nach neuen Versionen für Plugins und Tools.",
                 "🔄 <b>Update:</b> Checks for new versions of plugins and tools.",
             ),
             (
-                "restart_tool", "restart_tool", "#FF4500",
-                self.restart_application_with_info, "white", "SP_BrowserReload",
+                "restart_tool",
+                "restart_tool",
+                "#FF4500",
+                self.restart_application_with_info,
+                "white",
+                "SP_BrowserReload",
                 "♻️ <b>Neustart:</b> Startet den Patch Manager komplett neu.",
                 "♻️ <b>Restart:</b> Restarts the patch manager completely.",
             ),
             (
-                "edit_patch_header", "edit_patch_header", "#32CD32",
-                self.edit_patch_header, "white", "SP_FileDialogDetailedView",
+                "edit_patch_header",
+                "edit_patch_header",
+                "#32CD32",
+                self.edit_patch_header,
+                "white",
+                "SP_FileDialogDetailedView",
                 "📝 <b>Header:</b> Bearbeite die Beschreibungs-Daten des Patches.",
                 "📝 <b>Header:</b> Edit the patch description metadata.",
             ),
             (
-                "github_emu_config", "github_emu_config_button", "#FFA500",
-                self.edit_emu_github_config, "black", "SP_ComputerIcon",
+                "github_emu_config",
+                "github_emu_config_button",
+                "#FFA500",
+                self.edit_emu_github_config,
+                "black",
+                "SP_ComputerIcon",
                 "⚙️ <b>Config:</b> GitHub Token und Emu-Einstellungen konfigurieren.",
                 "⚙️ <b>Config:</b> Configure GitHub tokens and Emu settings.",
             ),
             (
-                "github_upload_patch", "github_upload_patch", "#1E90FF",
-                github_upload_patch_file, "white", "SP_ArrowUp",
+                "github_upload_patch",
+                "github_upload_patch",
+                "#1E90FF",
+                github_upload_patch_file,
+                "white",
+                "SP_ArrowUp",
                 "⬆️ <b>Upload:</b> Lädt die aktuelle Patch-Datei in dein GitHub Repo.",
                 "⬆️ <b>Upload:</b> Uploads the current patch file to your GitHub repo.",
             ),
             (
-                "github_upload_emu", "github_upload_emu", "#1E90FF",
-                github_upload_oscam_emu_folder, "white", "SP_ArrowUp",
+                "github_upload_emu",
+                "github_upload_emu",
+                "#1E90FF",
+                github_upload_oscam_emu_folder,
+                "white",
+                "SP_ArrowUp",
                 "📂 <b>Upload:</b> Lädt den gesamten Emu-Ordner auf GitHub hoch.",
                 "📂 <b>Upload:</b> Uploads the entire Emu folder to GitHub.",
             ),
             (
-                "oscam_emu_git_patch", "oscam_emu_git_patch", "#32CD32",
-                patch_oscam_emu_git, "white", "SP_DialogApplyButton",
+                "oscam_emu_git_patch",
+                "oscam_emu_git_patch",
+                "#32CD32",
+                patch_oscam_emu_git,
+                "white",
+                "SP_DialogApplyButton",
                 "🛠️ <b>Patch Emu:</b> Wendet Änderungen auf das Emu-Git Repository an.",
                 "🛠️ <b>Patch Emu:</b> Applies changes to the Emu-Git repository.",
             ),
             (
-                "oscam_emu_git_clear", "oscam_emu_git_clear", "#FF4500",
-                self.oscam_emu_git_clear, "white", "SP_TrashIcon",
+                "oscam_emu_git_clear",
+                "oscam_emu_git_clear",
+                "#FF4500",
+                self.oscam_emu_git_clear,
+                "white",
+                "SP_TrashIcon",
                 "🧹 <b>Clear:</b> Bereinigt das lokale Emu-Verzeichnis (Reset).",
                 "🧹 <b>Clear:</b> Cleans the local Emu directory (reset).",
             ),
             (
-                "s3_menu", "s3_simplebuild", "#EAFF00",
-                self.start_s3_menu, "black", "SP_FileDialogDetailedView",
+                "s3_menu",
+                "s3_simplebuild",
+                "#EAFF00",
+                self.start_s3_menu,
+                "black",
+                "SP_FileDialogDetailedView",
                 "🚀 <b>S3 Menü:</b> Öffnet das Standard s3_simplebuild Terminal.",
                 "🚀 <b>S3 Menu:</b> Opens the standard s3_simplebuild terminal.",
             ),
             (
-                "s4_menu", "s4_simplebuild", "#00E5FF",
-                self.start_s4_menu, "black", "SP_FileDialogDetailedView",
+                "s4_menu",
+                "s4_simplebuild",
+                "#00E5FF",
+                self.start_s4_menu,
+                "black",
+                "SP_FileDialogDetailedView",
                 "🚀 <b>S4 Menü:</b> Öffnet das S4 Simplebuild Terminal.",
                 "🚀 <b>S4 Menu:</b> Opens the S4 Simplebuild terminal.",
             ),
             (
-                "ncam_menu", "NCam Bonecrew", "#FF8C00",
-                self.start_ncam_menu, "black", "SP_ComputerIcon",
+                "ncam_menu",
+                "NCam Bonecrew",
+                "#FF8C00",
+                self.start_ncam_menu,
+                "black",
+                "SP_ComputerIcon",
                 "🏴‍☠️ <b>NCam:</b> Startet das spezialisierte NCam Bonecrew Menü.",
                 "🏴‍☠️ <b>NCam:</b> Launches the specialized NCam Bonecrew menu.",
             ),
             (
-                "fix_perms", "Fix Permissions", "#D3D3D3",
-                self.fix_all_tool_permissions, "black", "SP_DialogNoButton",
+                "fix_perms",
+                "Fix Permissions",
+                "#D3D3D3",
+                self.fix_all_tool_permissions,
+                "black",
+                "SP_DialogNoButton",
                 "🔓 <b>Rechte:</b> Fixiert Schreibrechte für alle Ordner/Dateien.",
                 "🔓 <b>Rights:</b> Fixes write permissions for all folders/files.",
             ),
             (
-                "streamboard_checkout", "Streamboard Revision", "#00BFFF",
-                self.checkout_streamboard_revision, "white", "SP_DialogOpenButton",
+                "streamboard_checkout",
+                "Streamboard Revision" if is_de else "Streamboard Revision",
+                "#00BFFF",
+                self.checkout_streamboard_revision,
+                "white",
+                "SP_DialogOpenButton",
                 "📌 <b>Streamboard Revision:</b> Beliebigen Streamboard-Commit als Patch-Basis auswählen.",
                 "📌 <b>Streamboard Revision:</b> Select any Streamboard commit as the patch base.",
             ),
             (
-                "oscam_emu_revision", "OSCam-Emu Revision", "#00BFFF",
-                self.checkout_emu_revision, "white", "SP_DialogOpenButton",
+                "oscam_emu_revision",
+                "OSCam-Emu Revision",
+                "#00BFFF",
+                self.checkout_emu_revision,
+                "white",
+                "SP_DialogOpenButton",
                 "📌 <b>OSCam-Emu Revision:</b> Beliebigen OSCam-Emu-Commit als Patch-Basis auswählen.",
                 "📌 <b>OSCam-Emu Revision:</b> Select any OSCam-Emu commit as the patch base.",
             ),
         ]
 
-        # ---------------------------------------------------------
-        # CONTAINER UND GRID
-        # ---------------------------------------------------------
-        container = QWidget(self)
+        container = QWidget()
 
         options_grid = QGridLayout(container)
         options_grid.setSpacing(6)
         options_grid.setContentsMargins(0, 5, 0, 5)
 
-        # Referenzen für rearrange_option_buttons()
-        self.option_buttons_container = container
-        self.option_buttons_grid = options_grid
-
         if not hasattr(self, "all_buttons"):
             self.all_buttons = []
 
-        # Bei erneutem Setup alte Dictionary-Einträge verwerfen
-        self.option_buttons = {}
+        self.option_buttons = getattr(self, "option_buttons", {})
 
-        button_height = 44
+        # Immer 5 Buttons pro Reihe
+        cols_per_row = 5
+
+        # Einheitliche Höhe
+        FLACH_HEIGHT = 50
 
         # ---------------------------------------------------------
         # BUTTONS ERSTELLEN
         # ---------------------------------------------------------
-        for (
+        for idx, (
             key,
             text_key,
             color,
@@ -9496,7 +9182,7 @@ QPushButton[matrixMode="true"]:pressed {
             icon,
             tt_de,
             tt_en,
-        ) in button_defs:
+        ) in enumerate(button_defs):
 
             raw_text = (
                 self.get_t(text_key, text_key)
@@ -9504,93 +9190,100 @@ QPushButton[matrixMode="true"]:pressed {
                 else text_key
             )
 
+            btn = QPushButton(raw_text)
+
+            if key == "fix_perms":
+                self.btn_fix_perms = btn
+
             # -----------------------------------------------------
-            # CALLBACK-WRAPPER
+            # CALLBACK
             # -----------------------------------------------------
             def create_cb(c, k=key):
                 def wrapper():
+
+                    if "safe_play" in globals():
+                        safe_play("service-login.oga")
+
                     pbar = getattr(self, "progress_bar", None)
 
+                    if pbar:
+                        rainbow = (
+                            "qlineargradient("
+                            "x1:0, y1:0, x2:1, y2:0, "
+                            "stop:0.0 #FF0000, "
+                            "stop:0.2 #FF7F00, "
+                            "stop:0.4 #FFFF00, "
+                            "stop:0.6 #00FF00, "
+                            "stop:0.8 #0000FF, "
+                            "stop:1.0 #8B00FF);"
+                        )
+
+                        pbar.setStyleSheet(
+                            f"""
+                            QProgressBar {{
+                                text-align: center;
+                                font-weight: 700;
+                                border: 2px solid #222;
+                                border-radius: 6px;
+                                background-color: #111;
+                                color: black;
+                                font-size: 15pt;
+                            }}
+
+                            QProgressBar::chunk {{
+                                background-color: {rainbow};
+                                border-radius: 4px;
+                            }}
+                            """
+                        )
+
+                        msg = (
+                            "Verarbeite..."
+                            if is_de
+                            else "Processing..."
+                        )
+
+                        pbar.setFormat(f"⚙️ {msg} %p%")
+                        pbar.setValue(15)
+                        pbar.show()
+
+                        QApplication.processEvents()
+
                     try:
-                        if "safe_play" in globals():
-                            safe_play("service-login.oga")
 
-                        # Fortschrittsanzeige vorbereiten
-                        if pbar is not None:
-                            rainbow = (
-                                "qlineargradient("
-                                "x1:0, y1:0, x2:1, y2:0, "
-                                "stop:0.0 #FF0000, "
-                                "stop:0.2 #FF7F00, "
-                                "stop:0.4 #FFFF00, "
-                                "stop:0.6 #00FF00, "
-                                "stop:0.8 #0000FF, "
-                                "stop:1.0 #8B00FF);"
-                            )
-
-                            pbar.setStyleSheet(
-                                f"""
-                                QProgressBar {{
-                                    text-align: center;
-                                    font-weight: 700;
-                                    border: 2px solid #222;
-                                    border-radius: 6px;
-                                    background-color: #111;
-                                    color: black;
-                                    font-size: 15pt;
-                                }}
-                                QProgressBar::chunk {{
-                                    background: {rainbow};
-                                    border-radius: 4px;
-                                }}
-                                """
-                            )
-
-                            msg = (
-                                "Verarbeite..."
-                                if is_de
-                                else "Processing..."
-                            )
-
-                            pbar.setFormat(f"⚙️ {msg} %p%")
-                            pbar.setValue(15)
-                            pbar.show()
-
-                            QApplication.processEvents()
-
-                        # Gebundene Methoden direkt aufrufen
                         if hasattr(c, "__self__") or k == "online_patch_dl":
                             c()
+
                         else:
-                            progress_func = getattr(
+                            callback_func = getattr(
                                 self,
                                 "upload_progress_with_speed",
-                                None,
+                                pbar.setValue if pbar else None,
                             )
-
-                            if progress_func is None and pbar is not None:
-                                progress_func = pbar.setValue
 
                             c(
                                 gui_instance=self,
                                 info_widget=self.info_text,
-                                progress_callback=progress_func,
+                                progress_callback=callback_func,
                             )
 
                         if "safe_play" in globals():
                             safe_play("complete.oga")
 
-                        if pbar is not None:
+                        if pbar:
                             pbar.setValue(100)
                             pbar.setFormat(
-                                "✅ OK!" if is_de else "✅ Done!"
+                                "✅ OK!"
+                                if is_de
+                                else "✅ Done!"
                             )
 
-                    except Exception as exc:
+                    except Exception as e:
+
                         if "safe_play" in globals():
                             safe_play("dialog-error.oga")
 
-                        if pbar is not None:
+                        if pbar:
                             pbar.setStyleSheet(
                                 """
                                 QProgressBar {
@@ -9600,26 +9293,15 @@ QPushButton[matrixMode="true"]:pressed {
                                 """
                             )
 
-                        print(
-                            f"Fehler bei {k}: {exc}",
-                            flush=True,
+                        print(f"Fehler bei {k}: {e}")
+
+                    if pbar:
+                        QTimer.singleShot(
+                            3000,
+                            self.pbar_idle
+                            if hasattr(self, "pbar_idle")
+                            else lambda: pbar.setValue(0),
                         )
-
-                    finally:
-                        if pbar is not None:
-                            idle_callback = getattr(
-                                self,
-                                "pbar_idle",
-                                None,
-                            )
-
-                            if callable(idle_callback):
-                                QTimer.singleShot(3000, idle_callback)
-                            else:
-                                QTimer.singleShot(
-                                    3000,
-                                    lambda bar=pbar: bar.setValue(0),
-                                )
 
                 return wrapper
 
@@ -9627,35 +9309,23 @@ QPushButton[matrixMode="true"]:pressed {
             # BUTTON ERSTELLEN
             # -----------------------------------------------------
             btn = self.create_action_button(
-                parent=container,
+                parent=self,
                 text=raw_text,
                 color=color,
                 callback=create_cb(callback),
                 all_buttons_list=self.all_buttons,
                 fg=fg,
                 icon_name=icon,
-                min_height=button_height,
+                min_height=FLACH_HEIGHT,
                 radius=getattr(self, "BUTTON_RADIUS", 10),
             )
-
-            if btn is None:
-                print(
-                    f"[OPTIONS] Button konnte nicht erstellt werden: {key}",
-                    flush=True,
-                )
-                continue
-
-            if key == "fix_perms":
-                self.btn_fix_perms = btn
-
-            # Schlüssel und Originaltext speichern
-            btn.setProperty("text_key", text_key)
-            btn.setProperty("full_text", raw_text)
 
             # -----------------------------------------------------
             # TOOLTIP
             # -----------------------------------------------------
-            btn.setToolTip(tt_de if is_de else tt_en)
+            btn.setToolTip(
+                tt_de if is_de else tt_en
+            )
 
             btn.setStyleSheet(
                 btn.styleSheet()
@@ -9672,91 +9342,76 @@ QPushButton[matrixMode="true"]:pressed {
             )
 
             # -----------------------------------------------------
-            # RESPONSIVE BUTTON-EIGENSCHAFTEN
+            # WICHTIG:
+            # TEXT NICHT UMBRECHEN
+            # -----------------------------------------------------
+            
+
+            # -----------------------------------------------------
+            # BUTTON-GRÖSSE
             # -----------------------------------------------------
             btn.setSizePolicy(
                 QSizePolicy.Policy.Expanding,
                 QSizePolicy.Policy.Fixed,
             )
 
-            # Keine starre Mindestbreite
-            btn.setMinimumWidth(0)
-            btn.setMinimumHeight(button_height)
+            btn.setMinimumHeight(42)
             btn.setMaximumHeight(60)
 
-            # Ausgangsschriftgröße; wird anhand der Breite angepasst
-            btn.setFont(
-                QFont("Segoe UI", 10, QFont.Weight.Bold)
-            )
+            # ---------------------------------------------------------
+            # EINZEILIGER BUTTON-TEXT
+            # Schrift wird bei langen Namen automatisch kleiner
+            # ---------------------------------------------------------
+            font = QFont("Segoe UI", 5, QFont.Weight.Bold)
+            btn.setFont(font)
+
+            # Etwas Platz für Icon + Rand berücksichtigen
+            fm = btn.fontMetrics()
+            text_width = fm.horizontalAdvance(raw_text)
+
+            # Bei langen Buttonnamen kleinere Schrift verwenden
+            if text_width > 150:
+                font.setPointSize(8)
+
+            if text_width > 175:
+                font.setPointSize(4)
+
+            btn.setFont(font)
+
 
             # -----------------------------------------------------
-            # BUTTON SPEICHERN
+            # GRID
             # -----------------------------------------------------
+            row, col = divmod(
+                idx,
+                cols_per_row,
+            )
+
+            options_grid.addWidget(
+                btn,
+                row,
+                col,
+            )
+
+            # Button speichern
             self.option_buttons[key] = (
                 btn,
                 text_key,
             )
 
         # ---------------------------------------------------------
-        # CONTAINER IN DAS ELTERN-LAYOUT EINFÜGEN
+        # ALLE 5 SPALTEN GLEICH BREIT
+        # ---------------------------------------------------------
+        for i in range(cols_per_row):
+            options_grid.setColumnStretch(i, 1)
+
+        # ---------------------------------------------------------
+        # CONTAINER
         # ---------------------------------------------------------
         parent_layout.addWidget(container)
 
-        # ---------------------------------------------------------
-        # RESPONSIVE GRID UND TEXTANPASSUNG
-        # ---------------------------------------------------------
-        QTimer.singleShot(
-            0,
-            self.rearrange_option_buttons,
-        )
-
-        # Nach der Layout-Berechnung die Schriftgrößen prüfen
-        def fit_button_texts():
-            for btn, _text_key in self.option_buttons.values():
-                if btn is None:
-                    continue
-
-                width = btn.contentsRect().width()
-
-                if width <= 0:
-                    continue
-
-                text = btn.text()
-                icon_width = (
-                    btn.iconSize().width() + 12
-                    if not btn.icon().isNull()
-                    else 0
-                )
-
-                available = max(
-                    30,
-                    width - icon_width - 28,
-                )
-
-                # Größte Schrift verwenden, die in die Buttonbreite passt
-                font = QFont(
-                    "Segoe UI",
-                    10,
-                    QFont.Weight.Bold,
-                )
-
-                while font.pointSize() > 7:
-                    metrics = QFontMetrics(font)
-
-                    if metrics.horizontalAdvance(text) <= available:
-                        break
-
-                    font.setPointSize(font.pointSize() - 1)
-
-                btn.setFont(font)
-
-        QTimer.singleShot(100, fit_button_texts)
-
-        # ---------------------------------------------------------
-        # REVISIONSBESCHRIFTUNGEN AKTUALISIEREN
-        # ---------------------------------------------------------
+        # Revisions direkt im Button anzeigen, z. B. "Streamboard Revision (11968)".
         self.update_revision_button_labels()
-
 
     def update_all_texts(self):
         # ---------------------------------------------------------
@@ -10812,7 +10467,7 @@ QPushButton[matrixMode="true"]:pressed {
             ),
             (
                 getattr(self, "btn_fix_perms", None),
-                "Rechte setzen",
+                "Rechte fixen",
                 "Fix Permissions",
                 QStyle.StandardPixmap.SP_DialogNoButton,
                 "🔐 <b>Rechte:</b> Setzt Schreibrechte für Tool-Dateien und Ordner neu.",
@@ -11008,6 +10663,13 @@ QPushButton[matrixMode="true"]:pressed {
                 QTimer.singleShot(2000, pbar_idle)
             else:
                 QTimer.singleShot(2000, pbar.hide)
+
+        # update_ui_texts setzt teilweise eigene Styles. Danach Theme, Hover und
+        # sprachabhängige Tooltips zentral wiederherstellen.
+        try:
+            self.apply_global_button_style()
+        except Exception as exc:
+            print(f"[update_ui_texts] Button-Theme/Tooltips konnten nicht aktualisiert werden: {exc}")
 
         QApplication.processEvents()
 
@@ -11496,7 +11158,7 @@ QPushButton[matrixMode="true"]:pressed {
         # --- ZENTRALE FORMATIERUNG ---
         SZ_BIG = "35px"  # Orange Titel
         SZ_NORM = "35px"  # Standard-Inhalte
-        F_FAMILY = "'Segoe UI', sans-serif"
+        F_FAMILY = "'Arial', sans-serif"
 
         C_ORANGE = "#F37804"
         C_GREEN = "#00FF00"
@@ -11752,8 +11414,8 @@ QPushButton[matrixMode="true"]:pressed {
         time_date_layout.setSpacing(2)
         time_date_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        bold_font_time = QFont("Segoe UI", 25, QFont.Weight.Bold)
-        bold_font_date = QFont("Segoe UI", 25, QFont.Weight.Bold)
+        bold_font_time = QFont("Segoe UI", 20, QFont.Weight.Bold)
+        bold_font_date = QFont("Segoe UI", 15, QFont.Weight.Bold)
 
         # --- CLOCK ---
         self.digital_clock = QLabel("--:--:--")
@@ -11833,28 +11495,21 @@ QPushButton[matrixMode="true"]:pressed {
         # FINAL HEADER ATTACH
         # =========================================================
 
-     
-        # =========================================================
-        # FINAL HEADER ASSEMBLY – RESPONSIVES BANNER
-        # =========================================================
-
         header_layout.addWidget(left_header_container, 0)
+        header_layout.addStretch(1)
 
-        # --- MIDDLE: Banner füllt den gesamten freien Platz ---
+        # --- MIDDLE: Logo (responsive) ---
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.logo_label.setMinimumSize(0, 0)
+        self.logo_label.setMinimumSize(150, 45)
         self.logo_label.setSizePolicy(
-            QSizePolicy.Policy.Ignored,
-            QSizePolicy.Policy.Expanding
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
-
-        # Stretch-Faktor 1: Das Banner bekommt den verfügbaren Restplatz.
-        header_layout.addWidget(self.logo_label, 1)
-
-        # Der rechte Bereich wird später wie bisher angefügt:
-        # header_layout.addWidget(right_header_container, 0)
-
+        header_layout.addWidget(
+            self.logo_label, 3,
+            Qt.AlignmentFlag.AlignCenter
+        )
+        header_layout.addStretch(1)
 
         try:
             url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/speedy_oscam_managert.png"
@@ -12022,77 +11677,26 @@ QPushButton[matrixMode="true"]:pressed {
         if hasattr(self, "export_log"):
             self.log_button.clicked.connect(self.export_log)
 
-        
         # --- STATS ---
         self.telemetry_cb = QPushButton("Stats")
         self.telemetry_cb.setCheckable(True)
         self.telemetry_cb.setMinimumSize(58, 32)
-        self.telemetry_cb.setSizePolicy(
-            QSizePolicy.Policy.Preferred,
-            QSizePolicy.Policy.Fixed
-        )
-        self.telemetry_cb.setFont(
-            QFont("Segoe UI", 12, QFont.Weight.Bold)
-        )
+        self.telemetry_cb.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.telemetry_cb.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.telemetry_cb.setChecked(
             bool(get_setting("allow_telemetry", True))
         )
-        self.telemetry_cb.setCursor(
-            Qt.CursorShape.PointingHandCursor
-        )
-
+        self.telemetry_cb.setCursor(Qt.CursorShape.PointingHandCursor)
         self.telemetry_cb.setToolTip(
             "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten."
             if lang == "de" else
             "Allow/disallow anonymous usage statistics (Hit-Counter)."
         )
-
         self.telemetry_cb.setAccessibleName(
             "Stats aktivieren oder deaktivieren"
         )
-
-        self.telemetry_cb.toggled.connect(
-            self.on_telemetry_changed
-        )
-
-        
-        # Individuelles Design für den Stats-Button
-        self.telemetry_cb.setStyleSheet("""
-            QPushButton {
-                color: #EAFF00 !important;
-                background-color: #3d3d3d !important;
-                border: 2px solid #EAFF00 !important;
-                border-radius: 7px;
-                padding: 2px 8px;
-                font-weight: bold;
-            }
-
-            QPushButton:hover {
-                color: #EAFF00 !important;
-                background-color: #3d3d3d !important;
-                border: 2px solid #EAFF00 !important;
-            }
-
-            QPushButton:checked {
-                color: white !important;
-                background-color: #D90000 !important;
-                border: 2px solid #FF3333 !important;
-            }
-
-            QPushButton:checked:hover {
-                color: white !important;
-                background-color: #D90000 !important;
-                border: 2px solid #FF3333 !important;
-            }
-
-            QPushButton:pressed {
-                color: white !important;
-                background-color: #A80000 !important;
-                border: 2px solid #FF3333 !important;
-            }
-        """)
-
-
+        self.telemetry_cb.setStyleSheet(action_button_style)
+        self.telemetry_cb.toggled.connect(self.on_telemetry_changed)
 
         # --- OSCAM-GIT-URL ---
         self.oscam_source_button = QPushButton("Oscam Git URL")
@@ -12175,7 +11779,7 @@ QPushButton[matrixMode="true"]:pressed {
 
         # Fonts definieren, BEVOR sie benutzt werden (löst NameError)
         bold_font_header = QFont("Segoe UI", 25, QFont.Weight.Bold)
-        bold_font_version = QFont("Segoe UI", 25, QFont.Weight.Bold)
+        bold_font_version = QFont("Segoe UI", 21, QFont.Weight.Bold)
 
         # Container für die Labels rechts oben
         version_text_container = QWidget()
@@ -12201,7 +11805,7 @@ QPushButton[matrixMode="true"]:pressed {
 
         # Autor Label (Blau im Screenshot)
         self.by_label = QLabel("by speedy005")
-        self.by_label.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
+        self.by_label.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         self.by_label.setStyleSheet("color: #0055ff; background: transparent;")
 
         # In den kleinen Container packen
@@ -12227,50 +11831,12 @@ QPushButton[matrixMode="true"]:pressed {
         # Zum Haupt-Header hinzufügen
         header_layout.addWidget(right_header_container, 0)
 
-      
-        
         main_layout.addWidget(header_widget)
         QTimer.singleShot(0, self._fit_header_controls)
-        self.apply_global_button_style("#EAFF00")
+        # Theme-Farben und Tooltips werden zentral anhand der aktuellen Sprache
+        # und des ausgewählten Farbschemas gesetzt.
+        self.apply_global_button_style()
 
-        # Stats-Button: AUS = GELB, AN = ROT
-        self.telemetry_cb.setStyleSheet("""
-            QPushButton {
-                color: #EAFF00 !important;
-                background-color: #3d3d3d !important;
-                border: 2px solid #EAFF00 !important;
-                border-radius: 7px;
-                padding: 2px 8px;
-                font-weight: bold;
-            }
-
-            QPushButton:hover {
-                color: #EAFF00 !important;
-                background-color: #3d3d3d !important;
-                border: 2px solid #EAFF00 !important;
-            }
-
-            QPushButton:checked {
-                color: white !important;
-                background-color: #D90000 !important;
-                border: 2px solid #FF3333 !important;
-            }
-
-            QPushButton:checked:hover {
-                color: white !important;
-                background-color: #D90000 !important;
-                border: 2px solid #FF3333 !important;
-            }
-
-            QPushButton:pressed {
-                color: white !important;
-                background-color: #A80000 !important;
-                border: 2px solid #FF3333 !important;
-            }
-        """)
-
-
-        
         # ---------------------------------------------------------
         # INFO + PROGRESS
         # ---------------------------------------------------------
@@ -12310,12 +11876,7 @@ QPushButton[matrixMode="true"]:pressed {
         main_layout.addSpacing(12)
 
         self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimumHeight(24)
-        self.progress_bar.setMaximumHeight(40)
-        self.progress_bar.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed
-        )
+        self.progress_bar.setFixedHeight(self.UI_PROGRESS_H)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(True)
@@ -12513,11 +12074,6 @@ QPushButton[matrixMode="true"]:pressed {
             "QPushButton { background-color: #444; color: red; border: 1px solid #666; border-radius: 6px; font-size: 18px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }"
         )
         self.btn_theme.clicked.connect(self.toggle_theme)
-        self.btn_theme.setToolTip(
-            "Wechselt zwischen Standard-, Dark- und Matrix-Theme"
-            if getattr(self, "LANG", "de").lower() == "de"
-            else "Switches between Standard, Dark and Matrix themes"
-        )
         status_bar_layout.addWidget(self.btn_theme)
 
         main_layout.addWidget(status_bar_container)
@@ -12670,7 +12226,7 @@ QPushButton[matrixMode="true"]:pressed {
         saved_color = self.cfg.get("theme_color", "Classics")
         index = self.color_box.findText(saved_color)
         self.color_box.setCurrentIndex(index if index >= 0 else 0)
-        self.color_box.setFixedSize(170, CONTROL_HEIGHT)
+        self.color_box.setFixedSize(150, CONTROL_HEIGHT)
         self.color_box.setStyleSheet(control_style)
         self.color_box.currentIndexChanged.connect(self.change_colors)
 
@@ -12832,8 +12388,7 @@ QPushButton[matrixMode="true"]:pressed {
         self.font_size_buttons = 12  # Hier die gewünschte Schriftgröße in Pixeln ändern
         current_lang = getattr(self, "lang", "de")  # Erkennt deine gewählte Sprache
 
-        
-        # 1. FARBSCHEMA ERMITTELN
+        # 1. FARBSCHEMA ERMITTELN (Passend zu deinem toggle_theme)
         is_dark = "#2F2F2F" in self.styleSheet() or not self.styleSheet()
 
         if is_dark:
@@ -12845,44 +12400,27 @@ QPushButton[matrixMode="true"]:pressed {
 
         # 2. TEXTE FÜR MEHRSPRACHIGKEIT
         lang = getattr(self, "LANG", "de").lower()
-        is_de = lang == "de"
-
-        text_patch_online = (
-            "🌐 Patch Online" if is_de else "🌐 Load Patch"
-        )
+        text_patch_online = "🌐 Patch Online " if lang == "de" else "🌐 Load Patch "
 
         # 3. BUTTON ERSTELLEN
         self.btn_patch_online = QPushButton(text_patch_online)
         self.btn_patch_online.setFixedSize(B_WIDTH, B_HEIGHT)
 
-        # TOOLTIP
-        self.btn_patch_online.setToolTip(
-            "Durchsucht die Git-Repositories online nach verfügbaren Patches."
-            if is_de
-            else
-            "Checks Git repositories online for available patches."
-        )
-        self.btn_patch_online.setToolTipDuration(8000)
-
-        # 4. DYNAMISCHES STYLESHEET
+        # 4. DYNAMISCHES STYLESHEET (Mit Variablen und Font-Fix 700)
         self.btn_patch_online.setStyleSheet(
             f"""
             QPushButton {{
-                background-color: qlineargradient(
-                    x1:0, y1:0, x2:0, y2:1,
-                    stop:0 {c1}, stop:1 {c2}
-                );
-                color: white;
-                font-weight: 700;
+                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                                                  stop:0 {c1}, stop:1 {c2});
+                color: white; 
+                font-weight: 700; 
                 font-size: {self.font_size_buttons}px;
                 border: 1px solid {b_color};
                 border-radius: 10px;
             }}
             QPushButton:hover {{
-                background-color: qlineargradient(
-                    x1:0, y1:0, x2:0, y2:1,
-                    stop:0 {c2}, stop:1 {c1}
-                );
+                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                                                  stop:0 {c2}, stop:1 {c1});
                 border: 1px solid #ffffff;
             }}
             QPushButton:pressed {{
@@ -12890,17 +12428,8 @@ QPushButton[matrixMode="true"]:pressed {
                 padding-top: 2px;
                 border-radius: 10px;
             }}
-            QToolTip {{
-                background-color: #3d3d3d;
-                color: #EAFF00;
-                border: 1px solid #F37804;
-                border-radius: 4px;
-                padding: 6px;
-                font-size: 10pt;
-            }}
-            """
+        """
         )
-
 
         # 5. VERKNÜPFUNG
         if hasattr(self, "handle_online_patch_button"):
@@ -12927,13 +12456,7 @@ QPushButton[matrixMode="true"]:pressed {
 
         # Haupt-Container (Gesamtbreite: 220 + 5 + 280 = 505px)
         self.header_container = QWidget()
-        self.header_container.setMinimumWidth(0)
-        self.header_container.setMaximumWidth(16777215)
-        self.header_container.setFixedHeight(self.UI_BADGE_H)
-        self.header_container.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed
-        )
+        self.header_container.setFixedSize(950, self.UI_BADGE_H)
         self.header_container.mousePressEvent = self.on_header_clicked
 
         h_layout = QHBoxLayout(self.header_container)
@@ -12990,56 +12513,42 @@ QPushButton[matrixMode="true"]:pressed {
         left_layout.addStretch()
         h_layout.addWidget(self.left_badge)
 
-       
-        # --- B) RECHTER BADGE (OSCam Status) ---
+        # --- B) RECHTER BADGE (OSCam Status - Länge 280) ---
         self.right_badge = QFrame()
-        self.right_badge.setMinimumWidth(550)
-        self.right_badge.setMaximumWidth(16777215)
-        self.right_badge.setFixedHeight(self.UI_BADGE_H)
-        self.right_badge.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed
-        )
-
-        self.right_badge.setStyleSheet("""
-            QFrame {
+        self.right_badge.setFixedSize(600, self.UI_BADGE_H)
+        self.right_badge.setStyleSheet(
+            f"""
+            QFrame {{
                 background-color: transparent;
                 border: 1px solid #444444;
                 border-radius: 6px;
-            }
-            QFrame:hover {
+            }}
+            QFrame:hover {{
                 background-color: transparent;
                 border: 1px solid #777777;
-            }
-        """)
+            }}
+        """
+        )
 
         right_layout = QHBoxLayout(self.right_badge)
-        right_layout.setContentsMargins(10, 0, 10, 0)
-        right_layout.setSpacing(0)
+        right_layout.setContentsMargins(
+            10, 0, 10, 0
+        )  # Margins setzen, um Platz für Text zu schaffen
 
+        # Status-Label (Zwingend WEISSE Schrift)
         self.status_label = QLabel("")
-        self.status_label.setMinimumWidth(0)
-        self.status_label.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Preferred
+        self.status_label.setStyleSheet(
+            "color: white; font-weight: bold; font-size: 18px; background: transparent; border: none;"
         )
-        self.status_label.setStyleSheet("""
-            color: white;
-            font-weight: bold;
-            font-size: 18px;
-            background: transparent;
-            border: none;
-        """)
 
+        # Füge das Label ohne Stretch hin
         right_layout.addWidget(self.status_label)
 
-        # Den rechten Badge NUR EINMAL hinzufügen
-        h_layout.addWidget(self.right_badge, 1)
-
-
+        # Keine weiteren Strecken mehr erforderlich
+        h_layout.addWidget(self.right_badge)
 
         # --- Integration ins Grid (Zeile 0) ---
-        grid_layout.addWidget(self.header_container, 0, 0, 1, 5)
+        grid_layout.addWidget(self.header_container, 0, 0, 1, 4)
 
         grid_layout.addWidget(self.btn_open_work, 0, 6)
         grid_layout.addWidget(self.btn_open_temp, 0, 7)
@@ -13054,7 +12563,7 @@ QPushButton[matrixMode="true"]:pressed {
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
         grid_layout.addWidget(self.color_label, 1, 2)
-        self.color_box.setFixedWidth(170)
+        self.color_box.setFixedWidth(130)
         grid_layout.addWidget(self.color_box, 1, 3)
 
         self.commit_label.setMinimumWidth(160)
@@ -13096,7 +12605,7 @@ QPushButton[matrixMode="true"]:pressed {
         # --- 2. KOMPAKTHEIT DER BOXEN ERZWINGEN ---
         # Damit die Boxen nicht breiter werden als nötig
         self.language_box.setFixedWidth(70)
-        self.color_box.setFixedWidth(170)
+        self.color_box.setFixedWidth(130)
         self.commit_spin.setFixedWidth(70)
 
         # --- 3. LABEL-ABSTÄNDE KORRIGIEREN ---
@@ -13210,62 +12719,24 @@ QPushButton[matrixMode="true"]:pressed {
         cfg = getattr(self, "current_config", {})
         saved_theme = cfg.get("theme_mode", "standard")
 
-        
-        
-        # 2. Matrix- oder Neon-Theme laden
+        # 2. Matrix erzwingen
         if saved_theme == "matrix":
+            # Wir setzen is_loading auf True, um Sounds/Logs beim Start zu blockieren
             was_loading = getattr(self, "is_loading", False)
             self.is_loading = True
 
+            # WICHTIG: Erst das normale Stylesheet löschen, dann Matrix setzen
             self.setStyleSheet("")
             self.toggle_matrix(force_state="matrix")
 
+            # Uhr-Update
             if hasattr(self, "analog_clock"):
                 self.analog_clock.update()
 
             self.is_loading = was_loading
-
         else:
+            # Falls nicht Matrix, Standard-Neon setzen
             self.setStyleSheet(self.styleSheet() + neon_style)
-
-        # 3. Stats-Button IMMER separat stylen,
-        # unabhängig vom gewählten Theme
-        if hasattr(self, "telemetry_cb"):
-            self.telemetry_cb.setStyleSheet("""
-                QPushButton {
-                    color: #EAFF00 !important;
-                    background-color: #3d3d3d !important;
-                    border: 2px solid #EAFF00 !important;
-                    border-radius: 7px;
-                    padding: 2px 8px;
-                    font-weight: bold;
-                }
-
-                QPushButton:hover {
-                    color: #EAFF00 !important;
-                    background-color: #3d3d3d !important;
-                    border: 2px solid #EAFF00 !important;
-                }
-
-                QPushButton:checked {
-                    color: white !important;
-                    background-color: #D90000 !important;
-                    border: 2px solid #FF3333 !important;
-                }
-
-                QPushButton:checked:hover {
-                    color: white !important;
-                    background-color: #D90000 !important;
-                    border: 2px solid #FF3333 !important;
-                }
-
-                QPushButton:pressed {
-                    color: white !important;
-                    background-color: #A80000 !important;
-                    border: 2px solid #FF3333 !important;
-                }
-            """)
-
 
     # =====================
     # BUTTON & COLOR HANDLING
@@ -14682,8 +14153,6 @@ QPushButton[matrixMode="true"]:pressed {
             ):
                 self.all_buttons = []
 
-            # Die Spaltenzahl wird durch
-            # rearrange_grid_buttons() bestimmt.
             cols = 3
 
             btn_color = "#1E90FF"
@@ -14946,19 +14415,22 @@ QPushButton[matrixMode="true"]:pressed {
                     button_text
                 )
 
-                
                 btn.setSizePolicy(
                     QSizePolicy.Policy.Expanding,
                     QSizePolicy.Policy.Fixed
                 )
 
-                # Keine starre Mindestbreite erzwingen
-                btn.setMinimumWidth(0)
+                btn.setMinimumWidth(
+                    180
+                )
 
-                # Kompakte, einheitliche Button-Höhe
-                btn.setMinimumHeight(42)
-                btn.setMaximumHeight(46)
+                btn.setMinimumHeight(
+                    46
+                )
 
+                btn.setMaximumHeight(
+                    46
+                )
 
                 # =====================================================
                 # ICON
@@ -15032,7 +14504,11 @@ QPushButton[matrixMode="true"]:pressed {
                     cols
                 )
 
-                
+                grid_layout.addWidget(
+                    btn,
+                    row,
+                    col
+                )
 
                 # =====================================================
                 # BUTTON SPEICHERN
@@ -15052,13 +14528,12 @@ QPushButton[matrixMode="true"]:pressed {
             # SPALTEN-STRETCH
             # =========================================================
 
-            
-            # Layout zunächst mit den erstellten Buttons aktualisieren
-            QTimer.singleShot(
-                0,
-                self.rearrange_grid_buttons
-            )
+            for i in range(cols):
 
+                grid_layout.setColumnStretch(
+                    i,
+                    1
+                )
 
             # =========================================================
             # TEXT ANPASSEN
@@ -16082,7 +15557,7 @@ QPushButton[matrixMode="true"]:pressed {
         - callback: Funktion beim Klick, bekommt info_widget + progress_callback übergeben
         """
         btn = QPushButton(text)
-        btn.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        btn.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setMinimumHeight(self.BUTTON_HEIGHT)
         btn.setStyleSheet(
@@ -16921,19 +16396,13 @@ QPushButton[matrixMode="true"]:pressed {
 
             try:
 
-                # ----------------------------------------------------
-                # S3 / S4 / NCam NICHT verändern
-                # ----------------------------------------------------
-                if btn.objectName() in protected_buttons:
-                    continue
-
-                # ----------------------------------------------------
-                # Grid-Buttons NICHT verändern
-                # ----------------------------------------------------
-                if btn in grid_buttons:
-                    continue
-
+                # Alle Buttons erhalten dasselbe aktive Farbschema.
+                # Der Stats-Button wird weiter unten mit seinem Toggle-Zustand gestylt.
                 btn.setGraphicsEffect(None)
+                if not btn.toolTip().strip():
+                    label = btn.text().replace("&", "").strip() or btn.objectName() or "Button"
+                    btn.setToolTip(label)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
                 btn.setStyleSheet(
                     f"""
@@ -16971,57 +16440,25 @@ QPushButton[matrixMode="true"]:pressed {
                 continue
 
         # ============================================================
-        # 5. TELEMETRIE CHECKBOX
+        # 5. STATS-TOGGLE: aktiviert = rote Schrift, deaktiviert = Theme
         # ============================================================
-
-        cb = getattr(
-            self,
-            "telemetry_cb",
-            None
-        )
-
+        cb = getattr(self, "telemetry_cb", None)
         if cb:
-
             try:
-
-                cb.setStyleSheet(
-                    f"""
-                    QCheckBox {{
-                        background-color: {bg_color};
-                        color: {text_color};
-                        border-radius: 10px;
-                        font-weight: 700;
-                        padding: 2px 12px;
-                        font-size: 13px;
-                        border: 1px solid {text_color};
-                        min-height: 35px;
-                    }}
-
-                    QCheckBox:hover {{
-                        background-color: {hover_color};
-                        border: 1px solid {text_color};
-                    }}
-
-                    QCheckBox::indicator {{
-                        width: 16px;
-                        height: 16px;
-                        border: 1px solid {text_color};
-                        border-radius: 4px;
-                        background-color: {bg_color};
-                    }}
-
-                    QCheckBox::indicator:checked {{
-                        background-color: {text_color};
-                        image: none;
-                        border: 1.5px solid white;
-                    }}
-
-                    QCheckBox::indicator:unchecked:hover {{
-                        border: 1px solid white;
-                    }}
-                    """
-                )
-
+                if not cb.toolTip().strip():
+                    cb.setToolTip("Anonyme Nutzungsstatistik aktivieren oder deaktivieren.")
+                cb.setStyleSheet(f"""
+                    QPushButton {{ background-color: {bg_color}; color: {text_color};
+                                  border-radius: 10px; font-weight: 700; padding: 2px 12px;
+                                  border: 1px solid {text_color}; min-height: 35px; }}
+                    QPushButton:hover {{ background-color: {hover_color}; color: {text_color};
+                                         border: 2px solid {text_color}; }}
+                    QPushButton:checked {{ color: #FF0000; background-color: {bg_color};
+                                           border: 2px solid #FF0000; }}
+                    QPushButton:checked:hover {{ color: #FF0000; background-color: {hover_color};
+                                                 border: 2px solid #FF0000; }}
+                    QPushButton:pressed {{ background-color: {active_color}; }}
+                """)
             except RuntimeError:
                 pass
 
@@ -17584,23 +17021,23 @@ QPushButton[matrixMode="true"]:pressed {
                         pass
 
         # --- B) HEADER (Die Haupt-Fehlerquelle) ---
-        safe_ui("controls_header", "setText", get_t("settings_header", "Einstellungen"))
+        safe_ui("controls_header", "setText", get_t("settings_header", "Einstellungen" if lang == "de" else "Settings"))
         safe_ui(
             "github_header",
             "setText",
-            get_t("github_config_header", "GitHub Konfiguration"),
+            get_t("github_config_header", "GitHub-Konfiguration" if lang == "de" else "GitHub Configuration"),
         )
 
         # --- C) DIE 3 NEUEN ORDNER-BUTTONS & INSTALLATIONS-BUTTONS ---
         safe_ui(
             "btn_open_work",
             "setText",
-            " Arbeitsordner" if lang == "de" else " WORK_DIR",
+            "📁 Arbeitsordner" if lang == "de" else "📁 Working Folder",
         )
         safe_ui(
-            "btn_open_temp", "setText", " Temp-Repo" if lang == "de" else " Temp Repo"
+            "btn_open_temp", "setText", "📁 Temp-Repo" if lang == "de" else "📁 Temp Repo"
         )
-        safe_ui("btn_open_emu", "setText", " Emu Git" if lang == "de" else " Emu Git")
+        safe_ui("btn_open_emu", "setText", "📁 Emu-Git" if lang == "de" else "📁 Emu Git")
 
         # HIER ERGÄNZT: Die Übersetzungen für S3, S4 und NCam
         safe_ui(
@@ -17621,9 +17058,20 @@ QPushButton[matrixMode="true"]:pressed {
 
         # --- D) FUNKTIONS-BUTTONS ---
         safe_ui(
-            "btn_check_tools", "setText", get_t("check_tools_button", "🛠️ Check Tools")
+            "btn_check_tools", "setText",
+            get_t("check_tools_button", "🛠️ Tools prüfen" if lang == "de" else "🛠️ Check Tools")
         )
-        safe_ui("btn_check_commit", "setText", "🔄 Check Commit")
+        safe_ui(
+            "btn_check_commit", "setText",
+            get_t("check_commit_button", "🔄 Commit prüfen" if lang == "de" else "🔄 Check Commit")
+        )
+        safe_ui(
+            "btn_patch_online", "setText",
+            "🌐 " + str(get_t(
+                "patch_online_download",
+                "Online-Patches herunterladen" if lang == "de" else "Download Online Patches"
+            ))
+        )
 
         # Patch Autor
         if hasattr(self, "btn_modifier"):
@@ -17642,12 +17090,12 @@ QPushButton[matrixMode="true"]:pressed {
             safe_ui("btn_repo_url", "setToolTip", repo_tip)
 
         # --- PATCH-ORDNER / PATCH-KOPIERBUTTONS ---
-        safe_ui("header_btn_s3_ncam", "setText", get_t("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad"))
-        safe_ui("header_btn_s4", "setText", get_t("patch_folder_s4", "S4-Pfad"))
+        safe_ui("header_btn_s3_ncam", "setText", get_t("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad" if lang == "de" else "S3-NCam-Bonecrew path"))
+        safe_ui("header_btn_s4", "setText", get_t("patch_folder_s4", "S4-Pfad" if lang == "de" else "S4 path"))
         safe_ui("header_btn_patch_ncam", "setText", get_t("patch_copy_s3_ncam", "Patch → S3-NCam"))
         safe_ui("header_btn_patch_s4", "setText", get_t("patch_copy_s4", "Patch → S4"))
-        safe_ui("header_btn_s3_ncam", "setToolTip", get_t("patch_folder_s3_ncam_tooltip", "S3-NCam-Bonecrew-Pfad wählen"))
-        safe_ui("header_btn_s4", "setToolTip", get_t("patch_folder_s4_tooltip", "S4-Pfad wählen"))
+        safe_ui("header_btn_s3_ncam", "setToolTip", get_t("patch_folder_s3_ncam_tooltip", "S3-NCam-Bonecrew-Pfad wählen" if lang == "de" else "Select the S3-NCam-Bonecrew path"))
+        safe_ui("header_btn_s4", "setToolTip", get_t("patch_folder_s4_tooltip", "S4-Pfad wählen" if lang == "de" else "Select the S4 path"))
         safe_ui(
             "header_btn_patch_ncam",
             "setToolTip",
@@ -17688,6 +17136,12 @@ QPushButton[matrixMode="true"]:pressed {
         safe_ui("clean_emu_button", "setText", get_t("clean_emu_button", "Bereinigen"))
 
         
+
+        # Tooltips und Hover-Farben nach allen Textänderungen synchronisieren.
+        try:
+            self.apply_global_button_style()
+        except Exception as exc:
+            print(f"[update_language] Button-Theme/Tooltips konnten nicht aktualisiert werden: {exc}")
 
         QApplication.processEvents()
 
