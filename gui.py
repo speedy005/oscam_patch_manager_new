@@ -8524,8 +8524,19 @@ class PatchManagerGUI(QWidget):
                 # --------------------------------------------------
                 update_progress(40, "Projektdateien werden ersetzt...")
 
+                
                 for index, (member, target) in enumerate(updates):
+                    # Vorhandene WAV-Dateien im sounds-Ordner
+                    # beim Update nicht überschreiben.
+                    if (
+                        target.is_file()
+                        and target.suffix.lower() == ".wav"
+                        and "sounds" in target.relative_to(project_dir).parts
+                    ):
+                        continue
+
                     target.parent.mkdir(parents=True, exist_ok=True)
+
 
                     temp_target = target.with_name(
                         target.name + ".update_tmp"
@@ -8540,6 +8551,7 @@ class PatchManagerGUI(QWidget):
                         # Windows-Zugriffsfehler begrenzt erneut versuchen.
                         replace_error = None
 
+                        
                         for attempt in range(4):
                             try:
                                 os.replace(temp_target, target)
@@ -8547,16 +8559,18 @@ class PatchManagerGUI(QWidget):
                                 break
                             except PermissionError as exc:
                                 replace_error = exc
+                                print(
+                                    f"[UPDATE DEBUG] Versuch {attempt + 1}/4: "
+                                    f"{exc!r}; Ziel={target}; "
+                                    f"Ziel vorhanden={target.exists()}; "
+                                    f"Temp vorhanden={temp_target.exists()}"
+                                )
                                 if attempt < 3:
                                     time.sleep(0.5 * (attempt + 1))
 
                         if replace_error is not None:
-                            raise PermissionError(
-                                f"Datei konnte nach mehreren Versuchen "
-                                f"nicht ersetzt werden: {target}\n"
-                                f"Bitte prüfen, ob die Datei von einem "
-                                f"anderen Prozess verwendet wird."
-                            ) from replace_error
+                            raise replace_error
+
 
                     finally:
                         if temp_target.exists():
