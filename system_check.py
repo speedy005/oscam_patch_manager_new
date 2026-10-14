@@ -1,5 +1,14 @@
 """OSCam Patch Manager module fragment: System-check worker."""
 
+import math
+import os
+import struct
+import tempfile
+import wave
+
+from PyQt6.QtCore import QObject, QTimer, QUrl, Qt
+from PyQt6.QtMultimedia import QSoundEffect
+
 # Explicit module imports (kept broad for compatibility with legacy callbacks).
 import ctypes
 import glob

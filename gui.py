@@ -1,5 +1,161 @@
 """OSCam Patch Manager module fragment: Main Patch Manager GUI."""
 
+import math
+import os
+import struct
+import tempfile
+import wave
+
+
+from PyQt6.QtCore import QObject, QTimer, QUrl, Qt
+from PyQt6.QtMultimedia import QSoundEffect
+print("[DEBUG] Diese gui.py wird geladen:", __file__, flush=True)
+
+class SystemSoundManager(QObject):
+    """Plattformübergreifende Soundeffekte für Windows und Linux."""
+
+    def __init__(self, parent=None, volume=0.25):
+        super().__init__(parent)
+
+        self.enabled = True
+        self.volume = max(0.0, min(1.0, float(volume)))
+        self._temp_dir = tempfile.mkdtemp(
+            prefix="oscam_sounds_"
+        )
+
+        self.start_sound = self._create_effect(
+            "start.wav",
+            [523.25],
+            100,
+        )
+
+        self.success_sound = self._create_effect(
+            "success.wav",
+            [659.25, 783.99, 1046.50],
+            110,
+        )
+
+        self.revision_sound = self._create_effect(
+            "revision.wav",
+            [880.00],
+            65,
+        )
+
+        # Optionaler Soundtakt für die blinkende Revisionsnummer.
+        self.revision_timer = QTimer(self)
+        self.revision_timer.setTimerType(
+            Qt.TimerType.PreciseTimer
+        )
+        self.revision_timer.setInterval(1200)
+        self.revision_timer.timeout.connect(
+            self.play_revision
+        )
+
+    def _write_tone(self, path, frequencies, duration_ms):
+        """Erzeugt eine kurze WAV-Datei mit weichen Tönen."""
+
+        sample_rate = 22050
+        samples_per_tone = int(
+            sample_rate * duration_ms / 1000
+        )
+
+        with wave.open(path, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(sample_rate)
+
+            for frequency in frequencies:
+                for i in range(samples_per_tone):
+                    t = i / sample_rate
+
+                    # Weiches Ein- und Ausblenden.
+                    fade_in = min(1.0, i / 250)
+                    fade_out = min(
+                        1.0,
+                        (samples_per_tone - i) / 500,
+                    )
+
+                    envelope = min(fade_in, fade_out)
+                    amplitude = (
+                        10000
+                        * envelope
+                        * math.sin(2 * math.pi * frequency * t)
+                    )
+
+                    wav.writeframesraw(
+                        struct.pack("<h", int(amplitude))
+                    )
+
+                # Kurze Pause zwischen den Tönen.
+                for _ in range(int(sample_rate * 0.025)):
+                    wav.writeframesraw(
+                        struct.pack("<h", 0)
+                    )
+
+    def _create_effect(self, filename, frequencies, duration):
+        path = os.path.join(self._temp_dir, filename)
+
+        self._write_tone(path, frequencies, duration)
+
+        effect = QSoundEffect(self)
+        effect.setSource(QUrl.fromLocalFile(path))
+        effect.statusChanged.connect(
+            lambda e=effect, p=path: print(
+                f"[SOUND] {os.path.basename(p)}: "
+                f"{e.status()}, geladen={e.isLoaded()}"
+            )
+        )
+        effect.setVolume(self.volume)
+        return effect
+
+    def set_enabled(self, enabled):
+        self.enabled = bool(enabled)
+
+        if not self.enabled:
+            self.stop_revision_blink_sound()
+
+    def set_volume(self, volume):
+        self.volume = max(0.0, min(1.0, float(volume)))
+
+        for effect in (
+            self.start_sound,
+            self.success_sound,
+            self.revision_sound,
+        ):
+            effect.setVolume(self.volume)
+
+    def play_start(self):
+        if self.enabled:
+            self.start_sound.play()
+
+    def play_success(self):
+        if self.enabled:
+            self.success_sound.play()
+
+    def play_revision(self):
+        print(
+            "[SOUND] play_revision:",
+            "enabled =", self.enabled,
+            "loaded =", self.revision_sound.isLoaded(),
+            "status =", self.revision_sound.status(),
+            "playing =", self.revision_sound.isPlaying(),
+            "source =", self.revision_sound.source().toString(),
+        )
+
+        if self.enabled:
+            self.revision_sound.play()
+
+    
+    def start_revision_blink_sound(self):
+        # Kein automatischer Ton und kein zusätzlicher Sound-Timer.
+        # Der Ton wird direkt beim roten Revisions-Blink ausgelöst.
+        self.revision_timer.stop()
+
+    def stop_revision_blink_sound(self):
+        # Timer stoppen, ohne einen zusätzlichen Ton abzuspielen.
+        self.revision_timer.stop()
+
+
 # Explicit module imports (kept broad for compatibility with legacy callbacks).
 import ctypes
 import glob
@@ -81,7 +237,8 @@ class PatchManagerGUI(QWidget):
         self._blink_state = True
 
         super().__init__()
-
+        self.sound_manager = SystemSoundManager(self, volume=0.45)
+        
         # --- TIMER-SEKTION ---
         # 3. INFOSCREEN & REDIRECTOR FIX
         self.current_rev = getattr(
@@ -1080,15 +1237,25 @@ class PatchManagerGUI(QWidget):
         self._system_check_thread.started.connect(
             self._system_check_worker.run
         )
+        if hasattr(self, "sound_manager"):
+            self.sound_manager.play_start()
 
-        self._system_check_thread.start()    
+        if hasattr(self, "sound_manager"):
+            self.sound_manager.play_start()
+
+        self._system_check_thread.start()
+            
         
     def _system_check_finished(self):
         """
         Wird nach erfolgreichem oder fehlerhaftem Worker-Ende
         im GUI-Thread ausgeführt.
         """
-
+        if (
+            not getattr(self, "_system_check_had_error", False)
+            and hasattr(self, "sound_manager")
+        ):
+            self.sound_manager.play_success()
         pbar = getattr(
             self,
             "progress_bar",
@@ -2330,44 +2497,24 @@ class PatchManagerGUI(QWidget):
                 "background-color: #00FF00; color: black; font-weight: bold; border-radius: 8px;"
             )
 
-    def blink_oscam_revision(self):
-        """Lässt die Revision im Status-Label 3x rot blinken (plattformsicher)."""
-        status_label = getattr(self, "status_label", None)
-        if not status_label:
-            return
+   
+    
 
-        from PyQt6.QtCore import QTimer
+        # Animation beenden, ohne einen zusätzlichen Ton auszulösen
+        def finish_blink():
+            if sound_manager:
+                sound_manager.revision_timer.stop()
 
-        # Farben
-        C_REV = "#00FF00"  # Grün (Endfarbe)
-        C_BLINK = "#F70606"  # Rot (Blink)
+        QTimer.singleShot(2200, finish_blink)
 
-        def set_blink_ui(rev_color):
-            import re
 
-            current_html = status_label.text()
-            # Ersetzt die Farbe der letzten rXXXX-Revision
-            new_html = re.sub(
-                r"(color:)[^;']+(;[^>]*>\(r\d+\)</span>)$",
-                f"\\1{rev_color}\\2",
-                current_html,
-            )
-            status_label.setText(new_html)
+        # Sound erst nach Abschluss der Animation stoppen
+        def finish_blink():
+            if sound_manager:
+                sound_manager.stop_revision_blink_sound()
 
-        # Blink-Sequenz in ms
-        delays = [300, 600, 900, 1200, 1500, 1800]
-        blink_colors = [
-            "transparent",
-            C_BLINK,
-            "transparent",
-            C_BLINK,
-            "transparent",
-            C_BLINK,
-            C_REV,
-        ]
+        QTimer.singleShot(2200, finish_blink)
 
-        for i, delay in enumerate(delays):
-            QTimer.singleShot(delay, lambda c=blink_colors[i]: set_blink_ui(c))
 
     def hide_final_label(self):
         """Blendet das finale Status-Label aus."""
@@ -6436,6 +6583,16 @@ class PatchManagerGUI(QWidget):
         # 1. Die alte Revision für die Anzeige zwischenspeichern
         old_rev = getattr(self, "current_rev", "11943")
 
+        # --- Revisions-Sound nur beim roten Aufblinken ---
+        sound_manager = getattr(self, "sound_manager", None)
+
+        def blink_revision(color):
+            set_status_ui(color)
+
+            if color == C_BLINK and sound_manager and sound_manager.enabled:
+                
+                sound_manager.play_revision()
+
         # 2. Die neue Revision für die Zukunft speichern
         if update_available and new_rev:
             self.current_rev = new_rev
@@ -6520,7 +6677,10 @@ class PatchManagerGUI(QWidget):
                 C_BLINK,
             ]
             for i, delay in enumerate(delays):
-                QTimer.singleShot(delay, lambda c=blink_colors[i]: set_status_ui(c))
+                QTimer.singleShot(
+                    delay,
+                    lambda c=blink_colors[i]: blink_revision(c)
+                )
 
         else:
             # --- Up-to-date ---
@@ -6538,7 +6698,10 @@ class PatchManagerGUI(QWidget):
                 C_BLINK,
             ]
             for i, delay in enumerate(delays):
-                QTimer.singleShot(delay, lambda c=blink_colors[i]: set_status_ui(c))
+                QTimer.singleShot(
+                    delay,
+                    lambda c=blink_colors[i]: blink_revision(c)
+                )
 
         # --- ProgressBar ---
         pbar = getattr(self, "progress_bar", None)
