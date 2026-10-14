@@ -1285,7 +1285,7 @@ class CinematicMatrixSplash(QWidget):
         colors = ("#0000FF", "#FFA500", "#FF0000")
         markers = (
             "SYSTEM: NEURAL_LINK OPERATIONAL",
-            "OSCAM EMU PATCH MANAGER v1.3.4",
+            "OSCAM EMU PATCH MANAGER v1.3.5",
             "CODENAME: Speedy_Oscam-_Patch_Manager 2026",
         )
         import html
