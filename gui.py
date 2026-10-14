@@ -40,7 +40,11 @@ class SystemSoundManager(QObject):
             [880.00],
             65,
         )
-
+        self.exit_sound = self._create_effect(
+            "exit.wav",
+            [783.99, 659.25, 523.25],
+            180,
+        )
         # Optionaler Soundtakt für die blinkende Revisionsnummer.
         self.revision_timer = QTimer(self)
         self.revision_timer.setTimerType(
@@ -114,6 +118,7 @@ class SystemSoundManager(QObject):
         if not self.enabled:
             self.stop_revision_blink_sound()
 
+   
     def set_volume(self, volume):
         self.volume = max(0.0, min(1.0, float(volume)))
 
@@ -121,8 +126,10 @@ class SystemSoundManager(QObject):
             self.start_sound,
             self.success_sound,
             self.revision_sound,
+            self.exit_sound,
         ):
             effect.setVolume(self.volume)
+    
 
     def play_start(self):
         if self.enabled:
@@ -17219,27 +17226,25 @@ class PatchManagerGUI(QWidget):
                 f"[WARN] Config save failed: {e}"
             )
 
+        
         # ------------------------------------------------------------
         # Beenden-Sound
         # ------------------------------------------------------------
         try:
-            safe_play("service-logout.oga")
+            sound_manager = getattr(self, "sound_manager", None)
+
+            if sound_manager and sound_manager.enabled:
+                sound_manager.exit_sound.play()
+
+                # Sound kurz abspielen lassen, bevor die Anwendung schließt
+                QTimer.singleShot(800, QApplication.quit)
+            else:
+                QApplication.quit()
 
         except Exception as e:
-            print(
-                f"[WARN] Sound play failed: {e}"
-            )
-
-        # ------------------------------------------------------------
-        # Anwendung beenden
-        # ------------------------------------------------------------
-        try:
+            print(f"[WARN] Exit sound failed: {e}")
             QApplication.quit()
 
-        except Exception as e:
-            print(
-                f"[WARN] QApplication.quit() failed: {e}"
-            )
     
     def update_language(self):
         """
