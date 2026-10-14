@@ -216,9 +216,24 @@ def download_project(root, overwrite):
     files = repository_files()
     count = 0
 
+    # Sounds nur installieren, wenn der Ordner noch nicht existiert
+    sounds_dir = root / "sounds"
+    install_sounds = not sounds_dir.exists()
+
+    if not install_sounds:
+        print("Skip: sounds/ (Ordner existiert bereits)")
+
+    # Dateien herunterladen
     for index, relative in enumerate(files, 1):
+        parts = relative.split("/")
+
+        # Sounds-Ordner vollständig überspringen, wenn er existiert
+        if parts[0].lower() == "sounds" and not install_sounds:
+            continue
+
         if download_one(relative, root, overwrite):
             count += 1
+
         print(f"[{index}/{len(files)}] {relative}")
 
     if not (root / "main.py").is_file():
