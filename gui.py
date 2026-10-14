@@ -7700,6 +7700,11 @@ class PatchManagerGUI(QWidget):
         if btn_no:
             btn_no.setText(txt.get("no", "Nein"))
 
+        # Sound beim Öffnen des Update-Fensters
+        sound_manager = getattr(self, "sound_manager", None)
+        if sound_manager and sound_manager.enabled:
+            sound_manager.success_sound.play()
+
         if msg_box.exec() == QMessageBox.StandardButton.Yes:
             if hasattr(self, "plugin_update_action"):
                 self.plugin_update_action(latest_version=latest_version)
@@ -9902,8 +9907,11 @@ class PatchManagerGUI(QWidget):
 
         if msg.clickedButton() == yes_btn:
             # Sound abspielen
-            if "safe_play" in globals():
-                safe_play("service-logout.oga")
+            # Neustart-Sound
+            sound_manager = getattr(self, "sound_manager", None)
+            if sound_manager and sound_manager.enabled:
+                sound_manager.exit_sound.play()
+                QApplication.processEvents()
 
             # --- KRITISCHES SPEICHERN VOR NEUSTART ---
             try:
@@ -9956,7 +9964,7 @@ class PatchManagerGUI(QWidget):
 
                 # Beende aktuelle Instanz sauber
                 QApplication.processEvents()
-                QTimer.singleShot(100, QApplication.quit)
+                QTimer.singleShot(800, QApplication.quit)
                 
             except Exception as e:
                 print(f"❌ Kritischer Fehler beim Neustart: {e}")
@@ -10028,8 +10036,11 @@ class PatchManagerGUI(QWidget):
             pass
 
         # Sound abspielen
-        if "safe_play" in globals():
-            safe_play("service-logout.oga")
+        # Neustart-Sound
+        sound_manager = getattr(self, "sound_manager", None)
+        if sound_manager and sound_manager.enabled:
+            sound_manager.exit_sound.play()
+            QApplication.processEvents()
 
         # PFAD-FIX für Windows (Leerzeichen in 'Program Files' etc.)
         python = sys.executable
@@ -10053,8 +10064,14 @@ class PatchManagerGUI(QWidget):
 
         # --- DER ENTSCHEIDENDE FIX: Altes GUI-Fenster hart schließen ---
         # Schließt die PyQt6-Schleife
+        from PyQt6.QtCore import QEventLoop, QTimer
+
+        if sound_manager and sound_manager.enabled:
+            loop = QEventLoop()
+            QTimer.singleShot(800, loop.quit)
+            loop.exec()
+
         QApplication.quit()
-        # Beendet den Python-Prozess im System restlos
         sys.exit(0)
 
 
