@@ -597,439 +597,385 @@ class PatchManagerGUI(QWidget):
     from PyQt6.QtCore import QUrl
 
     def change_language(self, index=None):
-        """
-        Sprachwechsel Ablauf mit ProgressBar Text in DE/EN:
-        1. Overlay anzeigen
-        2. Texte laden
-        3. UI + Buttons aktualisieren
-        4. Flaggenanimation + Systemcheck
-        5. Final blink & Overlay ausblenden
-        """
-        from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel
+        """Wechselt die Sprache, aktualisiert die UI und führt die Abschlussanimation aus."""
+        import os
+        import platform
+        import re
+
         from PyQt6.QtCore import QTimer, QRect, Qt
         from PyQt6.QtGui import QFont, QColor, QPixmap
-        import os, platform, re
+        from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel
 
-        # ---------------- Schutz vor mehrfacher Ausführung ----------------
-        if not hasattr(self, "language_box") or self.language_box is None:
+        # Schutz vor mehrfacher Ausführung
+        if not getattr(self, "language_box", None):
             return
         if getattr(self, "_block_language_change", False):
             return
         self._block_language_change = True
 
-        # ---------------- Hilfsfunktionen ----------------
+        pbar = getattr(self, "progress_bar", None)
+        finished = {"value": False}
+
+        def log_error(stage, exc):
+            print(f"[change_language] {stage}: {exc}")
+
+        def release_lock():
+            self._block_language_change = False
+
+        def update_pbar(value, text):
+            if pbar is not None:
+                pbar.setValue(value)
+                pbar.setFormat(f"{text} %p%")
+            QApplication.processEvents()
+
         def strip_icons(text):
             return re.sub(r"^[^\w\s]+", "", str(text)).strip()
 
         def blink_widget(widget, times=6, interval=300):
-            if not widget:
+            if widget is None:
                 return
             widget.show()
             widget.raise_()
-            state = [0]
+            state = {"count": 0}
 
             def toggle():
                 widget.setVisible(not widget.isVisible())
-                state[0] += 1
-                if state[0] < times * 2:
+                state["count"] += 1
+                if state["count"] < times * 2:
                     QTimer.singleShot(interval, toggle)
                 else:
                     widget.setVisible(True)
 
             toggle()
 
-        # ---------------- Sprache bestimmen ----------------
-        selected = self.language_box.currentText().upper()
-        self.LANG = (
-            "de" if any(x in selected for x in ["DE", "DEU", "DEUTSCH"]) else "en"
-        )
-        is_de = self.LANG == "de"
-
-        # ---------------- ProgressBar vorbereiten ----------------
-        pbar = getattr(self, "progress_bar", None)
-
-        def update_pbar(value, text):
-            if pbar:
-                pbar.setValue(value)
-                pbar.setFormat(f"{text} %p%")
-                QApplication.processEvents()
-
-        # ---------------- Overlay ----------------
-        overlay_text = "Sprache wird angepasst..." if is_de else "Switching language..."
-        update_pbar(10, f"⏳ {overlay_text}")
-        if hasattr(self, "loading_overlay") and hasattr(self, "loading_label"):
-            self.loading_overlay.setGeometry(self.rect())
-            self.loading_label.setText(overlay_text)
-            self.loading_overlay.show()
-            self.loading_overlay.raise_()
-            QApplication.processEvents()
-
-        # ---------------- Sound abspielen ----------------
-        safe_play_func = globals().get("safe_play")
-        if safe_play_func:
-            safe_play_func("service-logout.oga")
-
-        # ---------------- NEU: AUTOMATISCHER RECHTE-FIX ----------------
-        perm_text = "Schreibrechte werden geprüft..." if is_de else "Checking write permissions..."
-        update_pbar(25, f"🔐 {perm_text}")
-        
-        # Aufruf deiner neuen Fix-Funktion (falls vorhanden)
-        if hasattr(self, "fix_all_tool_permissions"):
-            try:
-                self.fix_all_tool_permissions()
-            except:
-                pass
-        # ---------------- Texte laden ----------------
-        load_text = "Texte werden geladen..." if is_de else "Loading texts..."
-        update_pbar(30, f"⏳ {load_text}")
-
-        all_texts = globals().get("TEXTS", {})
-        if not all_texts:
-            try:
-                all_texts = ensure_dependencies()
-            except:
-                all_texts = {}
-        self.TEXT = all_texts.get(self.LANG, {})
-        lang_dict = self.TEXT
-
-        # ---------------- UI + Buttons ----------------
-        ui_text = "UI wird aktualisiert..." if is_de else "Updating UI..."
-        update_pbar(50, f"⏳ {ui_text}")
-
-        if hasattr(self, "update_language"):
-            self.update_language()
-        # ============================================================
-        # THEME/FARBSCHEMA NACH SPRACHWECHSEL ERNEUT ANWENDEN
-        # ============================================================
-        
-        # Buttons aktualisieren
-        for btn_attr, default_label in [("btn_s3", "S3"), ("btn_s4", "S4"), ("btn_ncam", "NCam")]:
-            btn = getattr(self, btn_attr, None)
-            if not btn:
-                continue
-            
-            # 1. Bestimmung der ausführbaren Datei (Binary)
-            if btn_attr == "btn_s3":
-                exe = "s3.exe" if platform.system() == "Windows" else "s3"
-            elif btn_attr == "btn_s4":
-                exe = "s4.exe" if platform.system() == "Windows" else "s4"
-            else:  # btn_ncam
-                exe = "ncam.exe" if platform.system() == "Windows" else "ncam"
-
-            # 2. Zuordnung der Pfad-Variablen
-            if btn_attr == "btn_s3":
-                path_attr = "S3_PATH"
-                default_path = "/opt/s3"
-            elif btn_attr == "btn_s4":
-                path_attr = "S4_PATH"
-                default_path = "/opt/simplebuild4"
-            else:  # btn_ncam
-                path_attr = "NCAM_PATH"
-                default_path = "/opt/ncam"
-
-            # 3. Überprüfung auf Existenz
-            path = getattr(self, path_attr, default_path)
-            exists = os.path.exists(os.path.join(path, exe))
-
-            # --- OPTIMIERUNG: Schönere Anzeigenamen für die Buttons ---
-            display_name = "S4" if default_label == "S4" else default_label
-
-            label = (
-                f"{display_name} OK"
-                if exists
-                else (
-                    f"{display_name} Installieren"
-                    if is_de
-                    else f"Install {display_name}"
-                )
-            )
-            # ----------------------------------------------------------
-            
-            # Für S4 nutzen wir das schicke Grün (#2ecc71) anstelle von Orange, wenn es fehlt
-            if exists:
-                color = "#FF3333"  # Rot, wenn die ausführbare Datei gefunden wurde
-            else:
-                color = "#2ecc71" if btn_attr == "btn_s4" else "orange"
-
-            btn.setText(f"🚀 {label}")
-            btn._original_text = f"🚀 {label}"
-            btn.setStyleSheet(
-                f"""
-                QPushButton {{
-                    text-align:left;
-                    padding-left:8px;
-                    font-weight:bold;
-                    color:{color};
-                    background-color:#3d3d3d;
-                    border:1px solid {color};
-                    border-radius:8px;
-                }}
-                QPushButton:hover {{
-                    background-color:{color};
-                    color:black;
-                }}
-                """
-            )
-
-        # Die drei Installationsbuttons wurden oben dynamisch neu beschriftet.
-        # Jetzt sofort den individuellen Hardcode-Style durch das aktive Theme ersetzen.
-        try:
-            self.apply_global_button_style()
-        except Exception as exc:
-            print(f"[change_language] Installationsbutton-Theme fehlgeschlagen: {exc}")
-
-        # ============================================================
-        # BUTTON-TEXTE NACH SPRACHWECHSEL ERNEUT ANPASSEN
-        #
-        # Wichtig:
-        # Die Texte von S3/S4/NCam wurden gerade mit setText()
-        # geändert. Erst danach kann der tatsächliche Platzbedarf
-        # zuverlässig berechnet werden.
-        # ============================================================
-        try:
-            if hasattr(self, "_fit_all_button_texts"):
-
-                # Layout zuerst aktualisieren
-                self.layout().activate()
-
-                # Direkt nach setText()
-                QTimer.singleShot(
-                    0,
-                    self._fit_all_button_texts
-                )
-
-                # Nach Neuberechnung des Layouts
-                QTimer.singleShot(
-                    100,
-                    self._fit_all_button_texts
-                )
-
-                # Sicherheitsdurchlauf
-                QTimer.singleShot(
-                    300,
-                    self._fit_all_button_texts
-                )
-
-                # Nach vollständigem Sprachwechsel
-                QTimer.singleShot(
-                    600,
-                    self._fit_all_button_texts
-                )
-
-        except Exception as e:
-            print(
-                f"[change_language] Button-Text-Anpassung fehlgeschlagen: {e}"
-            )
-
-        # ---------------- Flaggen Animation + Systemcheck ----------------
-        anim_text = (
-            "Animation & Systemcheck..." if is_de else "Animation & system check..."
-        )
-        update_pbar(80, f"⏳ {anim_text}")
-
         def after_animation():
-            # Labels aktualisieren
-            if hasattr(self, "commit_label"):
-                self.commit_label.setText(
-                    lang_dict.get("commit_count_label", "Anzahl Commits:" if is_de else "Commit Count:")
-                )
-            if hasattr(self, "color_label"):
-                self.color_label.setText(
-                    lang_dict.get("color_label", "Farbe:" if is_de else "Color:")
-                )
-            if hasattr(self, "log_button"):
-                self.log_button.setText(
-                    lang_dict.get(
-                        "log_button_text", " Log speichern" if is_de else " Save Log"
-                    )
-                )
-            if hasattr(self, "header_label"):
-                self.header_label.setText(
-                    strip_icons(
+            """Aktualisiert die verbleibenden Labels und startet den Abschluss."""
+            try:
+                lang_dict = getattr(self, "TEXT", {}) or {}
+                is_de = getattr(self, "LANG", "en") == "de"
+
+                if hasattr(self, "commit_label"):
+                    self.commit_label.setText(
                         lang_dict.get(
-                            "settings_header", "Einstellungen" if is_de else "Settings"
+                            "commit_count_label",
+                            "Anzahl Commits:" if is_de else "Commit Count:",
                         )
                     )
-                )
 
-            # OSCam Status blink
-            if hasattr(self, "status_label") and self.status_label:
-                rev = getattr(self, "current_rev", "----")
-                timestamp = getattr(self, "last_timestamp", "--:--:--")
-                msg = lang_dict.get(
-                    "oscam_uptodate",
-                    "OSCam ist aktuell." if is_de else "OSCam is up to date.",
-                )
-                state = [0]
-
-                def blink_status():
-                    color = "#FF0000" if state[0] % 2 == 0 else "#00FF00"
-                    html = (
-                        f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>[{timestamp}]</span> "
-                        f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>{msg}</span> "
-                        f"<span style='font-size:24px;color:{color};font-weight:bold;'>{rev}</span>"
-                    )
-                    self.status_label.setText(html)
-                    state[0] += 1
-                    if state[0] < 6:
-                        QTimer.singleShot(300, blink_status)
-
-                blink_status()
-
-            # GroupBox Titel aktualisieren
-            for box in self.findChildren(QGroupBox):
-                title = box.title()
-                if any(x in title for x in ["Settings", "Einstellungen"]):
-                    box.setTitle("Einstellungen" if is_de else "Settings")
-                if any(
-                    x in title for x in ["Configuration", "Konfiguration", "GitHub"]
-                ):
-                    box.setTitle(
-                        "GitHub Konfiguration" if is_de else "GitHub Configuration"
+                if hasattr(self, "color_label"):
+                    self.color_label.setText(
+                        lang_dict.get("color_label", "Farbe:" if is_de else "Color:")
                     )
 
-            # Autor Ansicht vorbereiten
-            if hasattr(self, "btn_modifier"):
-                self.btn_modifier.setText(
-                    f"👤 {strip_icons(lang_dict.get('modifier_button_text','Patch Autor' if is_de else 'Patch Author'))}"
-                )
-            if hasattr(self, "btn_patch_online"):
-                self.btn_patch_online.setText(
-                    f"🌐 {strip_icons(lang_dict.get('patch_online_download', 'Online-Patches herunterladen' if is_de else 'Download Online Patches'))}"
-                )
+                if hasattr(self, "log_button"):
+                    self.log_button.setText(
+                        lang_dict.get(
+                            "log_button_text",
+                            " Log speichern" if is_de else " Save Log",
+                        )
+                    )
 
-            # Nach den letzten setText()-Aufrufen Hover, Farbschema und Tooltips
-            # erneut synchronisieren, damit nichts aus der alten Sprache bleibt.
-            try:
-                self.apply_global_button_style()
+                if hasattr(self, "header_label"):
+                    self.header_label.setText(
+                        strip_icons(
+                            lang_dict.get(
+                                "settings_header",
+                                "Einstellungen" if is_de else "Settings",
+                            )
+                        )
+                    )
+
+                # OSCam-Status kurz hervorheben
+                status_label = getattr(self, "status_label", None)
+                if status_label:
+                    timestamp = getattr(self, "last_timestamp", "--:--:--")
+                    rev = getattr(self, "current_rev", "----")
+                    msg = lang_dict.get(
+                        "oscam_uptodate",
+                        "OSCam ist aktuell." if is_de else "OSCam is up to date.",
+                    )
+                    state = {"count": 0}
+
+                    def blink_status():
+                        color = "#FF0000" if state["count"] % 2 == 0 else "#00FF00"
+                        status_label.setText(
+                            f"✅ <span style='font-size:24px;color:#FF0000;font-weight:bold;'>"
+                            f"[{timestamp}]</span> "
+                            f"<span style='font-size:24px;color:#00FF00;font-weight:bold;'>"
+                            f"{msg}</span> "
+                            f"<span style='font-size:24px;color:{color};font-weight:bold;'>"
+                            f"{rev}</span>"
+                        )
+                        state["count"] += 1
+                        if state["count"] < 6:
+                            QTimer.singleShot(300, blink_status)
+
+                    blink_status()
+
+                # Gruppentitel an die gewählte Sprache anpassen
+                for box in self.findChildren(QGroupBox):
+                    title = box.title()
+                    if "Settings" in title or "Einstellungen" in title:
+                        box.setTitle("Einstellungen" if is_de else "Settings")
+                    if any(term in title for term in ("Configuration", "Konfiguration", "GitHub")):
+                        box.setTitle(
+                            "GitHub Konfiguration" if is_de else "GitHub Configuration"
+                        )
+
+                if hasattr(self, "btn_modifier"):
+                    self.btn_modifier.setText(
+                        f"👤 {strip_icons(lang_dict.get('modifier_button_text', 'Patch Autor' if is_de else 'Patch Author'))}"
+                    )
+
+                if hasattr(self, "btn_patch_online"):
+                    self.btn_patch_online.setText(
+                        f"🌐 {strip_icons(lang_dict.get('patch_online_download', 'Online-Patches herunterladen' if is_de else 'Download Online Patches'))}"
+                    )
+
+                # Theme und Tooltips nach den Textänderungen erneut anwenden
+                try:
+                    if hasattr(self, "apply_global_button_style"):
+                        self.apply_global_button_style()
+                except Exception as exc:
+                    log_error("Button-Theme/Tooltips konnten nicht aktualisiert werden", exc)
+
+                # Button-Texte nach der Layout-Neuberechnung anpassen
+                try:
+                    if hasattr(self, "_fit_all_button_texts"):
+                        layout = self.layout()
+                        if layout is not None:
+                            layout.activate()
+                        QTimer.singleShot(0, self._fit_all_button_texts)
+                        QTimer.singleShot(250, self._fit_all_button_texts)
+                except Exception as exc:
+                    log_error("Button-Text-Anpassung fehlgeschlagen", exc)
+
+                # Finales Label vorbereiten und zunächst verstecken
+                if hasattr(self, "final_label") and self.final_label:
+                    self.final_label.setText(
+                        lang_dict.get(
+                            "final_label",
+                            "🛠️ Was bauen wir heute?" if is_de else "🛠️ What are we building today?",
+                        )
+                    )
+                    self.final_label.hide()
+
+                # Systemcheck nach dem Sprachwechsel starten
+                if hasattr(self, "run_full_system_check"):
+                    QTimer.singleShot(
+                        200,
+                        lambda: self.run_full_system_check(clear_log=True),
+                    )
+
+                def final_blink():
+                    try:
+                        final_geom = pbar.geometry() if pbar is not None else QRect(20, 20, 400, 40)
+                        final_label = getattr(self, "final_label", None)
+
+                        if final_label is None:
+                            final_label = QLabel(
+                                lang_dict.get(
+                                    "final_label",
+                                    "🛠️ Was bauen wir heute?" if is_de else "🛠️ What are we building today?",
+                                ),
+                                self,
+                            )
+                            self.final_label = final_label
+
+                        final_label.setAlignment(
+                            Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
+                        )
+                        final_label.setGeometry(final_geom)
+                        final_label.setStyleSheet(
+                            "QLabel { border: 2px solid cyan; background-color: black; "
+                            "color: cyan; font-weight: bold; font-size: 24px; "
+                            "font-family: Arial, Segoe UI, sans-serif; border-radius: 6px; }"
+                        )
+                        final_label.show()
+                        final_label.raise_()
+
+                        blink_colors = ["transparent", "cyan", "transparent", "cyan", "transparent", "cyan"]
+                        for delay, color in zip((0, 300, 600, 900, 1200, 1500), blink_colors):
+                            QTimer.singleShot(
+                                delay,
+                                lambda c=color: final_label.setStyleSheet(
+                                    "QLabel { border: 2px solid cyan; background-color: black; "
+                                    f"color: {c}; font-weight: bold; font-size: 24px; "
+                                    "font-family: Arial, Segoe UI, sans-serif; border-radius: 6px; }"
+                                ),
+                            )
+
+                        if pbar is not None:
+                            pbar.setValue(100)
+                            pbar.setFormat("✅ OK")
+                            QTimer.singleShot(5000, lambda: pbar.setFormat("%p%"))
+
+                        try:
+                            if hasattr(self, "hide_language_overlay"):
+                                self.hide_language_overlay()
+                        except Exception as exc:
+                            log_error("Overlay konnte nicht ausgeblendet werden", exc)
+                    except Exception as exc:
+                        log_error("Abschlussanimation fehlgeschlagen", exc)
+                    finally:
+                        finished["value"] = True
+                        release_lock()
+
+                QTimer.singleShot(500, final_blink)
+
             except Exception as exc:
-                print(f"[change_language] Button-Theme/Tooltips konnten nicht aktualisiert werden: {exc}")
-
-            # ============================================================
-            # ALLE BUTTON-TEXTE NACH SPRACHWECHSEL FINAL ANPASSEN
-            # ============================================================
-            try:
-                if hasattr(self, "_fit_all_button_texts"):
-                    QTimer.singleShot(
-                        0,
-                        self._fit_all_button_texts
-                    )
-                    QTimer.singleShot(
-                        150,
-                        self._fit_all_button_texts
-                    )
-                    QTimer.singleShot(
-                        400,
-                        self._fit_all_button_texts
-                    )
-                    QTimer.singleShot(
-                        800,
-                        self._fit_all_button_texts
-                    )
-            except Exception as e:
-                print(
-                    f"[change_language] Finaler Button-Fit fehlgeschlagen: {e}"
-                )
-
-            # Final Label vorbereiten & verstecken
-            if hasattr(self, "final_label") and self.final_label:
-                self.final_label.setText(
-                    lang_dict.get("final_label", "🛠️ Was bauen wir heute?")
-                )
-                self.final_label.hide()
-
-            # ---------------- Systemcheck starten ----------------
-            if hasattr(self, "run_full_system_check"):
-                QTimer.singleShot(
-                    200, lambda: self.run_full_system_check(clear_log=True)
-                )
-
-            # ---------------- Finale Blink-Sequenz ----------------
-            def final_blink():
-                final_geom = pbar.geometry() if pbar else QRect(20, 20, 400, 40)
-                final_label = getattr(self, "final_label", None)
-                if not final_label:
-                    final_label = QLabel(
-                        lang_dict.get("final_label", "🛠️ Was bauen wir heute?"), self
-                    )
-                    self.final_label = final_label
-
-                final_label.setAlignment(
-                    Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
-                )
-                final_label.setGeometry(final_geom)
-                final_label.setStyleSheet(
-                    f"""
-                    QLabel {{
-                        border: 2px solid cyan;
-                        background-color: black;
-                        color: cyan;
-                        font-weight: bold;
-                        font-size: 24px;
-                        font-family: Arial, Segoe UI, sans-serif;
-                        border-radius: 6px;
-                    }}
-                    """
-                )
-                final_label.show()
-                final_label.raise_()
-
-                # Final Label blinkt 3x
-                blink_colors = [
-                    "transparent",
-                    "cyan",
-                    "transparent",
-                    "cyan",
-                    "transparent",
-                    "cyan",
-                ]
-                for i, delay in enumerate([0, 300, 600, 900, 1200, 1500]):
-                    QTimer.singleShot(
-                        delay,
-                        lambda c=blink_colors[i]: final_label.setStyleSheet(
-                            f"""
-                            QLabel {{
-                                border: 2px solid cyan;
-                                background-color: black;
-                                color: {c};
-                                font-weight: bold;
-                                font-size: 24px;
-                                font-family: Arial, Segoe UI, sans-serif;
-                                border-radius: 6px;
-                            }}
-                            """
-                        ),
-                    )
-
-                # ProgressBar fertig
-                if pbar:
-                    pbar.setValue(100)
-                    pbar.setFormat("✅ OK")
-                    QTimer.singleShot(5000, lambda: pbar.setFormat("%p%"))
-
-                # Overlay ausblenden
+                log_error("Fehler beim Abschluss des Sprachwechsels", exc)
                 try:
                     if hasattr(self, "hide_language_overlay"):
                         self.hide_language_overlay()
-                except Exception:
-                    pass
+                except Exception as hide_exc:
+                    log_error("Overlay konnte nicht ausgeblendet werden", hide_exc)
+                finally:
+                    finished["value"] = True
+                    release_lock()
 
-                # ============================================================
-                # SPRACHWECHSEL WIEDER FREIGEBEN
-                # ============================================================
-                self._block_language_change = False
-            QTimer.singleShot(500, final_blink)
-
-        # ---------------- Animation starten ----------------
-        if hasattr(self, "show_language_animation"):
-            self.show_language_animation(
-                self.LANG,
-                callback=after_animation
+        try:
+            selected = self.language_box.currentText().upper()
+            self.LANG = (
+                "de"
+                if any(token in selected for token in ("DE", "DEU", "DEUTSCH"))
+                else "en"
             )
-        else:
-            after_animation()
+            is_de = self.LANG == "de"
 
-        QApplication.processEvents()
+            overlay_text = "Sprache wird angepasst..." if is_de else "Switching language..."
+            update_pbar(10, f"⏳ {overlay_text}")
+
+            if hasattr(self, "loading_overlay") and hasattr(self, "loading_label"):
+                self.loading_overlay.setGeometry(self.rect())
+                self.loading_label.setText(overlay_text)
+                self.loading_overlay.show()
+                self.loading_overlay.raise_()
+                QApplication.processEvents()
+
+            safe_play_func = globals().get("safe_play")
+            if callable(safe_play_func):
+                try:
+                    safe_play_func("service-logout.oga")
+                except Exception as exc:
+                    log_error("Sprachwechsel-Sound fehlgeschlagen", exc)
+
+            # Schreibrechte prüfen/reparieren, falls die Methode vorhanden ist
+            perm_text = "Schreibrechte werden geprüft..." if is_de else "Checking write permissions..."
+            update_pbar(25, f"🔐 {perm_text}")
+            fix_permissions = getattr(self, "fix_all_tool_permissions", None)
+            if callable(fix_permissions):
+                try:
+                    fix_permissions()
+                except Exception as exc:
+                    log_error("Rechteprüfung fehlgeschlagen", exc)
+
+            load_text = "Texte werden geladen..." if is_de else "Loading texts..."
+            update_pbar(30, f"⏳ {load_text}")
+
+            all_texts = globals().get("TEXTS", {})
+            if not all_texts:
+                try:
+                    all_texts = ensure_dependencies()
+                except Exception as exc:
+                    log_error("Sprachdateien konnten nicht geladen werden", exc)
+                    all_texts = {}
+
+            self.TEXT = all_texts.get(self.LANG, {})
+            lang_dict = self.TEXT
+
+            ui_text = "UI wird aktualisiert..." if is_de else "Updating UI..."
+            update_pbar(50, f"⏳ {ui_text}")
+            update_language = getattr(self, "update_language", None)
+            if callable(update_language):
+                update_language()
+
+            # Status der Installationsbuttons prüfen und Beschriftung aktualisieren
+            button_config = (
+                ("btn_s3", "S3", "S3_PATH", "/opt/s3", "s3"),
+                ("btn_s4", "S4", "S4_PATH", "/opt/simplebuild4", "s4"),
+                ("btn_ncam", "NCam", "NCAM_PATH", "/opt/ncam", "ncam"),
+            )
+
+            for btn_attr, display_name, path_attr, default_path, executable in button_config:
+                btn = getattr(self, btn_attr, None)
+                if btn is None:
+                    continue
+
+                exe = executable + (".exe" if platform.system() == "Windows" else "")
+                path = getattr(self, path_attr, default_path)
+                exists = os.path.exists(os.path.join(path, exe))
+
+                label = (
+                    f"{display_name} OK"
+                    if exists
+                    else (
+                        f"{display_name} installieren"
+                        if is_de
+                        else f"Install {display_name}"
+                    )
+                )
+
+                # Grün = vorhanden, Orange = fehlt
+                color = "#2ecc71" if exists else "#f39c12"
+                btn.setText(f"🚀 {label}")
+                btn._original_text = f"🚀 {label}"
+                btn.setStyleSheet(
+                    f"""
+                    QPushButton {{
+                        text-align: left;
+                        padding-left: 8px;
+                        font-weight: bold;
+                        color: {color};
+                        background-color: #3d3d3d;
+                        border: 1px solid {color};
+                        border-radius: 8px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {color};
+                        color: black;
+                    }}
+                    """
+                )
+
+            try:
+                if hasattr(self, "apply_global_button_style"):
+                    self.apply_global_button_style()
+            except Exception as exc:
+                log_error("Installationsbutton-Theme fehlgeschlagen", exc)
+
+            try:
+                if hasattr(self, "_fit_all_button_texts"):
+                    layout = self.layout()
+                    if layout is not None:
+                        layout.activate()
+                    QTimer.singleShot(0, self._fit_all_button_texts)
+                    QTimer.singleShot(250, self._fit_all_button_texts)
+            except Exception as exc:
+                log_error("Button-Text-Anpassung fehlgeschlagen", exc)
+
+            anim_text = "Animation & Systemcheck..." if is_de else "Animation & system check..."
+            update_pbar(80, f"⏳ {anim_text}")
+
+            show_animation = getattr(self, "show_language_animation", None)
+            if callable(show_animation):
+                show_animation(self.LANG, callback=after_animation)
+            else:
+                after_animation()
+
+            QApplication.processEvents()
+
+        except Exception as exc:
+            log_error("Sprachwechsel fehlgeschlagen", exc)
+            try:
+                if hasattr(self, "hide_language_overlay"):
+                    self.hide_language_overlay()
+            except Exception as hide_exc:
+                log_error("Overlay konnte nicht ausgeblendet werden", hide_exc)
+            finally:
+                if not finished["value"]:
+                    release_lock()
+
     
     def run_full_system_check(self, clear_log=True):
         """
@@ -10485,173 +10431,40 @@ class PatchManagerGUI(QWidget):
     
     
     def update_ui_texts(self):
-        """Zentrale Text- und Icon-Aktualisierung mit Tooltip-Support für alle Buttons."""
-        import os
+        """Aktualisiert Texte, Icons und Tooltips zentral, ohne unnötig Styles anzuhängen."""
         import json
+        import os
         import platform
 
-        from PyQt6.QtWidgets import QApplication, QStyle
         from PyQt6.QtCore import QSize, QTimer
+        from PyQt6.QtWidgets import QApplication, QStyle
 
         # --------------------------------------------------
-        # 1. Alte Abschlussmeldung ausblenden
+        # 1. Abschlussmeldung ausblenden und Sprache bestimmen
         # --------------------------------------------------
-        if hasattr(self, "hide_final_label"):
-            self.hide_final_label()
-        elif getattr(self, "final_label", None):
-            self.final_label.hide()
+        try:
+            hide_final = getattr(self, "hide_final_label", None)
+            if callable(hide_final):
+                hide_final()
+            else:
+                final_label = getattr(self, "final_label", None)
+                if final_label is not None:
+                    final_label.hide()
+        except Exception as exc:
+            print(f"[update_ui_texts] Abschlusslabel konnte nicht ausgeblendet werden: {exc}")
 
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
-
         pbar = getattr(self, "progress_bar", None)
 
-        # --------------------------------------------------
-        # 2. Standard-Buttons formatieren
-        # --------------------------------------------------
-        def apply_final_style(btn, text, standard_pixmap):
+        def tr(de_text, en_text):
+            return de_text if is_de else en_text
+
+        def apply_button_style(btn, color="#00FFFF", tooltip_color=None):
+            """Setzt einen vollständigen, wiederholbar anwendbaren Button-Style."""
             if btn is None:
                 return
-
-            clean_text = str(text).strip()
-
-            if len(clean_text) > 22 and " " in clean_text:
-                clean_text = clean_text.replace(" ", "\n", 1)
-
-            btn.setText(clean_text)
-            btn.setIcon(
-                QApplication.style().standardIcon(standard_pixmap)
-            )
-            btn.setIconSize(QSize(20, 20))
-            btn.setMinimumSize(185, 48)
-
-            btn_color = "#00FFFF"
-
-            btn.setStyleSheet(
-                f"""
-                QPushButton {{
-                    text-align: left;
-                    padding-left: 8px;
-                    font-weight: bold;
-                    color: {btn_color};
-                    background-color: #3d3d3d;
-                    border: 1px solid #555555;
-                    border-radius: 8px;
-                }}
-                QPushButton:hover {{
-                    background-color: {btn_color};
-                    color: black;
-                }}
-                QToolTip {{
-                    background-color: #3d3d3d;
-                    color: {btn_color};
-                    border: 1px solid {btn_color};
-                    border-radius: 4px;
-                    padding: 5px;
-                    font-size: 10pt;
-                }}
-                """
-            )
-
-        # --------------------------------------------------
-        # 3. S3 / S4 / NCam: Pfade und Tooltips
-        # --------------------------------------------------
-        def apply_s3_btn_logic(btn, current_path, default_label):
-            if btn is None:
-                return
-
-            sub_map = {
-                "S3": "s3",
-                "NCam": "s3_ncam_bonecrew",
-                "S4": "simplebuild4",
-            }
-
-            sub_folder = sub_map.get(default_label, "")
-
-            if default_label == "S4":
-                possible_names = [
-                    "simplebuild",
-                    "simplebuild.exe",
-                    "s4",
-                    "s4.exe",
-                    "simplebuild4",
-                    "simplebuild4.exe",
-                ]
-            elif default_label == "NCam":
-                possible_names = [
-                    "ncam",
-                    "ncam.exe",
-                    "oscam",
-                    "oscam.exe",
-                    "s3",
-                    "s3.exe",
-                ]
-            else:
-                possible_names = ["s3", "s3.exe"]
-
-            current_path_clean = os.path.normpath(
-                os.path.expanduser(str(current_path))
-            )
-
-            exists = False
-
-            for name in possible_names:
-                path_direct = os.path.join(current_path_clean, name)
-
-                if (
-                    sub_folder
-                    and os.path.basename(current_path_clean).lower()
-                    != sub_folder.lower()
-                ):
-                    path_sub = os.path.join(
-                        current_path_clean,
-                        sub_folder,
-                        name,
-                    )
-                else:
-                    path_sub = ""
-
-                if os.path.isfile(path_direct) or (
-                    path_sub and os.path.isfile(path_sub)
-                ):
-                    exists = True
-                    break
-
-            if is_de:
-                help_install = (
-                    f"<b>Linksklick:</b> {default_label} Installation starten"
-                    "<br><b>Rechtsklick:</b> Ordner wählen"
-                )
-                help_start = (
-                    f"<b>Linksklick:</b> {default_label} Menü öffnen"
-                    "<br><b>Rechtsklick:</b> Pfad ändern"
-                )
-                label_install = "Installieren"
-            else:
-                help_install = (
-                    f"<b>Left-click:</b> Start {default_label} setup"
-                    "<br><b>Right-click:</b> Select folder"
-                )
-                help_start = (
-                    f"<b>Left-click:</b> Open {default_label} menu"
-                    "<br><b>Right-click:</b> Change path"
-                )
-                label_install = "Install"
-
-            if exists:
-                btn_text = f"🚀 {default_label} OK"
-                color = "#00FF00"
-                tooltip_text = help_start
-            else:
-                btn_text = f"🚀 {default_label} {label_install}"
-                color = "orange"
-                tooltip_text = help_install
-
-            btn.setText(btn_text)
-            btn.setToolTip(tooltip_text)
-            btn.setToolTipDuration(10000)
-            btn.setMinimumSize(185, 48)
-
+            tip_color = tooltip_color or color
             btn.setStyleSheet(
                 f"""
                 QPushButton {{
@@ -10668,194 +10481,192 @@ class PatchManagerGUI(QWidget):
                     color: black;
                 }}
                 QToolTip {{
-                    background-color: #3d3d3d;
-                    color: {color};
-                    border: 1px solid {color};
+                    background-color: #303030;
+                    color: #FFFFFF;
+                    border: 1px solid {tip_color};
+                    border-radius: 5px;
                     padding: 5px;
+                    font-size: 10pt;
                 }}
                 """
             )
 
+        def apply_final_style(btn, text, standard_pixmap):
+            if btn is None:
+                return
+            clean_text = str(text).strip()
+            if len(clean_text) > 22 and " " in clean_text:
+                clean_text = clean_text.replace(" ", "\n", 1)
+
+            btn.setText(clean_text)
+            btn.setIcon(QApplication.style().standardIcon(standard_pixmap))
+            btn.setIconSize(QSize(20, 20))
+            btn.setMinimumSize(185, 48)
+            apply_button_style(btn, "#00FFFF")
+
         # --------------------------------------------------
-        # 4. Fortschrittsanzeige starten
+        # 2. ProgressBar starten
         # --------------------------------------------------
         if pbar is not None:
             pbar.setValue(20)
             pbar.show()
 
         # --------------------------------------------------
-        # 5. Labels aktualisieren
+        # 3. Labels aktualisieren
         # --------------------------------------------------
         labels = [
-            ("commit_label", "Anzahl Commits:", "Commits Count:"),
+            ("commit_label", "Anzahl Commits:", "Commit Count:"),
             ("color_label", "Farbe:", "Color:"),
             ("lang_label", "🌐 Sprache:", "🌐 Language:"),
         ]
-
-        for lbl_name, de_text, en_text in labels:
-            lbl = getattr(self, lbl_name, None)
-
-            if lbl is not None:
-                lbl.setText(de_text if is_de else en_text)
+        for attr, de_text, en_text in labels:
+            label = getattr(self, attr, None)
+            if label is not None:
+                label.setText(tr(de_text, en_text))
 
         # --------------------------------------------------
-        # 6. Konfiguration laden
+        # 4. Konfiguration laden und Pfade übernehmen
         # --------------------------------------------------
         is_win = platform.system() == "Windows"
-
         config_file = globals().get("CONFIG_FILE", "config.json")
         file_cfg = {}
 
         if os.path.isfile(config_file):
             try:
-                with open(config_file, "r", encoding="utf-8") as config_handle:
-                    file_cfg = json.load(config_handle)
+                with open(config_file, "r", encoding="utf-8") as handle:
+                    loaded_cfg = json.load(handle)
+                if isinstance(loaded_cfg, dict):
+                    file_cfg = loaded_cfg
+                else:
+                    print("[update_ui_texts] config.json enthält kein JSON-Objekt.")
             except (OSError, json.JSONDecodeError) as exc:
-                print(f"[WARNUNG] Konfiguration konnte nicht geladen werden: {exc}")
-                file_cfg = {}
-
-        if not isinstance(file_cfg, dict):
-            file_cfg = {}
+                print(f"[update_ui_texts] Konfiguration konnte nicht geladen werden: {exc}")
 
         s3_path = file_cfg.get(
             "s3_custom_path",
-            getattr(
-                self,
-                "S3_PATH",
-                r"C:\s3" if is_win else "/opt/s3",
-            ),
+            getattr(self, "S3_PATH", r"C:\s3" if is_win else "/opt/s3"),
         )
-
         s4_path = file_cfg.get(
             "s4_custom_path",
-            getattr(
-                self,
-                "S4_PATH",
-                r"C:\opt\simplebuild4" if is_win else "/opt/simplebuild4",
-            ),
+            getattr(self, "S4_PATH", r"C:\opt\simplebuild4" if is_win else "/opt/simplebuild4"),
         )
-
         ncam_path = file_cfg.get(
             "ncam_custom_path",
-            getattr(
-                self,
-                "NCAM_PATH",
-                r"C:\opt\ncam" if is_win else "/opt/s3_ncam_bonecrew",
-            ),
+            getattr(self, "NCAM_PATH", r"C:\opt\ncam" if is_win else "/opt/s3_ncam_bonecrew"),
         )
 
-        self.S3_PATH = os.path.normpath(str(s3_path))
-        self.S4_PATH = os.path.normpath(str(s4_path))
-        self.NCAM_PATH = os.path.normpath(str(ncam_path))
-
+        self.S3_PATH = os.path.normpath(os.path.expanduser(str(s3_path)))
+        self.S4_PATH = os.path.normpath(os.path.expanduser(str(s4_path)))
+        self.NCAM_PATH = os.path.normpath(os.path.expanduser(str(ncam_path)))
         self.current_config = file_cfg
         self.cfg = file_cfg
 
         # --------------------------------------------------
-        # 7. Spezial-Buttons aktualisieren
+        # 5. S3 / S4 / NCam: Installation erkennen und Tooltips setzen
         # --------------------------------------------------
-        apply_s3_btn_logic(
-            getattr(self, "btn_s3", None),
-            self.S3_PATH,
-            "S3",
-        )
+        def apply_tool_button(btn, current_path, name):
+            if btn is None:
+                return
 
-        apply_s3_btn_logic(
-            getattr(self, "btn_s4", None),
-            self.S4_PATH,
-            "S4",
-        )
+            sub_map = {
+                "S3": "s3",
+                "NCam": "s3_ncam_bonecrew",
+                "S4": "simplebuild4",
+            }
+            sub_folder = sub_map[name]
 
-        apply_s3_btn_logic(
-            getattr(self, "btn_ncam", None),
-            self.NCAM_PATH,
-            "NCam",
-        )
+            if name == "S4":
+                possible_names = (
+                    "simplebuild", "simplebuild.exe", "s4", "s4.exe",
+                    "simplebuild4", "simplebuild4.exe",
+                )
+            elif name == "NCam":
+                possible_names = (
+                    "ncam", "ncam.exe", "oscam", "oscam.exe", "s3", "s3.exe",
+                )
+            else:
+                possible_names = ("s3", "s3.exe")
+
+            base = os.path.normpath(os.path.expanduser(str(current_path)))
+            exists = False
+            for filename in possible_names:
+                direct_path = os.path.join(base, filename)
+                nested_path = ""
+                if os.path.basename(base).lower() != sub_folder.lower():
+                    nested_path = os.path.join(base, sub_folder, filename)
+                if os.path.isfile(direct_path) or (
+                    nested_path and os.path.isfile(nested_path)
+                ):
+                    exists = True
+                    break
+
+            if exists:
+                label = f"🚀 {name} OK"
+                color = "#2ecc71"
+                tip = tr(
+                    f"<b>Linksklick:</b> {name}-Menü öffnen<br><b>Rechtsklick:</b> Pfad ändern",
+                    f"<b>Left-click:</b> Open {name} menu<br><b>Right-click:</b> Change path",
+                )
+            else:
+                label = f"🚀 {name} {tr('Installieren', 'Install')}"
+                color = "#f39c12"
+                tip = tr(
+                    f"<b>Linksklick:</b> {name}-Installation starten<br><b>Rechtsklick:</b> Ordner wählen",
+                    f"<b>Left-click:</b> Start {name} setup<br><b>Right-click:</b> Select folder",
+                )
+
+            btn.setText(label)
+            btn.setToolTip(tip)
+            btn.setToolTipDuration(10000)
+            btn.setMinimumSize(185, 48)
+            btn._original_text = label
+            apply_button_style(btn, color)
+
+        apply_tool_button(getattr(self, "btn_s3", None), self.S3_PATH, "S3")
+        apply_tool_button(getattr(self, "btn_s4", None), self.S4_PATH, "S4")
+        apply_tool_button(getattr(self, "btn_ncam", None), self.NCAM_PATH, "NCam")
 
         # --------------------------------------------------
-        # 8. Andere Buttons und Tooltips
+        # 6. Standard-Buttons und Tooltips
         # --------------------------------------------------
         mapping = [
-            (
-                getattr(self, "btn_open_work", None),
-                "Arbeitsordner",
-                "Work Folder",
-                QStyle.StandardPixmap.SP_DirIcon,
-                "Öffnet den lokalen Patch-Ordner",
-                "Opens the local patch folder",
-            ),
-            (
-                getattr(self, "btn_open_temp", None),
-                "Temp-Repo",
-                "Temp Repo",
-                QStyle.StandardPixmap.SP_DirIcon,
-                "Zeigt den lokalen Git-Clone",
-                "Shows the local Git clone",
-            ),
-            (
-                getattr(self, "btn_open_emu", None),
-                "Emu-Git",
-                "Emu Git",
-                QStyle.StandardPixmap.SP_DirIcon,
-                "Öffnet das Repository im Browser",
-                "Opens the repository in the browser",
-            ),
-            (
-                getattr(self, "btn_check_tools", None),
-                "Tools prüfen",
-                "Check Tools",
-                QStyle.StandardPixmap.SP_ComputerIcon,
-                "Prüft Compiler und Abhängigkeiten",
-                "Checks compilers and dependencies",
-            ),
-            (
-                getattr(self, "btn_modifier", None),
-                "Patch Autor",
-                "Patch Author",
-                QStyle.StandardPixmap.SP_FileDialogDetailedView,
-                "Ändert den Namen des Patch-Autors",
-                "Changes the patch author's name",
-            ),
-            (
-                getattr(self, "btn_repo_url", None),
-                "Repo URL",
-                "Repo URL",
-                QStyle.StandardPixmap.SP_DriveNetIcon,
-                "Ändert die Git-Repository-URL",
-                "Changes the Git repository URL",
-            ),
-            (
-                getattr(self, "btn_check_commit", None),
-                "Commit Check",
-                "Commit Check",
-                QStyle.StandardPixmap.SP_BrowserReload,
-                "Prüft online auf Updates",
-                "Checks online for updates",
-            ),
-            (
-                getattr(self, "btn_fix_perms", None),
-                "Rechte fixen",
-                "Fix Permissions",
-                QStyle.StandardPixmap.SP_DialogNoButton,
-                "🔐 <b>Rechte:</b> Setzt Schreibrechte für Tool-Dateien und Ordner neu.",
-                "🔐 <b>Permissions:</b> Resets write permissions for tool files and folders.",
-            ),
+            (getattr(self, "btn_open_work", None), "Arbeitsordner", "Work Folder",
+             QStyle.StandardPixmap.SP_DirIcon, "Öffnet den lokalen Patch-Ordner",
+             "Opens the local patch folder"),
+            (getattr(self, "btn_open_temp", None), "Temp-Repo", "Temp Repo",
+             QStyle.StandardPixmap.SP_DirIcon, "Zeigt den lokalen Git-Clone",
+             "Shows the local Git clone"),
+            (getattr(self, "btn_open_emu", None), "Emu-Git", "Emu Git",
+             QStyle.StandardPixmap.SP_DirIcon, "Öffnet das Repository im Browser",
+             "Opens the repository in the browser"),
+            (getattr(self, "btn_check_tools", None), "Tools prüfen", "Check Tools",
+             QStyle.StandardPixmap.SP_ComputerIcon, "Prüft Compiler und Abhängigkeiten",
+             "Checks compilers and dependencies"),
+            (getattr(self, "btn_modifier", None), "Patch Autor", "Patch Author",
+             QStyle.StandardPixmap.SP_FileDialogDetailedView, "Ändert den Namen des Patch-Autors",
+             "Changes the patch author's name"),
+            (getattr(self, "btn_repo_url", None), "Repo URL", "Repo URL",
+             QStyle.StandardPixmap.SP_DriveNetIcon, "Ändert die Git-Repository-URL",
+             "Changes the Git repository URL"),
+            (getattr(self, "btn_check_commit", None), "Commit Check", "Commit Check",
+             QStyle.StandardPixmap.SP_BrowserReload, "Prüft online auf Updates",
+             "Checks online for updates"),
+            (getattr(self, "btn_fix_perms", None), "Rechte fixen", "Fix Permissions",
+             QStyle.StandardPixmap.SP_DialogNoButton,
+             "🔐 <b>Rechte:</b> Setzt Schreibrechte für Tool-Dateien und Ordner neu.",
+             "🔐 <b>Permissions:</b> Resets write permissions for tool files and folders."),
         ]
 
         for btn, de_text, en_text, icon, de_tip, en_tip in mapping:
             if btn is not None:
-                apply_final_style(
-                    btn,
-                    de_text if is_de else en_text,
-                    icon,
-                )
-                btn.setToolTip(de_tip if is_de else en_tip)
+                apply_final_style(btn, tr(de_text, en_text), icon)
+                btn.setToolTip(tr(de_tip, en_tip))
                 btn.setToolTipDuration(10000)
 
         # --------------------------------------------------
-        # 9. Grid-Buttons aktualisieren
+        # 7. Grid-Buttons
         # --------------------------------------------------
-        if hasattr(self, "buttons") and isinstance(self.buttons, dict):
+        if isinstance(getattr(self, "buttons", None), dict):
             grid_icons = {
                 "patch_create": QStyle.StandardPixmap.SP_FileIcon,
                 "patch_renew": QStyle.StandardPixmap.SP_BrowserReload,
@@ -10867,144 +10678,77 @@ class PatchManagerGUI(QWidget):
                 "change_old_dir": QStyle.StandardPixmap.SP_DirOpenIcon,
                 "exit": QStyle.StandardPixmap.SP_DialogCloseButton,
             }
-
-            func_get_t = getattr(
-                self,
-                "get_t",
-                lambda key, default: default,
-            )
-
+            get_t = getattr(self, "get_t", None)
             for key, btn in self.buttons.items():
-                if key in grid_icons and btn is not None:
-                    apply_final_style(
-                        btn,
-                        func_get_t(key, key),
-                        grid_icons[key],
-                    )
+                if btn is None or key not in grid_icons:
+                    continue
+                try:
+                    text = get_t(key, key) if callable(get_t) else key
+                except Exception as exc:
+                    print(f"[update_ui_texts] Übersetzung für {key} fehlgeschlagen: {exc}")
+                    text = key
+                apply_final_style(btn, text, grid_icons[key])
 
         # --------------------------------------------------
-        # 10. Matrix-Button
+        # 8. Matrix-Button
         # --------------------------------------------------
         matrix_btn = getattr(self, "btn_matrix", None)
-
         if matrix_btn is not None:
-            matrix_text = (
-                "🔙 MATRIX VERLASSEN"
-                if is_de
-                else "🔙 EXIT MATRIX"
-            )
-
-            matrix_btn.setText(matrix_text)
+            matrix_btn.setText(tr("🔙 MATRIX VERLASSEN", "🔙 EXIT MATRIX"))
             matrix_btn.setMinimumSize(185, 48)
-
-            matrix_btn.setStyleSheet(
-                """
-                QPushButton {
-                    text-align: left;
-                    padding-left: 8px;
-                    font-weight: bold;
-                    color: #00FFFF;
-                    background-color: #3d3d3d;
-                    border: 1px solid #00FFFF;
-                    border-radius: 8px;
-                }
-                QPushButton:hover {
-                    background-color: #00FFFF;
-                    color: black;
-                }
-                QToolTip {
-                    background-color: #3d3d3d;
-                    color: #00FFFF;
-                    border: 1px solid #00FFFF;
-                    padding: 5px;
-                }
-                """
-            )
-
             matrix_btn.setToolTip(
-                "Verlässt den Matrix-Modus."
-                if is_de
-                else "Exits Matrix mode."
+                tr("Verlässt den Matrix-Modus.", "Exits Matrix mode.")
             )
             matrix_btn.setToolTipDuration(10000)
+            apply_button_style(matrix_btn, "#00FFFF")
 
         # --------------------------------------------------
-        # 11. Theme anwenden
+        # 9. Theme auswählen und anwenden
         # --------------------------------------------------
-        theme_mode = str(
-            file_cfg.get("theme_mode", "standard")
-        ).lower()
+        theme_mode = str(file_cfg.get("theme_mode", "standard")).lower()
+        theme_color = str(file_cfg.get("color", "Classics")).lower()
+        is_matrix = "matrix" in theme_mode or "matrix" in theme_color
 
-        theme_color = str(
-            file_cfg.get("color", "Classics")
-        ).lower()
+        theme_method = getattr(
+            self,
+            "enable_matrix_theme" if is_matrix else "enable_standard_theme",
+            None,
+        )
+        if callable(theme_method):
+            try:
+                theme_method()
+            except Exception as exc:
+                print(f"[update_ui_texts] Theme konnte nicht angewendet werden: {exc}")
 
-        if "matrix" in theme_mode or "matrix" in theme_color:
-            enable_theme = getattr(self, "enable_matrix_theme", None)
-        else:
-            enable_theme = getattr(self, "enable_standard_theme", None)
-
-        if callable(enable_theme):
-            enable_theme()
-
-        
         # --------------------------------------------------
-        # 12. INFO-BUTTON: Tooltip an das Farbschema anpassen
+        # 10. Info-Button-Tooltip mit Theme-Farben
         # --------------------------------------------------
-        info_btn = getattr(self, "info_button", None)
-
-        if info_btn is None:
-            info_btn = getattr(self, "btn_info", None)
-
+        info_btn = getattr(self, "info_button", None) or getattr(self, "btn_info", None)
         if info_btn is not None:
-            info_tooltip = (
-                "Zeigt Informationen über das OSCam Toolkit an."
-                if is_de
-                else "Displays information about the OSCam Toolkit."
+            info_btn.setToolTip(
+                tr(
+                    "Zeigt Informationen über das OSCam Toolkit an.",
+                    "Displays information about the OSCam Toolkit.",
+                )
             )
-
-            info_btn.setToolTip(info_tooltip)
             info_btn.setToolTipDuration(10000)
 
-            # Farbe aus der Konfiguration ermitteln
-            color_name = str(file_cfg.get("color", "Classics")).lower()
-            theme_mode = str(file_cfg.get("theme_mode", "standard")).lower()
-
-            # Farben passend zum Theme
-            if "matrix" in theme_mode or "matrix" in color_name:
-                tooltip_bg = "#101010"
-                tooltip_fg = "#00FF00"
-                tooltip_border = "#00FF00"
-
-            elif "blue" in color_name or "blau" in color_name:
-                tooltip_bg = "#202A44"
-                tooltip_fg = "#FFFFFF"
-                tooltip_border = "#4488FF"
-
-            elif "red" in color_name or "rot" in color_name:
-                tooltip_bg = "#351818"
-                tooltip_fg = "#FFFFFF"
-                tooltip_border = "#FF4444"
-
-            elif "purple" in color_name or "lila" in color_name:
-                tooltip_bg = "#291A35"
-                tooltip_fg = "#FFFFFF"
-                tooltip_border = "#BB77FF"
-
-            elif "green" in color_name or "grün" in color_name:
-                tooltip_bg = "#18301F"
-                tooltip_fg = "#FFFFFF"
-                tooltip_border = "#44CC66"
-
+            if is_matrix:
+                tooltip_bg, tooltip_fg, tooltip_border = "#101010", "#00FF00", "#00FF00"
+            elif "blue" in theme_color or "blau" in theme_color:
+                tooltip_bg, tooltip_fg, tooltip_border = "#202A44", "#FFFFFF", "#4488FF"
+            elif "red" in theme_color or "rot" in theme_color:
+                tooltip_bg, tooltip_fg, tooltip_border = "#351818", "#FFFFFF", "#FF4444"
+            elif "purple" in theme_color or "lila" in theme_color:
+                tooltip_bg, tooltip_fg, tooltip_border = "#291A35", "#FFFFFF", "#BB77FF"
+            elif "green" in theme_color or "grün" in theme_color:
+                tooltip_bg, tooltip_fg, tooltip_border = "#18301F", "#FFFFFF", "#44CC66"
             else:
-                # Standard / Classics: neutral dunkel
-                tooltip_bg = "#303030"
-                tooltip_fg = "#FFFFFF"
-                tooltip_border = "#777777"
+                tooltip_bg, tooltip_fg, tooltip_border = "#303030", "#FFFFFF", "#777777"
 
+            # Nur den Tooltip-Stil ergänzen; nicht bei jedem Aufruf erneut anhängen.
             info_btn.setStyleSheet(
-                info_btn.styleSheet()
-                + f"""
+                f"""
                 QToolTip {{
                     background-color: {tooltip_bg};
                     color: {tooltip_fg};
@@ -11016,29 +10760,24 @@ class PatchManagerGUI(QWidget):
                 """
             )
 
-
-
         # --------------------------------------------------
-        # 13. Fortschrittsanzeige abschließen
+        # 11. Button-Text-Fit und ProgressBar abschließen
         # --------------------------------------------------
+        fit_buttons = getattr(self, "_fit_all_button_texts", None)
+        if callable(fit_buttons):
+            QTimer.singleShot(0, fit_buttons)
+            QTimer.singleShot(200, fit_buttons)
+
         if pbar is not None:
             pbar.setValue(100)
-
-            pbar_idle = getattr(self, "pbar_idle", None)
-
-            if callable(pbar_idle):
-                QTimer.singleShot(2000, pbar_idle)
+            idle_callback = getattr(self, "pbar_idle", None)
+            if callable(idle_callback):
+                QTimer.singleShot(2000, idle_callback)
             else:
                 QTimer.singleShot(2000, pbar.hide)
 
-        # update_ui_texts setzt teilweise eigene Styles. Danach Theme, Hover und
-        # sprachabhängige Tooltips zentral wiederherstellen.
-        try:
-            self.apply_global_button_style()
-        except Exception as exc:
-            print(f"[update_ui_texts] Button-Theme/Tooltips konnten nicht aktualisiert werden: {exc}")
-
         QApplication.processEvents()
+
 
 
 
