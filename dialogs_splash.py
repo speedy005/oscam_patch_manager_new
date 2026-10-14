@@ -1053,33 +1053,33 @@ class CinematicMatrixSplash(QWidget):
   
     LOGO_RAW = [
         " ◢◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥◣ ",
-        " █               _______  _______  _______  _______  __   __              █ ",
-        " █             |       ||       ||   _   ||       ||  |_|  |              █ ",
-        " █             |   _   ||  _____||  |_|  ||       ||       |              █ ",
-        " █             |  | |  || |_____ |       ||       ||       |              █ ",
-        " █             |  |_|  ||_____  ||       ||      _||       |              █ ",
-        " █             |       | _____| ||   _   ||     |_ | ||_|| |              █ ",
-        " █             |_______||_______||__| |__||_______||_|   |_|              █ ",
-        " █                                                                        █ ",
-        " █               _______  _______  _______  _______  __   __              █ ",
-        " █             |       ||   _   ||       ||       ||  | |  |              █ ",
-        " █             |    ___||  |_|  ||_     _||       ||  |_|  |              █ ",
-        " █             |   |___ |       |  |   |  |       ||       |              █ ",
-        " █             |    ___||       |  |   |  |      _||       |              █ ",
-        " █             |   |    |   _   |  |   |  |     |_ | ||_|| |              █ ",
-        " █             |___|    |__| |__|  |___|  |_______||_|   |_|              █ ",
-        " █                                                                        █ ",
-        " █   __   __  _______  __    _  _______  _______  _______  ______         █ ",
-        " █  |  |_|  ||   _   ||  |  | ||   _   ||     __||    ___||    _ |        █ ",
-        " █  |       ||  |_|  ||   |_| ||  |_|  ||    |  ||   |___ |   | ||        █ ",
-        " █  |       ||       ||       ||       ||    |  ||    ___||   |_||_       █ ",
-        " █  |       ||       ||  _    ||       ||    |  ||   |___ |    __  |      █ ",
-        " █  | ||_|| ||   _   || | |   ||   _   ||    |__||   |___ |   |  | |      █ ",
-        " █  |_|   |_||__| |__||_|  |__||__| |__||_______||_______||___|  |_|      █ ",
-        " █                                                                        █ ",
-        " █──────────────────[ SYSTEM: NEURAL_LINK OPERATIONAL ]───────────────────█ ",
-        " █                   >> OSCAM EMU PATCH MANAGER v1.3.1  <<                █ ",
-        " █             >> CODENAME: Speedy_Oscam-_Patch_Manager 2026 <<           █ ",
+        " █               _______  _______  _______  _______  __   __                 █ ",
+        " █             |       ||       ||   _   ||       ||  |_|  |                 █ ",
+        " █             |   _   ||  _____||  |_|  ||       ||       |                 █ ",
+        " █             |  | |  || |_____ |       ||       ||       |                 █ ",
+        " █             |  |_|  ||_____  ||       ||      _||       |                 █ ",
+        " █             |       | _____| ||   _   ||     |_ | ||_|| |                 █ ",
+        " █             |_______||_______||__| |__||_______||_|   |_|                 █ ",
+        " █                                                                           █ ",
+        " █               _______  _______  _______  _______  __   __                 █ ",
+        " █             |       ||   _   ||       ||       ||  | |  |                 █ ",
+        " █             |    ___||  |_|  ||_     _||       ||  |_|  |                 █ ",
+        " █             |   |___ |       |  |   |  |       ||       |                 █ ",
+        " █             |    ___||       |  |   |  |      _||       |                 █ ",
+        " █             |   |    |   _   |  |   |  |     |_ | ||_|| |                 █ ",
+        " █             |___|    |__| |__|  |___|  |_______||_|   |_|                 █ ",
+        " █                                                                           █ ",
+        " █   __   __  _______  __    _  _______  _______  _______  ______            █ ",
+        " █  |  |_|  ||   _   ||  |  | ||   _   ||     __||    ___||    _ |           █ ",
+        " █  |       ||  |_|  ||   |_| ||  |_|  ||    |  ||   |___ |   | ||           █ ",
+        " █  |       ||       ||       ||       ||    |  ||    ___||   |_||_          █ ",
+        " █  |       ||       ||  _    ||       ||    |  ||   |___ |    __  |         █ ",
+        " █  | ||_|| ||   _   || | |   ||   _   ||    |__||   |___ |   |  | |         █ ",
+        " █  |_|   |_||__| |__||_|  |__||__| |__||_______||_______||___|  |_|         █ ",
+        " █                                                                           █ ",
+        " █──────────────────[ SYSTEM: NEURAL_LINK OPERATIONAL ]───────────────────   █ ",
+        " █                   >> OSCAM EMU PATCH MANAGER v1.3.1  <<                   █ ",
+        " █             >> CODENAME: Speedy_Oscam-_Patch_Manager 2026 <<              █ ",
         " ◥◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢◤ ",
     ]
 
@@ -1296,20 +1296,22 @@ class CinematicMatrixSplash(QWidget):
 
     def _build_ui(self):
         main = QVBoxLayout(self)
-        main.setContentsMargins(2, 8, 2, 8)
+        # Auf 0 setzen, damit der UI-Container exakt an den Fensterrändern anliegt
+        main.setContentsMargins(0, 0, 0, 0)
 
         self.ui = QWidget(self)
 
         self.ui.setStyleSheet("""
             QWidget {
-                background-color: rgba(0, 5, 3, 225);
-                border: 1px solid rgba(0, 255, 65, 210);
-                border-radius: 18px;
+                background-color: rgba(0, 5, 3, 235);
+                border: none;
+                border-radius: 0px;
             }
         """)
 
+        # Den inneren Inhalt hier mit etwas Abstand zum gezeichneten Rand versehen
         layout = QVBoxLayout(self.ui)
-        layout.setContentsMargins(4, 16, 4, 16)
+        layout.setContentsMargins(12, 16, 12, 16)
         layout.setSpacing(8)
 
         header = QHBoxLayout()
@@ -1855,39 +1857,20 @@ class CinematicMatrixSplash(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-
-        painter.setRenderHint(
-            QPainter.RenderHint.Antialiasing
-        )
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         width = self.width()
         height = self.height()
 
-        painter.fillRect(
-            self.rect(),
-            QColor(0, 0, 0, 248),
-        )
+        # Hintergrund abdecken
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 248))
 
-        band = int(
-            (self.pulse * 31) % max(1, height)
-        )
-
-        painter.fillRect(
-            0, band, width, 3,
-            QColor(0, 255, 65, 30),
-        )
-
-        painter.fillRect(
-            0,
-            (band + height // 3) % max(1, height),
-            width,
-            2,
-            QColor(0, 220, 255, 20),
-        )
+        band = int((self.pulse * 31) % max(1, height))
+        painter.fillRect(0, band, width, 3, QColor(0, 255, 65, 30))
+        painter.fillRect(0, (band + height // 3) % max(1, height), width, 2, QColor(0, 220, 255, 20))
 
         # Matrix-Regen
         painter.setFont(QFont("Consolas", 10))
-
         for index, drop in enumerate(self.drops):
             x = index * 14
             y = drop * 15
@@ -1895,180 +1878,74 @@ class CinematicMatrixSplash(QWidget):
 
             for segment in range(trail):
                 sy = y - segment * 15
-
                 if 0 < sy < height:
-                    alpha = max(
-                        8,
-                        175 - segment * (145 // max(1, trail)),
-                    )
-
+                    alpha = max(8, 175 - segment * (145 // max(1, trail)))
                     if segment == 0:
-                        painter.setPen(
-                            QColor(220, 255, 230, 245)
-                        )
+                        painter.setPen(QColor(220, 255, 230, 245))
                     else:
-                        painter.setPen(
-                            QColor(0, 255, 65, alpha)
-                        )
-
-                    painter.drawText(
-                        x,
-                        sy,
-                        random.choice(self.chars),
-                    )
+                        painter.setPen(QColor(0, 255, 65, alpha))
+                    painter.drawText(x, sy, random.choice(self.chars))
 
         # Schockwellen
         painter.setBrush(Qt.BrushStyle.NoBrush)
-
         for rx, ry, radius, alpha in self.shockwaves:
             alpha = max(0, min(255, int(alpha)))
-
-            painter.setPen(QPen(
-                QColor(0, 255, 95, alpha),
-                2 if radius < 100 else 1,
-            ))
-
-            painter.drawEllipse(
-                QPoint(int(rx), int(ry)),
-                int(radius),
-                int(radius),
-            )
-
-            if radius > 20:
-                painter.setPen(QPen(
-                    QColor(0, 220, 255, min(130, alpha // 2)),
-                    1,
-                ))
-
-                painter.drawEllipse(
-                    QPoint(int(rx), int(ry)),
-                    int(radius * 0.78),
-                    int(radius * 0.78),
-                )
+            painter.setPen(QPen(QColor(0, 255, 95, alpha), 2 if radius < 100 else 1))
+            painter.drawEllipse(QPoint(int(rx), int(ry)), int(radius), int(radius))
 
         # Partikel
         painter.setPen(Qt.PenStyle.NoPen)
-
         for sx, sy, vx, vy, life, color in self.sparks:
             spark_color = QColor(color)
-            spark_color.setAlpha(
-                max(0, min(255, int(life * 7)))
-            )
-
+            spark_color.setAlpha(max(0, min(255, int(life * 7))))
             painter.setBrush(spark_color)
-
             radius = 2 if life > 12 else 1
+            painter.drawEllipse(QPoint(int(sx), int(sy)), radius, radius)
 
-            painter.drawEllipse(
-                QPoint(int(sx), int(sy)),
-                radius,
-                radius,
-            )
+        # --- ANIMIERTER RAHMEN (Exakt passend zum UI-Container ausgerichtet) ---
+        # Wir holen uns die echte Geometrie des UI-Containers `self.ui`, 
+        # damit die Linien garantiert an dessen Ecken und Rändern sitzen!
+        ui_rect = self.ui.geometry()
+        ux = ui_rect.x()
+        uy = ui_rect.y()
+        uw = ui_rect.width()
+        uh = ui_rect.height()
 
-        # Animierter Rahmen
-        offset = int(
-            (1.0 - self._corner_factor) * 45
-        )
         length = 46
+        glow_alpha = int(165 + 75 * (0.5 + 0.5 * math.sin(self.pulse)))
 
-        glow_alpha = int(
-            165 + 75 * (
-                0.5 + 0.5 * math.sin(self.pulse)
-            )
-        )
+        painter.setPen(QPen(QColor(0, 255, 65, glow_alpha), 3))
 
-        painter.setPen(QPen(
-            QColor(0, 255, 65, glow_alpha),
-            3,
-        ))
-
+        # Ecken exakt auf den Rand des inneren `self.ui`-Containers legen
         corners = [
-            (offset, offset, 1, 1),
-            (width - offset, offset, -1, 1),
-            (offset, height - offset, 1, -1),
-            (width - offset, height - offset, -1, -1),
+            (ux, uy, 1, 1),                           # Oben links
+            (ux + uw, uy, -1, 1),                     # Oben rechts
+            (ux, uy + uh, 1, -1),                     # Unten links
+            (ux + uw, uy + uh, -1, -1),               # Unten rechts
         ]
 
         for x, y, dx, dy in corners:
-            painter.drawLine(
-                x, y,
-                x + dx * length, y,
-            )
-            painter.drawLine(
-                x, y,
-                x, y + dy * length,
-            )
+            painter.drawLine(x, y, x + dx * length, y)
+            painter.drawLine(x, y, x, y + dy * length)
 
         # RGB-Glitches
         if time.monotonic() < self.rgb_until:
-            tear_y = int(
-                (self.pulse * 97) % max(1, height)
-            )
-
-            painter.fillRect(
-                0, tear_y, width, 4,
-                QColor(0, 220, 255, 90),
-            )
-
-            painter.fillRect(
-                self.rgb_offset,
-                (tear_y + 9) % max(1, height),
-                max(1, width - self.rgb_offset),
-                3,
-                QColor(255, 0, 90, 75),
-            )
-
-            painter.fillRect(
-                0,
-                (tear_y + 19) % max(1, height),
-                width,
-                2,
-                QColor(230, 255, 245, 100),
-            )
+            tear_y = int((self.pulse * 97) % max(1, height))
+            painter.fillRect(0, tear_y, width, 4, QColor(0, 220, 255, 90))
+            painter.fillRect(self.rgb_offset, (tear_y + 9) % max(1, height), max(1, width - self.rgb_offset), 3, QColor(255, 0, 90, 75))
 
         # Scanner
-        painter.fillRect(
-            0,
-            self.scanner_y,
-            width,
-            4,
-            QColor(0, 255, 100, 65),
-        )
-
-        painter.fillRect(
-            0,
-            (self.scanner_y + height // 2) % max(1, height),
-            width,
-            1,
-            QColor(0, 255, 65, 22),
-        )
+        painter.fillRect(0, self.scanner_y, width, 4, QColor(0, 255, 100, 65))
 
         # HUD
         painter.setFont(QFont("Consolas", 9))
         painter.setPen(QColor(0, 255, 65, 190))
-
-        painter.drawText(
-            28,
-            height - 30,
-            "SYS.MON / OSCAM CORE",
-        )
-
-        painter.drawText(
-            width - 235,
-            height - 30,
-            f"GLITCH EVENTS: {self.glitch_count:03d}",
-        )
+        painter.drawText(28, height - 30, "SYS.MON / OSCAM CORE")
+        painter.drawText(width - 235, height - 30, f"GLITCH EVENTS: {self.glitch_count:03d}")
 
         if self.flash_alpha > 0:
-            painter.fillRect(
-                self.rect(),
-                QColor(0, 255, 65, self.flash_alpha),
-            )
-
-            self.flash_alpha = max(
-                0,
-                self.flash_alpha - 7,
-            )
+            painter.fillRect(self.rect(), QColor(0, 255, 65, self.flash_alpha))
+            self.flash_alpha = max(0, self.flash_alpha - 7)
 
         painter.end()
 
