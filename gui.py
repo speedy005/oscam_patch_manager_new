@@ -8381,7 +8381,7 @@ class PatchManagerGUI(QWidget):
             "Noto_Color_Emoji.zip",
             "oscam_emu_toolkit2.png",  
             "oscam-patch-generator.png",  
-            "speedy_oscam_managert.png"
+            "speedy_oscam_managert.png" ,
             "final-oscam-emu-patch-maker.png",
             "final-englisch.png",
             "README.md",
