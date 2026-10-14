@@ -8455,10 +8455,12 @@ class PatchManagerGUI(QWidget):
         # Separates temporäres Backup nur für Rollback bei einem Update-Fehler.
         backup_dir = Path(tempfile.mkdtemp(prefix="oscam_backup_"))
 
+       
         download_url = (
-            "https://api.github.com/repos/"
-            "speedy005/oscam_patch_manager_new/zipball/main"
+            "https://github.com/speedy005/oscam_patch_manager_new/"
+            "archive/refs/heads/master.zip"
         )
+
 
         # Diese Verzeichnisse niemals verändern.
         protected_dirs = {
