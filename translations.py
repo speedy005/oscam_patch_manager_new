@@ -336,7 +336,7 @@ TEXTS = {
         "language_label": "Language:",
         "final_label": "🛠️ What are we building today?",
         "color_label": "Color",
-        "commit_count_label": "Commits to show",
+        "commit_count_label": "Last Commits",
         "info_tooltip": "Info / Help",
         "restart_tool_question": "Do you want to restart the tool now?",
         # Info Text

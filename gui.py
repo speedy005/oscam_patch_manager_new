@@ -622,7 +622,7 @@ class PatchManagerGUI(QWidget):
             # Labels aktualisieren
             if hasattr(self, "commit_label"):
                 self.commit_label.setText(
-                    lang_dict.get("commit_count_label", "Commits:")
+                    lang_dict.get("commit_count_label", "Anzahl Commits:" if is_de else "Commit Count:")
                 )
             if hasattr(self, "color_label"):
                 self.color_label.setText(
@@ -10392,7 +10392,7 @@ class PatchManagerGUI(QWidget):
         # 5. Labels aktualisieren
         # --------------------------------------------------
         labels = [
-            ("commit_label", "Commits:", "Commits:"),
+            ("commit_label", "Anzahl Commits:", "Commits Count:"),
             ("color_label", "Farbe:", "Color:"),
             ("lang_label", "🌐 Sprache:", "🌐 Language:"),
         ]
@@ -12258,7 +12258,7 @@ class PatchManagerGUI(QWidget):
 
         # --- 1. Sprache-Dropdown (Kompakt) ---
         self.lang_label = make_label(self.get_t("language_label", "Sprache:"))
-        self.lang_label.setFixedWidth(140)  # Platz für "Sprache:" ohne Lücke
+       
 
         self.language_box = QComboBox()
         self.language_box.addItems(["EN", "DE"])
@@ -12306,7 +12306,8 @@ class PatchManagerGUI(QWidget):
         self.commit_label = make_label(self.get_t("commit_count_label", "Commits:"))
 
         # Breite festlegen (sizeHint + Puffer)
-        self.commit_label.setFixedWidth(self.commit_label.sizeHint().width() + 10)
+        
+        
 
         # HÖHE festlegen (z.B. 35 Pixel, passend zu deinen CONTROL_HEIGHT Werten)
         self.commit_label.setFixedSize(140, self.UI_BUTTON_H)
@@ -12626,69 +12627,69 @@ class PatchManagerGUI(QWidget):
         grid_layout.addWidget(self.btn_open_temp, 0, 7)
         grid_layout.addWidget(self.btn_open_emu, 0, 8)
 
-        # --- ZEILE 1: Einstellungen ---
-        grid_layout.addWidget(self.lang_label, 1, 0)
-        self.language_box.setFixedWidth(70)
-        grid_layout.addWidget(self.language_box, 1, 1)
+        
+        
+        # --- EINSTELLUNGEN: kompakt, linksbündig, eine Reihe ---
+        settings_row = QHBoxLayout()
+        settings_row.setContentsMargins(0, 0, 0, 0)
+        settings_row.setSpacing(10)
 
+        # Sprache
+        self.lang_label.setFixedWidth(120)
+        self.lang_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.language_box.setFixedWidth(90)
+
+        settings_row.addWidget(self.lang_label)
+        settings_row.addWidget(self.language_box)
+
+        # Abstand zwischen den Gruppen
+        settings_row.addSpacing(8)
+
+        # Farbe
+        self.color_label.setFixedWidth(80)
         self.color_label.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
-        grid_layout.addWidget(self.color_label, 1, 2)
         self.color_box.setFixedWidth(130)
-        grid_layout.addWidget(self.color_box, 1, 3)
 
-        self.commit_label.setMinimumWidth(160)
+        settings_row.addWidget(self.color_label)
+        settings_row.addWidget(self.color_box)
+
+        settings_row.addSpacing(8)
+
+        # Commits
+        self.commit_label.setFixedWidth(140)
         self.commit_label.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
-        grid_layout.addWidget(self.commit_label, 1, 4)
+        self.commit_spin.setFixedWidth(70)
 
-        grid_layout.addWidget(self.commit_spin, 1, 5)
-        grid_layout.setColumnStretch(5, 1)
+        settings_row.addWidget(self.commit_label)
+        settings_row.addWidget(self.commit_spin)
 
+        # Freier Platz bleibt rechts von den Einstellungen
+        settings_row.addStretch(1)
+
+        # Einstellungen in einer einzigen Reihe links anordnen
+        grid_layout.addLayout(settings_row, 1, 0, 1, 6)
+
+        # Buttons bleiben in ihren bisherigen Positionen
         grid_layout.addWidget(self.btn_patch_online, 0, 9)
         grid_layout.addWidget(self.btn_check_tools, 1, 6)
         grid_layout.addWidget(self.btn_modifier, 1, 7)
         grid_layout.addWidget(self.btn_repo_url, 1, 8)
         grid_layout.addWidget(self.btn_check_commit, 1, 9)
 
-        for btn in [
-            self.btn_open_work,
-            self.btn_open_temp,
-            self.btn_open_emu,
-            self.btn_check_tools,
-            self.btn_modifier,
-            self.btn_repo_url,
-            self.btn_check_commit,
-        ]:
-            btn.setMinimumWidth(145)
-
-        # --- 1. SPALTEN-STRETCH REINIGEN & FIXIEREN ---
-
-        # Zuerst ALLE Spalten auf 0 setzen (kein automatisches Ausdehnen)
+        # Keine Grid-Spalte künstlich verbreitern
         for i in range(grid_layout.columnCount()):
             grid_layout.setColumnStretch(i, 0)
 
-        # DER TRICK: Nur Spalte 6 (die Lücke zwischen Boxen und Buttons) bekommt Stretch 1.
-        # Das schiebt alles links (0-5) nach LINKS und alles rechts (7-10) nach RECHTS.
-        grid_layout.setColumnStretch(6, 1)
+        # Kleine Abstände zwischen den Grid-Elementen
+        grid_layout.setHorizontalSpacing(6)
+        grid_layout.setVerticalSpacing(6)
 
-        # --- 2. KOMPAKTHEIT DER BOXEN ERZWINGEN ---
-        # Damit die Boxen nicht breiter werden als nötig
-        self.language_box.setFixedWidth(70)
-        self.color_box.setFixedWidth(130)
-        self.commit_spin.setFixedWidth(70)
-
-        # --- 3. LABEL-ABSTÄNDE KORRIGIEREN ---
-        # Wir begrenzen die Breite der Labels, damit die Boxen näher am Text kleben
-        self.lang_label.setFixedWidth(140)  # Platz für "Sprache:"
-        self.color_label.setFixedWidth(65)  # Platz für "Style:"
-        self.commit_label.setFixedWidth(145)  # Platz für "Anzahl Commits:"
-
-        # --- 4. FINALE INTEGRATION ---
-        # Gitter-Abstände minimieren
-        grid_layout.setSpacing(10)
 
         # Layout zum Kasten hinzufügen
         controls_group_layout.addLayout(grid_layout)
@@ -17193,7 +17194,7 @@ class PatchManagerGUI(QWidget):
         # --- E) LABELS & SYSTEM ---
         safe_ui("lang_label", "setText", get_t("language_label", "Sprache:"))
         safe_ui("color_label", "setText", get_t("color_label", "Farbe:"))
-        safe_ui("commit_label", "setText", get_t("commit_count_label", "Commits:"))
+        safe_ui("commit_label", "setText", get_t("commit_count_label", "Anzahl Commits:"))
 
         safe_ui(
             "patch_emu_git_button",
