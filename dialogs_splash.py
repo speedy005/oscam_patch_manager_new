@@ -1053,33 +1053,33 @@ class CinematicMatrixSplash(QWidget):
   
     LOGO_RAW = [
         " ◢◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥◣ ",
-        " █               _______  _______  _______  _______  __   __                 █ ",
-        " █             |       ||       ||   _   ||       ||  |_|  |                 █ ",
-        " █             |   _   ||  _____||  |_|  ||       ||       |                 █ ",
-        " █             |  | |  || |_____ |       ||       ||       |                 █ ",
-        " █             |  |_|  ||_____  ||       ||      _||       |                 █ ",
-        " █             |       | _____| ||   _   ||     |_ | ||_|| |                 █ ",
-        " █             |_______||_______||__| |__||_______||_|   |_|                 █ ",
+        " █                 _______  _______  _______  _______  __   __                 █ ",
+        " █               |       ||       ||   _   ||       ||  |_|  |                 █ ",
+        " █               |   _   ||  _____||  |_|  ||       ||       |                 █ ",
+        " █               |  | |  || |_____ |       ||       ||       |                 █ ",
+        " █               |  |_|  ||_____  ||       ||      _||       |                 █ ",
+        " █               |       | _____| ||   _   ||     |_ | ||_|| |                 █ ",
+        " █               |_______||_______||__| |__||_______||_|   |_|                 █ ",
         " █                                                                           █ ",
-        " █               _______  _______  _______  _______  __   __                 █ ",
-        " █             |       ||   _   ||       ||       ||  | |  |                 █ ",
-        " █             |    ___||  |_|  ||_     _||       ||  |_|  |                 █ ",
-        " █             |   |___ |       |  |   |  |       ||       |                 █ ",
-        " █             |    ___||       |  |   |  |      _||       |                 █ ",
-        " █             |   |    |   _   |  |   |  |     |_ | ||_|| |                 █ ",
-        " █             |___|    |__| |__|  |___|  |_______||_|   |_|                 █ ",
+        " █                 _______  _______  _______  _______  __   __                 █ ",
+        " █               |       ||   _   ||       ||       ||  | |  |                 █ ",
+        " █               |    ___||  |_|  ||_     _||       ||  |_|  |                 █ ",
+        " █               |   |___ |       |  |   |  |       ||       |                 █ ",
+        " █               |    ___||       |  |   |  |      _||       |                 █ ",
+        " █               |   |    |   _   |  |   |  |     |_ | ||_|| |                 █ ",
+        " █               |___|    |__| |__|  |___|  |_______||_|   |_|                 █ ",
         " █                                                                           █ ",
-        " █   __   __  _______  __    _  _______  _______  _______  ______            █ ",
-        " █  |  |_|  ||   _   ||  |  | ||   _   ||     __||    ___||    _ |           █ ",
-        " █  |       ||  |_|  ||   |_| ||  |_|  ||    |  ||   |___ |   | ||           █ ",
-        " █  |       ||       ||       ||       ||    |  ||    ___||   |_||_          █ ",
-        " █  |       ||       ||  _    ||       ||    |  ||   |___ |    __  |         █ ",
-        " █  | ||_|| ||   _   || | |   ||   _   ||    |__||   |___ |   |  | |         █ ",
-        " █  |_|   |_||__| |__||_|  |__||__| |__||_______||_______||___|  |_|         █ ",
+        " █     __   __  _______  __    _  _______  _______  _______  ______            █ ",
+        " █    |  |_|  ||   _   ||  |  | ||   _   ||     __||    ___||    _ |           █ ",
+        " █    |       ||  |_|  ||   |_| ||  |_|  ||    |  ||   |___ |   | ||           █ ",
+        " █    |       ||       ||       ||       ||    |  ||    ___||   |_||_          █ ",
+        " █    |       ||       ||  _    ||       ||    |  ||   |___ |    __  |         █ ",
+        " █    | ||_|| ||   _   || | |   ||   _   ||    |__||   |___ |   |  | |         █ ",
+        " █    |_|   |_||__| |__||_|  |__||__| |__||_______||_______||___|  |_|         █ ",
         " █                                                                           █ ",
-        " █──────────────────[ SYSTEM: NEURAL_LINK OPERATIONAL ]───────────────────   █ ",
-        " █                   >> OSCAM EMU PATCH MANAGER v1.3.1  <<                   █ ",
-        " █             >> CODENAME: Speedy_Oscam-_Patch_Manager 2026 <<              █ ",
+        " █  ──────────────────[ SYSTEM: NEURAL_LINK OPERATIONAL ]───────────────────   █ ",
+        " █                     >> OSCAM EMU PATCH MANAGER v1.3.1  <<                   █ ",
+        " █               >> CODENAME: Speedy_Oscam-_Patch_Manager 2026 <<              █ ",
         " ◥◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢◤ ",
     ]
 
@@ -1106,7 +1106,7 @@ class CinematicMatrixSplash(QWidget):
             if content.endswith("█"):
                 content = content[:-1]
 
-            content = content[:width - 2].ljust(width - 2)
+            content = content[:width - 2].center(width - 2)
             result.append("█" + content + "█")
 
         # Unterer Rahmen
@@ -1244,9 +1244,8 @@ class CinematicMatrixSplash(QWidget):
 
     
     def _fit_logo_font(self):
-        """Passt ausschließlich die Schriftgröße des vorbereiteten Logos an."""
+        """Passt die Schriftgröße für alle Logo-Teile einheitlich an."""
         label = getattr(self, "lbl_logo", None)
-
         if label is None:
             return
 
@@ -1255,52 +1254,96 @@ class CinematicMatrixSplash(QWidget):
         font.setBold(True)
 
         lines = self.LOGO_TEXT
-        
         available_width = max(300, self.width() - 36)
         available_height = max(180, int(self.height() * 0.62))
-
         selected_size = 8
 
         for size in range(30, 7, -1):
             font.setPixelSize(size)
             metrics = QFontMetrics(font)
-
-            widest_line = max(
-                metrics.horizontalAdvance(line)
-                for line in lines
-            )
-
+            widest_line = max(metrics.horizontalAdvance(line) for line in lines)
             total_height = metrics.lineSpacing() * len(lines)
-
-            if (
-                widest_line <= available_width
-                and total_height <= available_height
-            ):
+            if widest_line <= available_width and total_height <= available_height:
                 selected_size = size
                 break
 
         font.setPixelSize(selected_size)
+        self._logo_font_size = selected_size
 
-        label.setFont(font)
-        label.setText("\n".join(lines))
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setWordWrap(False)
-        label.setMinimumWidth(0)
-        label.setMinimumHeight(0)
-        label.setContentsMargins(0, 0, 0, 0)
-        label.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Preferred,
+        # Der obere Logo-Teil bleibt normal grün.
+        self.lbl_logo.setFont(font)
+        self.lbl_logo.setText("\n".join(self._logo_top_lines))
+        self.lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_logo.setWordWrap(False)
+        self.lbl_logo.setMinimumWidth(0)
+        self.lbl_logo.setMinimumHeight(0)
+        self.lbl_logo.setContentsMargins(0, 0, 0, 0)
+
+        # Die drei hervorgehobenen Zeilen verwenden dieselbe Monospace-Schrift
+        # und dieselbe Größe. Nur der eigentliche Text ist farbig; die beiden
+        # seitlichen Rahmenzeichen bleiben im normalen Matrix-Grün.
+        colors = ("#0000FF", "#FFA500", "#FF0000")
+        markers = (
+            "SYSTEM: NEURAL_LINK OPERATIONAL",
+            "OSCAM EMU PATCH MANAGER v1.3.1",
+            "CODENAME: Speedy_Oscam-_Patch_Manager 2026",
         )
+        import html
+        def preserve_spaces(value):
+            # Im <pre>-Block bleiben normale Leerzeichen exakt erhalten.
+            # NBSP darf hier nicht verwendet werden, da es je nach Font-Rendering
+            # eine andere Breite haben kann und dadurch sichtbare Rahmenlücken erzeugt.
+            return html.escape(value)
 
+        line_height = QFontMetrics(font).lineSpacing()
+        for label, raw_line, color, marker in zip(
+            self.logo_color_labels, self._logo_color_lines, colors, markers
+        ):
+            label.setFont(font)
+            # Exakt eine normale Logo-Zeilenhöhe verhindert, dass die untere
+            # Pixelreihe der senkrechten Rahmenzeichen abgeschnitten wird.
+            label.setFixedHeight(line_height)
+            marker_start = raw_line.find(marker)
+            if marker_start >= 0:
+                prefix = preserve_spaces(raw_line[:marker_start])
+                highlighted = preserve_spaces(marker)
+                suffix = preserve_spaces(raw_line[marker_start + len(marker):])
+                content_html = (
+                    f'<span style="color:#00FF41; white-space:pre">{prefix}</span>'
+                    f'<span style="color:{color}; white-space:pre">{highlighted}</span>'
+                    f'<span style="color:#00FF41; white-space:pre">{suffix}</span>'
+                )
+            else:
+                content_html = (
+                    f'<span style="color:#00FF41; white-space:pre">'
+                    f'{preserve_spaces(raw_line)}</span>'
+                )
+            label.setText(
+                '<html><head><style>body{margin:0;padding:0;white-space:pre;}'
+                'pre{margin:0;padding:0;white-space:pre;}</style></head><body>'
+                '<pre style="margin:0; padding:0; line-height:100%; font-family:\'DejaVu Sans Mono\', monospace; '
+                f'font-size:{selected_size}px; font-weight:bold;">'
+                f'{content_html}'
+                '</pre></body></html>'
+            )
+            label.setTextFormat(Qt.TextFormat.RichText)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setWordWrap(False)
+            label.setContentsMargins(0, 0, 0, 0)
+            label.setMinimumWidth(0)
+            label.setMinimumHeight(0)
+
+        self.lbl_logo_bottom.setFont(font)
+        self.lbl_logo_bottom.setText(self._logo_bottom_line)
+        self.lbl_logo_bottom.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_logo_bottom.setWordWrap(False)
+        self.lbl_logo_bottom.setContentsMargins(0, 0, 0, 0)
 
     def _build_ui(self):
         main = QVBoxLayout(self)
-        # Auf 0 setzen, damit der UI-Container exakt an den Fensterrändern anliegt
         main.setContentsMargins(0, 0, 0, 0)
 
         self.ui = QWidget(self)
-
         self.ui.setStyleSheet("""
             QWidget {
                 background-color: rgba(0, 5, 3, 235);
@@ -1309,58 +1352,78 @@ class CinematicMatrixSplash(QWidget):
             }
         """)
 
-        # Den inneren Inhalt hier mit etwas Abstand zum gezeichneten Rand versehen
         layout = QVBoxLayout(self.ui)
         layout.setContentsMargins(12, 16, 12, 16)
         layout.setSpacing(8)
 
+        # Kopfzeile bleibt am oberen Rand.
         header = QHBoxLayout()
 
         self.title = QLabel("◈  OSCAM // NEURAL BOOT")
-        self.title.setFont(
-            QFont("Consolas", 11, QFont.Weight.Bold)
-        )
+        self.title.setFont(QFont("Consolas", 11, QFont.Weight.Bold))
         self.title.setStyleSheet(
             "color:#8DFFB0;border:none;background:transparent;"
         )
 
-        self.host = QLabel(
-            f"OS: {self.os_type.upper()}  •  SECURE LINK"
-        )
+        self.host = QLabel(f"OS: {self.os_type.upper()}  •  SECURE LINK")
         self.host.setFont(QFont("Consolas", 9))
         self.host.setStyleSheet(
             "color:#00B83F;border:none;background:transparent;"
         )
 
         header.addWidget(self.title)
-        header.addStretch()
+        header.addStretch(1)
         header.addWidget(self.host)
-
         layout.addLayout(header)
-        layout.addStretch(1)
 
-        self.lbl_logo = QLabel("\n".join(self.LOGO_TEXT))
+        # Logo in mehrere Labels aufteilen, damit nur die drei unteren
+        # Einträge farbig sind. Die übrigen ASCII-Zeilen bleiben unverändert.
+        system_index = next(i for i, line in enumerate(self.LOGO_TEXT) if "SYSTEM:" in line)
+        manager_index = next(i for i, line in enumerate(self.LOGO_TEXT) if "OSCAM EMU PATCH MANAGER" in line)
+        codename_index = next(i for i, line in enumerate(self.LOGO_TEXT) if "CODENAME:" in line)
+        self._logo_top_lines = self.LOGO_TEXT[:system_index]
+        self._logo_color_lines = [
+            self.LOGO_TEXT[system_index],
+            self.LOGO_TEXT[manager_index],
+            self.LOGO_TEXT[codename_index],
+        ]
+        self._logo_bottom_line = self.LOGO_TEXT[-1]
+
+        self.lbl_logo = QLabel("\n".join(self._logo_top_lines))
         self.lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_logo.setWordWrap(False)
-
         self.lbl_logo.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Preferred,
         )
-
         self.lbl_logo.setMinimumWidth(0)
         self.lbl_logo.setContentsMargins(0, 0, 0, 0)
-
-        font = QFont("Consolas")
-        font.setStyleHint(QFont.StyleHint.Monospace)
-        font.setBold(True)
-
-        self.lbl_logo.setFont(font)
         self.lbl_logo.setStyleSheet(
             "color:#00FF41;border:none;background:transparent;"
         )
 
-        layout.addWidget(self.lbl_logo)
+        self.logo_color_labels = []
+        for _ in range(3):
+            color_label = QLabel()
+            color_label.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed,
+            )
+            color_label.setStyleSheet(
+                "border:none;background:transparent;"
+            )
+            self.logo_color_labels.append(color_label)
+
+        self.lbl_logo_bottom = QLabel(self._logo_bottom_line)
+        self.lbl_logo_bottom.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_logo_bottom.setWordWrap(False)
+        self.lbl_logo_bottom.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
+        self.lbl_logo_bottom.setStyleSheet(
+            "color:#00FF41;border:none;background:transparent;"
+        )
 
         self.subtitle = QLabel(
             "PATCH INTELLIGENCE  •  REPOSITORY SYNC  •  DIAGNOSTICS"
@@ -1371,21 +1434,31 @@ class CinematicMatrixSplash(QWidget):
             "color:#00A832;border:none;background:transparent;"
         )
 
-        layout.addWidget(self.subtitle)
+        center_layout = QVBoxLayout()
+        center_layout.setContentsMargins(0, 0, 0, 0)
+        # Keine Zwischenräume zwischen den ASCII-Zeilen: sonst entstehen
+        # sichtbare Lücken im seitlichen Rahmen genau bei den farbigen Zeilen.
+        center_layout.setSpacing(0)
+        center_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        center_layout.addWidget(self.lbl_logo, 0, Qt.AlignmentFlag.AlignHCenter)
+        for color_label in self.logo_color_labels:
+            center_layout.addWidget(color_label, 0, Qt.AlignmentFlag.AlignHCenter)
+        center_layout.addWidget(self.lbl_logo_bottom, 0, Qt.AlignmentFlag.AlignHCenter)
+        center_layout.addWidget(self.subtitle, 0, Qt.AlignmentFlag.AlignHCenter)
+
+        # Gleiche Stretch-Faktoren ober- und unterhalb des Blocks halten ihn
+        # mittig im freien Bereich; Status, Balken und Footer bleiben unten.
+        layout.addStretch(1)
+        layout.addLayout(center_layout, 0)
         layout.addStretch(1)
 
-        self.status = QLabel(
-            "INITIALIZING NEURAL INTERFACE ..."
-        )
+        self.status = QLabel("INITIALIZING NEURAL INTERFACE ...")
         self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status.setWordWrap(True)
-        self.status.setFont(
-            QFont("Consolas", 10, QFont.Weight.Bold)
-        )
+        self.status.setFont(QFont("Consolas", 10, QFont.Weight.Bold))
         self.status.setStyleSheet(
             "color:#7CFF9A;border:none;background:transparent;"
         )
-
         layout.addWidget(self.status)
 
         self.pbar = QProgressBar()
@@ -1393,7 +1466,6 @@ class CinematicMatrixSplash(QWidget):
         self.pbar.setValue(0)
         self.pbar.setTextVisible(False)
         self.pbar.setFixedHeight(16)
-
         self.pbar.setStyleSheet("""
             QProgressBar {
                 border:1px solid #008F11;
@@ -1412,15 +1484,10 @@ class CinematicMatrixSplash(QWidget):
                 );
             }
         """)
-
         layout.addWidget(self.pbar)
 
         footer = QHBoxLayout()
-
-        sound_state = (
-            "ON" if self.sounds.enabled else "AUDIO OPTIONAL"
-        )
-
+        sound_state = "ON" if self.sounds.enabled else "AUDIO OPTIONAL"
         self.volume_label = QLabel(
             f"CORE v4.0  •  POWER MODE  •  SOUND: {sound_state}"
             f"  •  {len(self.sounds.files)} FILE(S)"
@@ -1429,15 +1496,11 @@ class CinematicMatrixSplash(QWidget):
         self.volume_label.setStyleSheet(
             "color:#008F11;border:none;background:transparent;"
         )
-
         footer.addWidget(self.volume_label)
-        footer.addStretch()
+        footer.addStretch(1)
 
         self.close_button = QPushButton("ABBRECHEN  ×")
-        self.close_button.setCursor(
-            Qt.CursorShape.PointingHandCursor
-        )
-
+        self.close_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_button.setStyleSheet("""
             QPushButton {
                 color:#7CFF9A;
@@ -1457,11 +1520,10 @@ class CinematicMatrixSplash(QWidget):
                 color:#366B43;
             }
         """)
-
         self.close_button.clicked.connect(self.finish)
         footer.addWidget(self.close_button)
-
         layout.addLayout(footer)
+
         main.addWidget(self.ui)
 
     def center_on_screen(self):
