@@ -1,5 +1,11 @@
 """OSCam Patch Manager module fragment: Main Patch Manager GUI."""
-
+from PyQt6.QtCore import QEvent, QObject
+from PyQt6.QtWidgets import (
+    QApplication,
+    QPushButton,
+    QToolButton,
+    QAbstractButton,
+)
 import math
 import os
 import struct
@@ -7,9 +13,33 @@ import tempfile
 import wave
 
 
+class ButtonClickSoundFilter(QObject):
+    """Spielt beim Mausklick auf einen Button den Klickton ab."""
+
+    def __init__(self, sound_manager, parent=None):
+        super().__init__(parent)
+        self.sound_manager = sound_manager
+
+    def eventFilter(self, obj, event):
+        try:
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and isinstance(obj, QAbstractButton)
+                and obj.isEnabled()
+                and self.sound_manager
+                and self.sound_manager.enabled
+            ):
+                sound = getattr(self.sound_manager, "click_sound", None)
+                if sound is not None:
+                    sound.play()
+        except Exception as e:
+            print(f"[WARN] Button-Klicksound fehlgeschlagen: {e}")
+
+        return super().eventFilter(obj, event)
+
 from PyQt6.QtCore import QObject, QTimer, QUrl, Qt
 from PyQt6.QtMultimedia import QSoundEffect
-print("[DEBUG] Diese gui.py wird geladen:", __file__, flush=True)
+
 
 class SystemSoundManager(QObject):
     """Plattformübergreifende Soundeffekte für Windows und Linux."""
@@ -45,6 +75,13 @@ class SystemSoundManager(QObject):
             [783.99, 659.25, 523.25],
             180,
         )
+        # Kurzer Klicksound für alle Buttons
+        self.click_sound = self._create_effect(
+            "click.wav",
+            [1046.50],
+            35,
+        )
+
         # Optionaler Soundtakt für die blinkende Revisionsnummer.
         self.revision_timer = QTimer(self)
         self.revision_timer.setTimerType(
@@ -245,7 +282,15 @@ class PatchManagerGUI(QWidget):
 
         super().__init__()
         self.sound_manager = SystemSoundManager(self, volume=0.45)
-        
+        # Globalen Klicksound-Filter registrieren
+        self.button_click_sound_filter = ButtonClickSoundFilter(
+            self.sound_manager,
+            self
+        )
+
+        QApplication.instance().installEventFilter(
+            self.button_click_sound_filter
+        )
         # --- TIMER-SEKTION ---
         # 3. INFOSCREEN & REDIRECTOR FIX
         self.current_rev = getattr(
