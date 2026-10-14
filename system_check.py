@@ -22,6 +22,7 @@ from PyQt6.QtCore import QDateTime, QEasingCurve, QObject, QPoint, QPropertyAnim
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPolygon, QTextCursor
 from PyQt6.QtWidgets import QApplication, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QFrame, QGraphicsColorizeEffect, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QSlider, QTextEdit, QVBoxLayout, QWidget, QWidgetItem
 from datetime import datetime, timezone
+from paths import APP_VERSION
 
 class SystemCheckWorker(QObject):
     """
@@ -195,7 +196,7 @@ class SystemCheckWorker(QObject):
                 "Regards, speedy005",
             )
 
-            app_ver = globals().get("APP_VERSION", "3.1.5")
+            app_ver = APP_VERSION
 
             header = f"""
             <style>
