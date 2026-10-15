@@ -35,6 +35,7 @@ LANG = "de"
 TEXTS = {
     "en": {
         # Grid Buttons / Patch Aktionen
+        "backup_button_text": "💾 Create Backup",
         "patch_create": "Create Patch",
         "patch_renew": "Renew Patch",
         "patch_check": "Check Patch",
@@ -447,6 +448,7 @@ TEXTS = {
     },
     "de": {
         # Grid Buttons / Patch Aktionen
+        "backup_button_text": "💾 Backup erstellen",
         "patch_folder_s3_ncam": "S3-NCam Patch Pfad",
         "patch_folder_s4": "S4-Patch Pfad",
         "patch_copy_s3_ncam": "Patch zu S3-NCam",

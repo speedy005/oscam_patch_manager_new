@@ -8404,6 +8404,63 @@ class PatchManagerGUI(QWidget):
 
     
     
+    def create_gi_backup(self):
+        """Erstellt/überschreibt backup/backup_gi.zip mit dem Projektstand."""
+        import zipfile
+        from pathlib import Path
+        from PyQt6.QtWidgets import QMessageBox
+
+        project_dir = Path(__file__).resolve().parent
+        backup_dir = project_dir / "backup"
+        backup_zip = backup_dir / "backup_git.zip"
+        excluded_dirs = {
+            "backup",
+            ".git",
+            "oscam-emu-git",
+            "streamboard-git",
+            "__pycache__",
+            ".venv",
+            "venv",
+        }
+
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            file_count = 0
+            with zipfile.ZipFile(
+                backup_zip,
+                mode="w",
+                compression=zipfile.ZIP_DEFLATED,
+            ) as archive:
+                for source_file in project_dir.rglob("*"):
+                    if not source_file.is_file():
+                        continue
+                    relative_path = source_file.relative_to(project_dir)
+                    if any(part in excluded_dirs for part in relative_path.parts):
+                        continue
+                    if source_file.resolve() == backup_zip.resolve():
+                        continue
+                    archive.write(source_file, arcname=relative_path.as_posix())
+                    file_count += 1
+
+            QMessageBox.information(
+                self,
+                "Backup erfolgreich",
+                f"Das Backup wurde erstellt:\n{backup_zip}\n\n"
+                f"Enthaltene Dateien: {file_count}",
+            )
+            if hasattr(self, "log_message"):
+                self.log_message(
+                    f"Backup erstellt: {backup_zip} ({file_count} Dateien)"
+                )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Backup fehlgeschlagen",
+                f"Das Backup konnte nicht erstellt werden:\n{exc}",
+            )
+            if hasattr(self, "log_message"):
+                self.log_message(f"Backup-Fehler: {exc}")
+
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """Aktualisiert das gesamte Projekt aus GitHub und schützt lokale Daten."""
 
@@ -12555,6 +12612,16 @@ class PatchManagerGUI(QWidget):
         self.btn_check_commit.setStyleSheet(button_style)
         self.btn_check_commit.clicked.connect(self.check_for_new_commit)
 
+        # --- Manuelles Projekt-Backup ---
+        self.btn_backup_gui = QPushButton("💾 Backup erstellen")
+        self.btn_backup_gui.setIconSize(QSize(I_SIZE, I_SIZE))
+        self.btn_backup_gui.setFixedSize(210, B_HEIGHT)
+        self.btn_backup_gui.setStyleSheet(button_style)
+        self.btn_backup_gui.setToolTip(
+            "Erstellt backup/backup_gi.zip mit dem aktuellen Projektstand"
+        )
+        self.btn_backup_gui.clicked.connect(self.create_gi_backup)
+
         # --- 4. GRID-LAYOUT (Header-Fix: Badge 220px, Lücke 5px, Badge 280px, Weißer Text) ---
         from PyQt6.QtWidgets import QFrame
 
@@ -12708,6 +12775,9 @@ class PatchManagerGUI(QWidget):
 
         settings_row.addWidget(self.commit_label)
         settings_row.addWidget(self.commit_spin)
+
+        # Backup-Button direkt hinter der Commit-Anzahl-Auswahl
+        settings_row.addWidget(self.btn_backup_gui)
 
         # Freier Platz bleibt rechts von den Einstellungen
         settings_row.addStretch(1)
@@ -17130,7 +17200,15 @@ class PatchManagerGUI(QWidget):
                         val[0].setText(f"{prefix}{get_t(val[1])}")
                     except RuntimeError:
                         pass
-
+        # Backup-Button übersetzen
+        if hasattr(self, "btn_backup_gui"):
+            self.btn_backup_gui.setText(
+                self.TEXT.get(
+                    "backup_button_text",
+                    "💾 Backup erstellen" if self.LANG == "de"
+                    else "💾 Create Backup"
+                )
+            )
         # --- B) HEADER (Die Haupt-Fehlerquelle) ---
         safe_ui("controls_header", "setText", get_t("settings_header", "Einstellungen" if lang == "de" else "Settings"))
         safe_ui(
