@@ -1047,7 +1047,7 @@ class CinematicMatrixSplash(QWidget):
 
     finished = pyqtSignal()
 
-    MIN_DURATION_MS = 15000
+    MIN_DURATION_MS = 22000
 
     
   
@@ -1119,7 +1119,7 @@ class CinematicMatrixSplash(QWidget):
 
 
 
-    def __init__(self, duration=15000, parent=None):
+    def __init__(self, duration=22000, parent=None):
         super().__init__(parent)
 
         try:
@@ -1134,6 +1134,8 @@ class CinematicMatrixSplash(QWidget):
         self._worker = None
         self._close_retry_scheduled = False
         self._bootstrap_done = False
+        self._success_sequence_started = False
+        self._success_sequence_finished = False
         self._bootstrap_success = False
         self._restart_pending = False
         self._error_close_scheduled = False
@@ -1661,6 +1663,7 @@ class CinematicMatrixSplash(QWidget):
                 random.choice(palette),
             ))
 
+    
     def _trigger_power_surge(self, intensity=1.0):
         if self.is_closing:
             return
@@ -1689,10 +1692,13 @@ class CinematicMatrixSplash(QWidget):
         self.rgb_offset = random.randint(6, 24)
         self.shake = min(18, 7 * intensity)
 
-        if not self.sounds.play("impact", 0.90, force=True):
-            self.sounds.play("glitch", 0.60, force=True)
+        # Während der finalen Sequenz keine zusätzlichen Sounds.
+        if not self._success_sequence_started:
+            if not self.sounds.play("impact", 0.90, force=True):
+                self.sounds.play("glitch", 0.60, force=True)
 
         self.update()
+
 
     def _update_scanner(self):
         if self.is_closing:
@@ -1704,6 +1710,7 @@ class CinematicMatrixSplash(QWidget):
 
         self.update()
 
+    
     def glitch(self):
         if self.is_closing:
             return
@@ -1721,13 +1728,18 @@ class CinematicMatrixSplash(QWidget):
             )
             self.rgb_offset = random.randint(3, 18)
 
-            if random.random() < 0.20:
+            # Zufällige Glitch-Sounds nur vor der finalen Sequenz.
+            if (
+                not self._success_sequence_started
+                and random.random() < 0.20
+            ):
                 self.sounds.play("glitch", 0.28)
 
         else:
             self.lbl_logo.setStyleSheet(
                 "color:#00FF41;border:none;background:transparent;"
             )
+
 
     def update_progress(self):
         """Kompatibilität mit älteren Aufrufen."""
@@ -1774,6 +1786,7 @@ class CinematicMatrixSplash(QWidget):
         self.prog = max(0, min(100, int(value)))
         self.pbar.setValue(self.prog)
 
+    
     def _on_bootstrap_complete(self, success, result):
         self._bootstrap_done = True
 
@@ -1789,18 +1802,12 @@ class CinematicMatrixSplash(QWidget):
             self._bootstrap_success = False
             self.sounds.play("error", 0.70, force=True)
 
-            self.status.setText(
-                "BOOTSTRAP FAILED:\n" + result
-            )
-
+            self.status.setText("BOOTSTRAP FAILED:\n" + result)
             self.status.setStyleSheet(
                 "color:#FF496C;border:none;background:transparent;"
             )
-
             self.close_button.setText("SCHLIESSEN  ×")
 
-            # Fehlermeldung sichtbar lassen und nach fünf Sekunden
-            # automatisch schließen.
             if not self._error_close_scheduled:
                 self._error_close_scheduled = True
                 QTimer.singleShot(5000, self.finish)
@@ -1811,11 +1818,9 @@ class CinematicMatrixSplash(QWidget):
             self._restart_pending = True
             self.prog = 100
             self.pbar.setValue(100)
-
             self.status.setText(
                 "PACKAGES INSTALLED — RESTART REQUIRED ..."
             )
-
             return
 
         self._bootstrap_success = True
@@ -1825,13 +1830,42 @@ class CinematicMatrixSplash(QWidget):
         self.status.setText(
             "SYSTEM ONLINE  //  FINAL SEQUENCE PENDING"
         )
-
         self.status.setStyleSheet(
             "color:#9DFFB0;border:none;background:transparent;"
         )
 
-        self.sounds.play("ready", 0.70, force=True)
+        self._success_sequence_started = True
+        self._success_sequence_finished = False
 
+        if self.sounds.play("ready", 0.70, force=True):
+            QTimer.singleShot(12000, self._play_final_glitch)
+        else:
+            # Audio fehlt oder konnte nicht gestartet werden.
+            QTimer.singleShot(0, self._play_final_glitch)
+
+
+    def _play_final_glitch(self):
+        if self.is_closing:
+            return
+
+        if self.sounds.play("glitch", 0.70, force=True):
+            QTimer.singleShot(
+                1500,
+                self._finish_final_audio_sequence,
+            )
+        else:
+            self._finish_final_audio_sequence()
+
+
+    def _finish_final_audio_sequence(self):
+        if self.is_closing:
+            return
+
+        self._success_sequence_finished = True
+        self._check_completion()
+
+
+        
     def _check_completion(self):
         if self.is_closing:
             return
@@ -1840,8 +1874,7 @@ class CinematicMatrixSplash(QWidget):
             time.monotonic() - self.started_at
         ) * 1000
 
-        # Die Mindestlaufzeit wird auch nach erfolgreichem
-        # Bootstrap eingehalten.
+        # Mindestlaufzeit von 15 Sekunden erzwingen.
         if elapsed < self.duration:
             return
 
@@ -1849,15 +1882,20 @@ class CinematicMatrixSplash(QWidget):
             self._restart_application()
             return
 
-        # Während der Bootstrap läuft, bleibt der Splash sichtbar.
+        # Nicht schließen, solange der Bootstrap noch läuft.
         if not self._bootstrap_done:
             return
 
-        # Bei Erfolg schließen.
         if self._bootstrap_success:
-            self.finish()
+            # Bei Erfolg erst nach der finalen Audiosequenz schließen.
+            if not self._success_sequence_finished:
+                return
 
-        # Bei Fehler übernimmt der Fehler-Timer das Schließen.
+            self.finish()
+            return
+
+        # Bei Fehlern schließt der vorhandene Fehler-Timer.
+
 
     # --------------------------------------------------------
     # NEUSTART
