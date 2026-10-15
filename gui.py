@@ -42,162 +42,191 @@ from PyQt6.QtMultimedia import QSoundEffect
 
 
 class SystemSoundManager(QObject):
-    """Plattformübergreifende Soundeffekte für Windows und Linux."""
+    """Einheitlicher, dateibasierter Soundmanager für Windows und Linux.
+
+    Alle Sounds werden als PCM-WAV erzeugt und über Qt Multimedia abgespielt.
+    Dadurch hängen normale UI-Sounds nicht von Windows-Soundaliasen oder
+    Linux-spezifischen OGA-Dateien/Playern ab.
+    """
 
     def __init__(self, parent=None, volume=0.25):
         super().__init__(parent)
-
         self.enabled = True
-        self.volume = max(0.0, min(1.0, float(volume)))
-        self._temp_dir = tempfile.mkdtemp(
-            prefix="oscam_sounds_"
-        )
+        self.volume = self._clamp_volume(volume)
+        self._temp_dir = tempfile.mkdtemp(prefix="oscam_sounds_")
+        self._effects = {}
+        self._closed = False
 
-        self.start_sound = self._create_effect(
-            "start.wav",
-            [523.25],
-            100,
-        )
+        # Tonfolgen: (Frequenz, Dauer in ms); None erzeugt eine kurze Pause.
+        patterns = {
+            "start": [(523.25, 95), (659.25, 95)],
+            "success": [(659.25, 85), (783.99, 85), (1046.50, 130)],
+            "revision": [(880.00, 65)],
+            "exit": [(783.99, 100), (659.25, 100), (523.25, 150)],
+            "click": [(1046.50, 28)],
+            "info": [(740.00, 70)],
+            "warning": [(660.00, 90), (520.00, 120)],
+            "error": [(440.00, 130), (330.00, 180)],
+            "login": [(523.25, 65), (783.99, 100)],
+            "logout": [(783.99, 65), (523.25, 100)],
+        }
+        for name, pattern in patterns.items():
+            self._effects[name] = self._create_effect(name, pattern)
 
-        self.success_sound = self._create_effect(
-            "success.wav",
-            [659.25, 783.99, 1046.50],
-            110,
-        )
+        # Rückwärtskompatible Attribute, die an anderen Stellen direkt
+        # verwendet werden (z. B. success_sound.play()).
+        self.start_sound = self._effects["start"]
+        self.success_sound = self._effects["success"]
+        self.revision_sound = self._effects["revision"]
+        self.exit_sound = self._effects["exit"]
+        self.click_sound = self._effects["click"]
 
-        self.revision_sound = self._create_effect(
-            "revision.wav",
-            [880.00],
-            65,
-        )
-        self.exit_sound = self._create_effect(
-            "exit.wav",
-            [783.99, 659.25, 523.25],
-            180,
-        )
-        # Kurzer Klicksound für alle Buttons
-        self.click_sound = self._create_effect(
-            "click.wav",
-            [1046.50],
-            35,
-        )
-
-        # Optionaler Soundtakt für die blinkende Revisionsnummer.
         self.revision_timer = QTimer(self)
-        self.revision_timer.setTimerType(
-            Qt.TimerType.PreciseTimer
-        )
+        self.revision_timer.setTimerType(Qt.TimerType.PreciseTimer)
         self.revision_timer.setInterval(1200)
-        self.revision_timer.timeout.connect(
-            self.play_revision
-        )
+        self.revision_timer.timeout.connect(self.play_revision)
 
-    def _write_tone(self, path, frequencies, duration_ms):
-        """Erzeugt eine kurze WAV-Datei mit weichen Tönen."""
+    @staticmethod
+    def _clamp_volume(volume):
+        try:
+            return max(0.0, min(1.0, float(volume)))
+        except (TypeError, ValueError):
+            return 0.25
 
+    def _write_tone(self, path, pattern):
+        """Schreibt 16-bit-PCM-WAV mit kurzen Fade-ins/-outs."""
         sample_rate = 22050
-        samples_per_tone = int(
-            sample_rate * duration_ms / 1000
-        )
-
+        frames = bytearray()
+        for frequency, duration_ms in pattern:
+            count = max(1, int(sample_rate * duration_ms / 1000))
+            if frequency is None:
+                frames.extend(b"\x00\x00" * count)
+                continue
+            for i in range(count):
+                fade_in = min(1.0, i / max(1, int(sample_rate * 0.008)))
+                fade_out = min(1.0, (count - 1 - i) / max(1, int(sample_rate * 0.012)))
+                envelope = max(0.0, min(fade_in, fade_out))
+                sample = int(6500 * envelope * math.sin(2 * math.pi * frequency * i / sample_rate))
+                frames.extend(struct.pack("<h", sample))
+            frames.extend(b"\x00\x00" * int(sample_rate * 0.018))
         with wave.open(path, "wb") as wav:
             wav.setnchannels(1)
             wav.setsampwidth(2)
             wav.setframerate(sample_rate)
+            wav.writeframes(frames)
 
-            for frequency in frequencies:
-                for i in range(samples_per_tone):
-                    t = i / sample_rate
-
-                    # Weiches Ein- und Ausblenden.
-                    fade_in = min(1.0, i / 250)
-                    fade_out = min(
-                        1.0,
-                        (samples_per_tone - i) / 500,
-                    )
-
-                    envelope = min(fade_in, fade_out)
-                    amplitude = (
-                        10000
-                        * envelope
-                        * math.sin(2 * math.pi * frequency * t)
-                    )
-
-                    wav.writeframesraw(
-                        struct.pack("<h", int(amplitude))
-                    )
-
-                # Kurze Pause zwischen den Tönen.
-                for _ in range(int(sample_rate * 0.025)):
-                    wav.writeframesraw(
-                        struct.pack("<h", 0)
-                    )
-
-    def _create_effect(self, filename, frequencies, duration):
-        path = os.path.join(self._temp_dir, filename)
-
-        self._write_tone(path, frequencies, duration)
-
+    def _create_effect(self, name, pattern):
+        path = os.path.join(self._temp_dir, f"{name}.wav")
+        self._write_tone(path, pattern)
         effect = QSoundEffect(self)
         effect.setSource(QUrl.fromLocalFile(path))
-        effect.statusChanged.connect(
-            lambda e=effect, p=path: print(
-                f"[SOUND] {os.path.basename(p)}: "
-                f"{e.status()}, geladen={e.isLoaded()}"
-            )
-        )
         effect.setVolume(self.volume)
+        effect.statusChanged.connect(
+            lambda e=effect, n=name: self._log_effect_status(n, e)
+        )
         return effect
+
+    @staticmethod
+    def _log_effect_status(name, effect):
+        # Debug-Ausgabe nur bei Ladefehlern; kein Log-Spam beim normalen Betrieb.
+        try:
+            if effect.status() == QSoundEffect.Status.Error:
+                print(f"[SOUND] Sound '{name}' konnte nicht geladen werden.")
+        except Exception:
+            pass
 
     def set_enabled(self, enabled):
         self.enabled = bool(enabled)
-
         if not self.enabled:
             self.stop_revision_blink_sound()
+            for effect in self._effects.values():
+                try:
+                    effect.stop()
+                except Exception:
+                    pass
 
-   
     def set_volume(self, volume):
-        self.volume = max(0.0, min(1.0, float(volume)))
-
-        for effect in (
-            self.start_sound,
-            self.success_sound,
-            self.revision_sound,
-            self.exit_sound,
-        ):
+        self.volume = self._clamp_volume(volume)
+        for effect in self._effects.values():
             effect.setVolume(self.volume)
-    
 
-    def play_start(self):
-        if self.enabled:
-            self.start_sound.play()
+    def play(self, name):
+        """Spielt einen benannten Sound; unbekannte Namen werden ignoriert."""
+        if not self.enabled or self._closed:
+            return False
+        effect = self._effects.get(str(name).lower())
+        if effect is None:
+            return False
+        try:
+            effect.stop()
+            effect.play()
+            return True
+        except Exception as exc:
+            print(f"[SOUND] Abspielen von '{name}' fehlgeschlagen: {exc}")
+            return False
 
-    def play_success(self):
-        if self.enabled:
-            self.success_sound.play()
+    def play_start(self): return self.play("start")
+    def play_success(self): return self.play("success")
+    def play_revision(self): return self.play("revision")
+    def play_error(self): return self.play("error")
+    def play_info(self): return self.play("info")
+    def play_warning(self): return self.play("warning")
+    def play_login(self): return self.play("login")
+    def play_logout(self): return self.play("logout")
 
-    def play_revision(self):
-        print(
-            "[SOUND] play_revision:",
-            "enabled =", self.enabled,
-            "loaded =", self.revision_sound.isLoaded(),
-            "status =", self.revision_sound.status(),
-            "playing =", self.revision_sound.isPlaying(),
-            "source =", self.revision_sound.source().toString(),
-        )
+    def play_legacy_name(self, filename):
+        """Übersetzt bisherige Freedesktop-Dateinamen in portable Sounds."""
+        name = os.path.basename(str(filename)).lower()
+        if any(word in name for word in ("error", "failed", "failure")):
+            return self.play_error()
+        if "warning" in name or "exclamation" in name:
+            return self.play_warning()
+        if "login" in name or "service-start" in name:
+            return self.play_login()
+        if "logout" in name or "service-stop" in name:
+            return self.play_logout()
+        if "complete" in name or "success" in name:
+            return self.play_success()
+        if "information" in name or "asterisk" in name:
+            return self.play_info()
+        if "button" in name or "click" in name:
+            return self.play("click")
+        return self.play_info()
 
-        if self.enabled:
-            self.revision_sound.play()
-
-    
     def start_revision_blink_sound(self):
-        # Kein automatischer Ton und kein zusätzlicher Sound-Timer.
-        # Der Ton wird direkt beim roten Revisions-Blink ausgelöst.
+        # Der Ton wird beim Blink-Ereignis direkt ausgelöst, nicht per Timer.
         self.revision_timer.stop()
 
     def stop_revision_blink_sound(self):
-        # Timer stoppen, ohne einen zusätzlichen Ton abzuspielen.
         self.revision_timer.stop()
+
+    def shutdown(self):
+        if self._closed:
+            return
+        self._closed = True
+        self.revision_timer.stop()
+        for effect in self._effects.values():
+            try:
+                effect.stop()
+            except Exception:
+                pass
+        try:
+            import shutil
+            shutil.rmtree(self._temp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+
+_ACTIVE_SOUND_MANAGER = None
+
+
+def safe_play(filename):
+    """Kompatibler Ersatz für workers.safe_play, zentral und plattformneutral."""
+    manager = _ACTIVE_SOUND_MANAGER
+    if manager is not None:
+        return manager.play_legacy_name(filename)
+    # Falls vor Erstellung der GUI ein Sound angefordert wird, einfach still bleiben.
+    return False
 
 
 # Explicit module imports (kept broad for compatibility with legacy callbacks).
@@ -236,7 +265,7 @@ from system_check import SystemCheckWorker
 from themes import DIFF_COLORS, current_color_name, current_diff_colors
 from translations import LANG, TEXTS
 from ui_components import StreamToGui
-from workers import NcamBonecrewInstallWorker, OSCamUpdateWorker, S3InstallWorker, S4InstallWorker, safe_play
+from workers import NcamBonecrewInstallWorker, OSCamUpdateWorker, S3InstallWorker, S4InstallWorker
 from packaging.version import Version
 
 class PatchManagerGUI(QWidget):
@@ -249,8 +278,6 @@ class PatchManagerGUI(QWidget):
         import subprocess, platform, shutil, os, re, sys
 
         self.is_loading = True  # Schutz vor Timer während Setup
-        if "safe_play" in globals():
-            safe_play("service-login.oga")
 
         # 2. ATTR-BOOTSTRAP
         self.btn_matrix = None
@@ -282,6 +309,12 @@ class PatchManagerGUI(QWidget):
 
         super().__init__()
         self.sound_manager = SystemSoundManager(self, volume=0.45)
+        global _ACTIVE_SOUND_MANAGER
+        _ACTIVE_SOUND_MANAGER = self.sound_manager
+        app = QApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self.sound_manager.shutdown)
+        self.sound_manager.play_login()
         # Globalen Klicksound-Filter registrieren
         self.button_click_sound_filter = ButtonClickSoundFilter(
             self.sound_manager,
@@ -1235,9 +1268,6 @@ class PatchManagerGUI(QWidget):
         self._system_check_thread.started.connect(
             self._system_check_worker.run
         )
-        if hasattr(self, "sound_manager"):
-            self.sound_manager.play_start()
-
         if hasattr(self, "sound_manager"):
             self.sound_manager.play_start()
 
@@ -4180,48 +4210,22 @@ class PatchManagerGUI(QWidget):
     def copy_to_clipboard(self):
         """Kopiert den Log in die Zwischenablage."""
         QApplication.clipboard().setText(self.info_text.toPlainText())
-        # Kleiner visueller Effekt – plattformabhängig.
-        if platform.system() == "Windows" and globals().get("HAS_SOUND_SUPPORT"):
-            try:
-                import winsound
-                winsound.MessageBeep()
-            except Exception:
-                pass
-        elif platform.system() == "Linux" and "safe_play" in globals():
-            try:
-                safe_play("dialog-information.oga")
-            except Exception:
-                pass
+        # Einheitlicher Feedback-Ton auf Windows und Linux.
+        safe_play("dialog-information.oga")
 
     def _play_sys_sound(self, sound_type="standard"):
-        """Spielt System-Sounds für Windows und Linux ohne externe Dateien."""
-        import platform, subprocess, shutil
-
-        try:
-            if platform.system() == "Windows":
-                import winsound
-
-                # Asterisk für Standard, Exclamation für Web/Aktion
-                alias = (
-                    "SystemAsterisk"
-                    if sound_type == "standard"
-                    else "SystemExclamation"
-                )
-                winsound.PlaySound(alias, winsound.SND_ALIAS | winsound.SND_ASYNC)
-            else:
-                # Linux Freedesktop Standards
-                snd = (
-                    "button-pressed.oga"
-                    if sound_type == "standard"
-                    else "dialog-information.oga"
-                )
-                for cmd in ["paplay", "canberra-gtk-play", "aplay"]:
-                    if shutil.which(cmd):
-                        path = f"/usr/share/sounds/freedesktop/stereo/{snd}"
-                        subprocess.Popen([cmd, path], stderr=subprocess.DEVNULL)
-                        break
-        except:
-            pass
+        """Spielt Systemfeedback über den gemeinsamen Windows/Linux-Backend."""
+        manager = getattr(self, "sound_manager", None) or _ACTIVE_SOUND_MANAGER
+        if manager is None:
+            return False
+        kind = str(sound_type).lower()
+        if kind in ("error", "critical", "failure"):
+            return manager.play_error()
+        if kind in ("warning", "exclamation"):
+            return manager.play_warning()
+        if kind in ("click", "button"):
+            return manager.play("click")
+        return manager.play_info()
 
     def init_button_signals(self):
         """Verknüpft die 3 Ordner-Buttons und alle anderen Funktionen sicher."""

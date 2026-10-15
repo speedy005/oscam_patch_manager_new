@@ -1000,7 +1000,18 @@ def clean_patch_folder(
 
     update_progress(5, start_text)
     log(start_text, "info")
+    # Startsound
+    try:
+        sound_manager = getattr(
+            gui_instance,
+            "sound_manager",
+            None
+        )
 
+        if sound_manager and sound_manager.enabled:
+            sound_manager.play_start()
+    except Exception as exc:
+        print(f"[WARN] clean_patch Startsound fehlgeschlagen: {exc}")
     # ---------------------------------------------------------
     # ZU LÖSCHENDE DATEIEN UND ORDNER
     # ---------------------------------------------------------
@@ -1249,10 +1260,21 @@ def clean_patch_folder(
         update_progress(100, final_text)
 
         try:
-            import winsound
-            winsound.MessageBeep(winsound.MB_OK)
-        except Exception:
-            pass
+            sound_manager = getattr(
+                gui_instance,
+                "sound_manager",
+                None
+            )
+
+            if sound_manager and sound_manager.enabled:
+                sound_manager.play_success()
+            else:
+                play_cross_platform_sound("success")
+
+        except Exception as exc:
+            print(
+                f"[WARN] clean_patch Erfolgssound fehlgeschlagen: {exc}"
+            )
 
         return True
 
@@ -1271,10 +1293,30 @@ def clean_patch_folder(
     update_progress(100, final_text)
 
     try:
-        import winsound
-        winsound.MessageBeep(winsound.MB_ICONWARNING)
-    except Exception:
-        pass
+        sound_manager = getattr(
+            gui_instance,
+            "sound_manager",
+            None
+        )
+
+        if sound_manager and sound_manager.enabled:
+            error_sound = getattr(
+                sound_manager,
+                "error_sound",
+                None
+            )
+
+            if error_sound:
+                error_sound.play()
+            else:
+                play_cross_platform_sound("error")
+        else:
+            play_cross_platform_sound("error")
+
+    except Exception as exc:
+        print(
+            f"[WARN] clean_patch Warnsound fehlgeschlagen: {exc}"
+        )
 
     return False
 
@@ -1350,10 +1392,28 @@ def create_patch(
     import subprocess
     import tempfile
 
-    try:
-        import winsound
-    except Exception:
-        winsound = None
+    
+    
+    # ============================================================
+    # Sound – Windows + Linux
+    # Start, Erfolg und Fehler
+    # ============================================================
+
+    import sys
+    import os
+    import subprocess
+    import shutil
+
+    def play_patch_sound(sound_type="start"):
+        """Delegiert an die zentrale plattformübergreifende Soundfunktion."""
+        return play_cross_platform_sound(sound_type)
+
+    # ---------------------------------------------------------
+    # STARTSOUND
+    # ---------------------------------------------------------
+    play_cross_platform_sound("start")
+
+
 
     try:
         from PyQt6.QtWidgets import QApplication
@@ -3620,25 +3680,14 @@ def create_patch(
             ),
         )
 
+        
         # ========================================================
-        # Erfolgssound
+        # Erfolgssound – Windows + Linux
         # ========================================================
 
-        try:
-            if winsound is not None:
-                winsound.MessageBeep(winsound.MB_OK)
-
-            elif (
-                gui_instance is not None
-                and callable(globals().get("safe_play"))
-            ):
-                safe_play("complete.oga")
-
-        except Exception:
-            pass
+        play_patch_sound("success")
 
         return True
-
 
     # ============================================================
     # Fehlerbehandlung
@@ -3646,12 +3695,9 @@ def create_patch(
 
     except Exception as exc:
 
-        error_text = str(
-            exc
-        ).strip()
+        error_text = str(exc).strip()
 
         if not error_text:
-
             error_text = tr(
                 "unknown_error",
                 "Unbekannter Fehler.",
@@ -3659,31 +3705,15 @@ def create_patch(
             )
 
         log("")
-
-        log(
-            "========================================"
-        )
-
-        log(
-            "PATCH FEHLER"
-        )
-
-        log(
-            "========================================"
-        )
-
-        log(
-            error_text
-        )
-
-        log(
-            "========================================"
-        )
+        log("========================================")
+        log("PATCH FEHLER")
+        log("========================================")
+        log(error_text)
+        log("========================================")
 
         set_progress(
             0,
-            "❌ "
-            + tr(
+            "❌ " + tr(
                 "patch_error",
                 "Fehler bei der Patch-Erstellung",
                 "Patch creation failed"
@@ -3691,60 +3721,31 @@ def create_patch(
         )
 
         # ========================================================
-        # Fehler-Sound
+        # Fehler-Sound – Windows + Linux
         # ========================================================
 
-        try:
-
-            if gui_instance is not None:
-
-                safe_play_function = globals().get(
-                    "safe_play"
-                )
-
-                if callable(
-                    safe_play_function
-                ):
-
-                    safe_play_function(
-                        "dialog-error.oga"
-                    )
-
-            elif winsound is not None:
-
-                winsound.MessageBeep(
-                    winsound.MB_ICONHAND
-                )
-
-        except Exception:
-            pass
+        play_patch_sound("error")
 
         # ========================================================
         # Fehler ins Info-Fenster
         # ========================================================
 
         try:
-
             if gui_instance is not None:
-
                 append_info = getattr(
                     gui_instance,
                     "append_info",
                     None
                 )
 
-                if callable(
-                    append_info
-                ):
-
+                if callable(append_info):
                     append_info(
                         getattr(
                             gui_instance,
                             "info_text",
                             info_widget
                         ),
-                        "❌ "
-                        + error_text,
+                        "❌ " + error_text,
                         "error"
                     )
 
@@ -3752,6 +3753,102 @@ def create_patch(
             pass
 
         return False
+
+def play_cross_platform_sound(sound_type="success"):
+    """Play a start/success/error notification on Windows and Linux.
+
+    Sound playback is best-effort: missing audio devices, sound files, or
+    player programs must never interrupt patch operations.
+    """
+    import os
+    import sys
+    import shutil
+    import subprocess
+
+    sound_type = str(sound_type or "success").strip().lower()
+    if sound_type not in ("start", "success", "error"):
+        sound_type = "success"
+
+    # Windows: use native system notification sounds.
+    if sys.platform == "win32":
+        try:
+            import winsound
+            sound_flags = {
+                "start": winsound.MB_ICONASTERISK,
+                "success": winsound.MB_OK,
+                "error": winsound.MB_ICONHAND,
+            }
+            winsound.MessageBeep(sound_flags[sound_type])
+            return True
+        except Exception:
+            # Continue with optional audio helper if native playback fails.
+            pass
+
+    # File names available on common Freedesktop/GNOME sound installations.
+    sound_names = {
+        "start": [
+            "message-new-instant.oga", "message-new-instant.ogg",
+            "message-new-instant.wav", "complete.oga", "complete.ogg",
+            "complete.wav",
+        ],
+        "success": ["complete.oga", "complete.ogg", "complete.wav"],
+        "error": [
+            "dialog-error.oga", "dialog-error.ogg", "dialog-error.wav",
+            "dialog-warning.oga", "dialog-warning.ogg", "dialog-warning.wav",
+        ],
+    }[sound_type]
+
+    # safe_play may know the application's own sound directory. Only treat
+    # it as successful when it does not raise an exception.
+    safe_play_func = globals().get("safe_play")
+    if callable(safe_play_func):
+        for sound_name in sound_names:
+            try:
+                safe_play_func(sound_name)
+                return True
+            except Exception:
+                continue
+
+    sound_dirs = [
+        "/usr/share/sounds/freedesktop/stereo",
+        "/usr/share/sounds/gnome/default/alerts",
+        "/usr/share/sounds",
+        os.path.expanduser("~/.local/share/sounds"),
+    ]
+    players = ("paplay", "pw-play", "aplay", "ffplay")
+
+    for sound_dir in sound_dirs:
+        for sound_name in sound_names:
+            sound_path = os.path.join(sound_dir, sound_name)
+            if not os.path.isfile(sound_path):
+                continue
+            for player in players:
+                executable = shutil.which(player)
+                if not executable:
+                    continue
+                try:
+                    command = [executable, sound_path]
+                    if player == "ffplay":
+                        command = [executable, "-nodisp", "-autoexit", "-loglevel", "quiet", sound_path]
+                    subprocess.Popen(
+                        command,
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
+                    return True
+                except Exception:
+                    continue
+
+    # Last resort: terminal bell, but only for an interactive terminal.
+    try:
+        if sys.stderr.isatty() or sys.stdout.isatty():
+            print("\a", end="", flush=True)
+            return True
+    except Exception:
+        pass
+    return False
 
 # ===================== backup_old_patch =====================
 
@@ -3792,6 +3889,11 @@ def backup_old_patch(
     import os
     import shutil
     import re
+
+    try:
+        import winsound
+    except Exception:
+        winsound = None
 
     from PyQt6.QtWidgets import (
         QTextEdit,
@@ -3967,6 +4069,11 @@ def backup_old_patch(
             else "❌ Error!"
         )
 
+        # ---------------------------------------------------------
+        # FEHLERSOUND – WINDOWS UND LINUX
+        # ---------------------------------------------------------
+        play_cross_platform_sound("error")
+
         return False
 
     # ---------------------------------------------------------
@@ -3976,6 +4083,11 @@ def backup_old_patch(
         "[BACKUP OLD PATCH] START",
         flush=True
     )
+
+    # ---------------------------------------------------------
+    # STARTSOUND – WINDOWS UND LINUX
+    # ---------------------------------------------------------
+    play_cross_platform_sound("start")
 
     set_progress(
         10,
@@ -4600,18 +4712,11 @@ def backup_old_patch(
     )
 
     # ---------------------------------------------------------
-    # SOUND
+    # ERFOLGSSOUND – WINDOWS UND LINUX
     # ---------------------------------------------------------
-    try:
+    play_cross_platform_sound("success")
 
-        if "safe_play" in globals():
-
-            safe_play(
-                "complete.oga"
-            )
-
-    except Exception:
-        pass
+    
 
     # ---------------------------------------------------------
     # FERTIG
@@ -5245,29 +5350,11 @@ def patch_oscam_emu_git(
     # SOUND
     # ============================================================
 
-    def play_sound(
-        success=True
-    ):
-
-        safe_play = globals().get(
-            "safe_play"
+    def play_sound(success=True):
+        """Legacy wrapper; routes old calls through the shared sound backend."""
+        return play_cross_platform_sound(
+            "success" if success else "error"
         )
-
-        if callable(
-            safe_play
-        ):
-
-            try:
-
-                safe_play(
-                    "complete.oga"
-                    if success
-                    else
-                    "dialog-error.oga"
-                )
-
-            except Exception:
-                pass
 
     # ============================================================
     # GIT
@@ -5515,6 +5602,9 @@ def patch_oscam_emu_git(
     # ============================================================
     # START
     # ============================================================
+    # Startsound – einheitlich für Windows und Linux.
+    play_cross_platform_sound("start")
+
 
     temp_dir = None
     backup_dir = None

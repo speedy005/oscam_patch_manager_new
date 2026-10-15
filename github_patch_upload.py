@@ -190,22 +190,38 @@ def github_upload_patch_file(
             pass
 
     # ------------------------------------------------------------
-    # Sound
+    # Sound – Windows + Linux
     # ------------------------------------------------------------
     def play_sound(success=True):
 
-        try:
+        sound_file = (
+            "complete.oga"
+            if success
+            else "dialog-error.oga"
+        )
 
-            if "safe_play" in globals():
+        safe_play_func = globals().get("safe_play")
 
-                safe_play(
-                    "complete.oga"
+        # Vorhandenen plattformübergreifenden Player verwenden
+        if callable(safe_play_func):
+            try:
+                safe_play_func(sound_file)
+                return
+            except Exception:
+                pass
+
+        # Windows-Fallback
+        if sys.platform == "win32":
+            try:
+                import winsound
+
+                winsound.MessageBeep(
+                    winsound.MB_OK
                     if success
-                    else "dialog-error.oga"
+                    else winsound.MB_ICONHAND
                 )
-
-        except Exception:
-            pass
+            except Exception:
+                pass
 
     # ------------------------------------------------------------
     # Logging
@@ -530,14 +546,33 @@ sys.stdout.write(value)
 
         askpass_dir = None
 
+
+    # ------------------------------------------------------------
+    # Startsound – Windows + Linux
+    # ------------------------------------------------------------
+    def play_start_sound():
+        safe_play_func = globals().get("safe_play")
+
+        if callable(safe_play_func):
+            try:
+                safe_play_func("complete.oga")
+                return
+            except Exception:
+                pass
+
+        # Windows-Fallback
+        if sys.platform == "win32":
+            try:
+                import winsound
+                winsound.MessageBeep(
+                    winsound.MB_ICONASTERISK
+                )
+            except Exception:
+                pass
+
     # ------------------------------------------------------------
     # Start
     # ------------------------------------------------------------
-    set_progress(
-        5,
-        text="⏳ Start..."
-    )
-
     temp_parent = None
 
     # Credentials werden nur innerhalb dieser Funktion gehalten.
@@ -547,7 +582,15 @@ sys.stdout.write(value)
     # Environment wird später wieder bereinigt.
     git_env = None
 
+    play_start_sound()
+
+    set_progress(
+        5,
+        text="⏳ Start..."
+    )
+
     try:
+
 
         # ========================================================
         # GitHub Config
