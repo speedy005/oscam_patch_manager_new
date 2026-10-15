@@ -8655,6 +8655,7 @@ class PatchManagerGUI(QWidget):
             "speedy_oscam_managert.png" ,
             "final-oscam-emu-patch-maker.png",
             "final-englisch.png",
+            "speedy_banner.png",
             "README.md",
             "version.txt",
             
