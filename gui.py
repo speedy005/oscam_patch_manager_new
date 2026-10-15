@@ -12961,14 +12961,27 @@ class PatchManagerGUI(QWidget):
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
 
+        texts = getattr(self, "TEXT", {}) or {}
+
+        def tr(key, de_fallback, en_fallback):
+            return texts.get(key) or (
+                de_fallback if is_de else en_fallback
+            )
+
         stream_dir = os.path.abspath(
             globals().get("STREAMREPO", "")
         )
         stream_choices = dict(STREAM_REPO_CHOICES)
         stream_url = str(get_selected_stream_repo_url()).strip()
 
+        
         if stream_url not in stream_choices.values():
-            stream_choices["Aktuelle Quelle"] = stream_url
+            stream_choices[tr(
+                "current_source",
+                "Aktuelle Quelle",
+                "Current Source"
+            )] = stream_url
+
 
         if not stream_dir:
             QMessageBox.critical(
@@ -13109,11 +13122,15 @@ class PatchManagerGUI(QWidget):
             dialog = QDialog(self)
             dialog.setModal(True)
             dialog.resize(900, 620)
+            
             dialog.setWindowTitle(
-                "Streamboard Git-Revision auswählen"
-                if is_de else
-                "Select Streamboard Git Revision"
+                tr(
+                    "select_revision",
+                    "Streamboard Git-Revision auswählen",
+                    "Select Streamboard Git Revision"
+                )
             )
+
 
             layout = QVBoxLayout(dialog)
 
@@ -13178,11 +13195,23 @@ class PatchManagerGUI(QWidget):
             )
             layout.addWidget(refresh_button)
 
+            
             buttons = QDialogButtonBox(
                 QDialogButtonBox.StandardButton.Ok
                 | QDialogButtonBox.StandardButton.Cancel,
                 parent=dialog,
             )
+
+            buttons.button(
+                QDialogButtonBox.StandardButton.Ok
+            ).setText("OK" if is_de else "OK")
+
+            buttons.button(
+                QDialogButtonBox.StandardButton.Cancel
+            ).setText("Abbrechen" if is_de else "Cancel")
+
+            layout.addWidget(buttons)
+
             layout.addWidget(buttons)
 
             def use_list_selection():
@@ -13202,13 +13231,17 @@ class PatchManagerGUI(QWidget):
             def refresh_list():
                 try:
                     if git_run(["status", "--porcelain"], timeout=60):
+                        
                         QMessageBox.warning(
                             dialog,
                             "Streamboard",
-                            "Arbeitsverzeichnis ist nicht sauber."
-                            if is_de else
-                            "Working tree is not clean."
+                            tr(
+                                "working_tree_not_clean",
+                                "Arbeitsverzeichnis ist nicht sauber.",
+                                "Working tree is not clean."
+                            )
                         )
+
                         return
 
                     selected_name = repo_combo.currentText()
@@ -13216,12 +13249,16 @@ class PatchManagerGUI(QWidget):
                         stream_choices.get(selected_name, "")
                     ).strip()
 
+                    
                     if not selected_url:
                         raise RuntimeError(
-                            "Für die ausgewählte Quelle ist keine URL definiert."
-                            if is_de else
-                            "No URL is defined for the selected source."
+                            tr(
+                                "no_repository_url",
+                                "Für die ausgewählte Quelle ist keine URL definiert.",
+                                "No URL is defined for the selected source."
+                            )
                         )
+
 
                     remote_ref = "refs/remotes/revision-picker/master"
 
@@ -13292,15 +13329,20 @@ class PatchManagerGUI(QWidget):
                 stream_choices.get(repo_combo.currentText(), "")
             ).strip()
 
+            
             if not stream_url:
                 QMessageBox.warning(
                     self,
                     "Streamboard",
-                    "Für das ausgewählte Repository fehlt die URL."
-                    if is_de else
-                    "The selected repository has no URL."
+                    tr(
+                        "no_repository_url",
+                        "Für das ausgewählte Repository fehlt die URL.",
+                        "The selected repository has no URL."
+                    )
                 )
                 return False
+
+                
             selected = sha_edit.text().strip()
             if not selected:
                 QMessageBox.warning(
@@ -13451,6 +13493,13 @@ class PatchManagerGUI(QWidget):
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
 
+        texts = getattr(self, "TEXT", {}) or {}
+
+        def tr(key, de_fallback, en_fallback):
+            return texts.get(key) or (
+                de_fallback if is_de else en_fallback
+            )
+
         emu_dir = os.path.abspath(
             globals().get("PATCH_EMU_GIT_DIR", "")
         )
@@ -13472,8 +13521,14 @@ class PatchManagerGUI(QWidget):
             "speedy005 OSCam-EMU": "https://github.com/speedy005/Oscam-emu.git",
         }
 
+        
         if emu_url not in emu_repo_choices.values():
-            emu_repo_choices["Aktuelle Quelle"] = emu_url
+            emu_repo_choices[tr(
+                "current_source",
+                "Aktuelle Quelle",
+                "Current Source"
+            )] = emu_url
+
         if not emu_dir:
             QMessageBox.critical(
                 self,
@@ -13604,21 +13659,27 @@ class PatchManagerGUI(QWidget):
                     continue
                 commits.append((sha.lower(), date_text, subject))
 
+            
             dialog = QDialog(self)
             dialog.setWindowTitle(
-                "OSCam-Emu Revision auswählen"
-                if is_de else
-                "Select OSCam-Emu Revision"
+                tr(
+                    "select_revision",
+                    "OSCam-Emu Revision auswählen",
+                    "Select OSCam-Emu Revision"
+                )
             )
             dialog.resize(850, 600)
 
             layout = QVBoxLayout(dialog)
             repo_label = QLabel(
-                "Git-Repository für die Commit-Liste:"
-                if is_de else
-                "Git repository for the commit list:"
+                tr(
+                    "select_repository",
+                    "Git-Repository für die Commit-Liste:",
+                    "Git repository for the commit list:"
+                )
             )
             layout.addWidget(repo_label)
+
 
             repo_combo = QComboBox(dialog)
 
@@ -13675,12 +13736,23 @@ class PatchManagerGUI(QWidget):
             )
             layout.addWidget(refresh_button)
 
+            
             buttons = QDialogButtonBox(
                 QDialogButtonBox.StandardButton.Ok
                 | QDialogButtonBox.StandardButton.Cancel,
                 parent=dialog,
             )
+
+            buttons.button(
+                QDialogButtonBox.StandardButton.Ok
+            ).setText("OK" if is_de else "OK")
+
+            buttons.button(
+                QDialogButtonBox.StandardButton.Cancel
+            ).setText("Abbrechen" if is_de else "Cancel")
+
             layout.addWidget(buttons)
+
 
             def use_list_selection():
                 item = commit_list.currentItem()
@@ -13698,25 +13770,33 @@ class PatchManagerGUI(QWidget):
             def refresh_list():
                 try:
                     if git_run(["status", "--porcelain"], timeout=60):
+                        
                         QMessageBox.warning(
                             dialog,
                             "OSCam-Emu",
-                            "Arbeitsverzeichnis ist nicht sauber."
-                            if is_de else
-                            "Working tree is not clean."
+                            tr(
+                                "working_tree_not_clean",
+                                "Arbeitsverzeichnis ist nicht sauber.",
+                                "Working tree is not clean."
+                            )
                         )
+
                         return
 
                     selected_url = str(
                         repo_combo.currentData() or ""
                     ).strip()
 
+                    
                     if not selected_url:
                         raise RuntimeError(
-                            "Keine Repository-URL ausgewählt."
-                            if is_de else
-                            "No repository URL selected."
+                            tr(
+                                "no_repository_url",
+                                "Keine Repository-URL ausgewählt.",
+                                "No repository URL selected."
+                            )
                         )
+
 
                     remote_ref = "refs/remotes/revision-picker/emu"
 
@@ -13791,15 +13871,20 @@ class PatchManagerGUI(QWidget):
                 repo_combo.currentData() or ""
             ).strip()
 
+                
             if not selected_emu_url:
                 QMessageBox.warning(
                     self,
                     "OSCam-Emu",
-                    "Bitte ein Repository auswählen."
-                    if is_de else
-                    "Please select a repository."
+                    tr(
+                        "select_repository_prompt",
+                        "Bitte ein Repository auswählen.",
+                        "Please select a repository."
+                    )
                 )
                 return False
+
+                
 
             if not selected:
                 QMessageBox.warning(
