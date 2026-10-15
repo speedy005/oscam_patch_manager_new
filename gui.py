@@ -8461,6 +8461,27 @@ class PatchManagerGUI(QWidget):
             if hasattr(self, "log_message"):
                 self.log_message(f"Backup-Fehler: {exc}")
 
+    
+    def _has_project_write_access(self, project_dir):
+        """Prüft, ob der aktuelle Prozess im Projektordner schreiben darf."""
+        import os
+        import tempfile
+        from pathlib import Path
+
+        project_dir = Path(project_dir)
+
+        try:
+            with tempfile.NamedTemporaryFile(
+                prefix=".write_test_",
+                dir=str(project_dir),
+                delete=True,
+            ):
+                pass
+            return True
+        except (OSError, PermissionError):
+            return False
+
+    
     def plugin_update_action(self, latest_version=None, progress_callback=None):
         """Aktualisiert das gesamte Projekt aus GitHub und schützt lokale Daten."""
 
@@ -9395,6 +9416,16 @@ class PatchManagerGUI(QWidget):
                 "♻️ <b>Neustart:</b> Startet den Patch Manager komplett neu.",
                 "♻️ <b>Restart:</b> Restarts the patch manager completely.",
             ),
+                        (
+                "restart_tool_admin",
+                "restart_tool_admin",
+                "#B22222",
+                self.restart_application_elevated,
+                "white",
+                "SP_DialogApplyButton",
+                "🔐 <b>Admin-Neustart:</b> Startet das Tool mit Administratorrechten.",
+                "🔐 <b>Admin restart:</b> Restarts the tool with elevated privileges.",
+            ),
             (
                 "edit_patch_header",
                 "edit_patch_header",
@@ -10061,7 +10092,164 @@ class PatchManagerGUI(QWidget):
                     progress_callback(100)
                 except:
                     pass
+    def restart_application_elevated(self, *args, **kwargs):
+        """Startet das Tool nach Bestätigung mit erhöhten Rechten neu."""
+        import os
+        import sys
+        import shutil
+        import platform
+        import subprocess
 
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+        from PyQt6.QtCore import QTimer
+
+        lang = str(getattr(self, "LANG", "de")).lower()[:2]
+        is_de = lang == "de"
+
+        # Keine zweite Rechteerhöhung, wenn sie bereits vorhanden ist.
+        if os.name == "nt":
+            try:
+                import ctypes
+
+                if ctypes.windll.shell32.IsUserAnAdmin():
+                    QMessageBox.information(
+                        self,
+                        "Hinweis" if is_de else "Information",
+                        "Das Tool läuft bereits mit Administratorrechten."
+                        if is_de
+                        else "The application is already running as administrator.",
+                    )
+                    return
+            except Exception:
+                pass
+        else:
+            if hasattr(os, "geteuid") and os.geteuid() == 0:
+                QMessageBox.information(
+                    self,
+                    "Hinweis" if is_de else "Information",
+                    "Das Tool läuft bereits mit Root-Rechten."
+                    if is_de
+                    else "The application is already running as root.",
+                )
+                return
+
+        answer = QMessageBox.question(
+            self,
+            "Administratorrechte" if is_de else "Administrator privileges",
+            (
+                "Das Tool mit erhöhten Rechten neu starten?"
+                if is_de
+                else "Restart the application with elevated privileges?"
+            ),
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        script = os.path.realpath(sys.argv[0])
+        cwd = os.path.dirname(script) or os.getcwd()
+
+        try:
+            if os.name == "nt":
+                import ctypes
+
+                # Auch bei Leerzeichen in Pfaden werden die Argumente korrekt gequotet.
+                if getattr(sys, "frozen", False):
+                    executable = sys.executable
+                    params = subprocess.list2cmdline(sys.argv[1:])
+                else:
+                    executable = sys.executable
+                    params = subprocess.list2cmdline(
+                        [script] + sys.argv[1:]
+                    )
+
+                result = ctypes.windll.shell32.ShellExecuteW(
+                    None,
+                    "runas",
+                    executable,
+                    params,
+                    cwd,
+                    1,
+                )
+
+                if result <= 32:
+                    error_message = (
+                        f"ShellExecuteW Fehlercode: {result}\n"
+                        f"Python: {sys.executable}\n"
+                        f"Skript: {script}\n"
+                        f"Argumente: {params}\n"
+                        f"Arbeitsverzeichnis: {cwd}"
+                    )
+                    raise RuntimeError(error_message)
+
+
+            elif platform.system() == "Linux":
+                pkexec = shutil.which("pkexec")
+
+                if not pkexec:
+                    QMessageBox.warning(
+                        self,
+                        "Nicht verfügbar" if is_de else "Unavailable",
+                        (
+                            "pkexec ist nicht installiert. Bitte installiere "
+                            "PolicyKit oder starte das Tool über deine "
+                            "Systemverwaltung mit Root-Rechten."
+                            if is_de
+                            else
+                            "pkexec is unavailable. Install PolicyKit or "
+                            "start the application with root privileges."
+                        ),
+                    )
+                    return
+
+                # Nur die für eine grafische Sitzung benötigten Variablen
+                # weitergeben, soweit sie vorhanden sind.
+                env_args = []
+                for key in (
+                    "DISPLAY",
+                    "XAUTHORITY",
+                    "WAYLAND_DISPLAY",
+                    "XDG_RUNTIME_DIR",
+                    "QT_QPA_PLATFORM",
+                    "DBUS_SESSION_BUS_ADDRESS",
+                ):
+                    value = os.environ.get(key)
+                    if value:
+                        env_args.append(f"{key}={value}")
+
+                if getattr(sys, "frozen", False):
+                    command = [sys.executable] + sys.argv[1:]
+                else:
+                    command = [sys.executable, script] + sys.argv[1:]
+
+                subprocess.Popen(
+                    [pkexec, "env"] + env_args + command,
+                    cwd=cwd,
+                    start_new_session=True,
+                )
+
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Nicht unterstützt" if is_de else "Unsupported",
+                    "Diese Plattform wird nicht unterstützt."
+                    if is_de
+                    else "This platform is not supported.",
+                )
+                return
+
+            # Erst nach erfolgreichem Start die bisherige GUI beenden.
+            QTimer.singleShot(500, QApplication.quit)
+
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Neustart fehlgeschlagen" if is_de else "Restart failed",
+                f"{exc}",
+            )
 
     def restart_application(self, *args, **kwargs):
         """Startet die Anwendung neu und zeigt kurz den Neon-Status an."""

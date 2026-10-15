@@ -106,14 +106,7 @@ def _restart_elevated():
 def main():
     """Configure Qt and start the OSCam Patch Manager GUI."""
     # Avoid accidental recursive elevation.
-    if "--elevated" not in sys.argv and not _is_elevated():
-        try:
-            restarted = _restart_elevated()
-            if restarted:
-                return
-        except Exception as exc:
-            print(f"[SYSTEM] Could not request elevated privileges: {exc}")
-            raise
+    
 
     os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "1")
     os.environ.setdefault("NO_AT_BRIDGE", "1")
