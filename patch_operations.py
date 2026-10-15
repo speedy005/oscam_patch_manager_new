@@ -1090,33 +1090,16 @@ def clean_patch_folder(
 
     temp_repo = globals().get("TEMP_REPO")
 
+    
     if temp_repo:
         temp_repo_path = os.path.abspath(temp_repo)
 
-        protected_repo = os.path.abspath(
-            os.path.join(
-                PLUGIN_DIR,
-                "streamboard-git"
-            )
+        targets.append((temp_repo_path, "folder"))
+
+        log(
+            f"[CLEAN] TEMP_REPO: {temp_repo_path}",
+            "info"
         )
-
-        if os.path.normcase(
-            os.path.normpath(temp_repo_path)
-        ) == os.path.normcase(
-            os.path.normpath(protected_repo)
-        ):
-            log(
-                "⚠️ TEMP_REPO verweist auf streamboard-git. "
-                "Das Repository wird geschützt.",
-                "warning"
-            )
-        else:
-            targets.append((temp_repo_path, "folder"))
-
-            log(
-                f"[CLEAN] TEMP_REPO: {temp_repo_path}",
-                "info"
-            )
     else:
         log(
             "⚠️ TEMP_REPO ist nicht definiert und wird übersprungen.",
@@ -1241,6 +1224,7 @@ def clean_patch_folder(
         )
 
         update_progress(progress)
+
 
     # ---------------------------------------------------------
     # ABSCHLUSS
