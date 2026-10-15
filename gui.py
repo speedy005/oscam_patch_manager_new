@@ -12946,6 +12946,7 @@ class PatchManagerGUI(QWidget):
 
         from PyQt6.QtWidgets import (
             QApplication,
+            QComboBox,
             QDialog,
             QDialogButtonBox,
             QLabel,
@@ -12963,9 +12964,11 @@ class PatchManagerGUI(QWidget):
         stream_dir = os.path.abspath(
             globals().get("STREAMREPO", "")
         )
-        stream_url = str(
-            get_selected_stream_repo_url()
-        ).strip()
+        stream_choices = dict(STREAM_REPO_CHOICES)
+        stream_url = str(get_selected_stream_repo_url()).strip()
+
+        if stream_url not in stream_choices.values():
+            stream_choices["Aktuelle Quelle"] = stream_url
 
         if not stream_dir:
             QMessageBox.critical(
@@ -13039,14 +13042,12 @@ class PatchManagerGUI(QWidget):
                 )
                 return False
 
-            # Nur Streamboard/master aktualisieren. Damit zeigt die Liste
-            # wirklich die Commits aus genau dem von dir genannten
-            # Streamboard-Master und nicht zufällige lokale Branches.
+            # Commit-Liste aus dem aktuell ausgewählten Repository laden.
             git_run(
                 [
                     "fetch",
                     stream_url,
-                    "refs/heads/master:refs/remotes/streamboard/master",
+                    "refs/heads/master:refs/remotes/revision-picker/master",
                 ],
                 timeout=1200,
             )
@@ -13062,11 +13063,11 @@ class PatchManagerGUI(QWidget):
             except Exception:
                 remote_head = ""
 
-            # Letzte 100 Commits ausschließlich aus Streamboard/master.
+            # Letzte 100 Commits aus dem ausgewählten Repository.
             log_output = git_run(
                 [
                     "log",
-                    "streamboard/master",
+                    "revision-picker/master",
                     "-100",
                     "--date=format:%Y-%m-%d %H:%M",
                     "--format=%H%x09%ad%x09%s",
@@ -13127,7 +13128,25 @@ class PatchManagerGUI(QWidget):
             )
             info.setWordWrap(True)
             layout.addWidget(info)
+            repo_label = QLabel(
+                "Repository für Commit-Liste:" if is_de else
+                "Repository for commit list:"
+            )
+            layout.addWidget(repo_label)
 
+            repo_combo = QComboBox(dialog)
+            repo_names = list(stream_choices.keys())
+            selected_repo_name = next(
+                (
+                    name for name, url in stream_choices.items()
+                    if url == stream_url
+                ),
+                repo_names[0] if repo_names else "",
+            )
+            repo_combo.addItems(repo_names)
+            if selected_repo_name:
+                repo_combo.setCurrentText(selected_repo_name)
+            layout.addWidget(repo_combo)
             current = getattr(self, "selected_streamboard_commit", "")
             if current:
                 current_label = QLabel(
@@ -13179,6 +13198,7 @@ class PatchManagerGUI(QWidget):
             )
 
             # Refresh schließt den Dialog nicht. Die Liste wird neu aufgebaut.
+            
             def refresh_list():
                 try:
                     if git_run(["status", "--porcelain"], timeout=60):
@@ -13190,49 +13210,97 @@ class PatchManagerGUI(QWidget):
                             "Working tree is not clean."
                         )
                         return
-                    git_run([
-                        "fetch", stream_url,
-                        "refs/heads/master:refs/remotes/streamboard/master",
-                    ], timeout=1200)
+
+                    selected_name = repo_combo.currentText()
+                    selected_url = str(
+                        stream_choices.get(selected_name, "")
+                    ).strip()
+
+                    if not selected_url:
+                        raise RuntimeError(
+                            "Für die ausgewählte Quelle ist keine URL definiert."
+                            if is_de else
+                            "No URL is defined for the selected source."
+                        )
+
+                    remote_ref = "refs/remotes/revision-picker/master"
+
+                    
+                    git_run(
+                        [
+                            "fetch",
+                            "--force",
+                            selected_url,
+                            f"+refs/heads/master:{remote_ref}",
+                        ],
+                        timeout=1200,
+                    )
+
+
                     fresh = git_run(
                         [
-                            "log", "streamboard/master", "-100",
+                            "log",
+                            remote_ref,
+                            "-100",
                             "--date=format:%Y-%m-%d %H:%M",
                             "--format=%H%x09%ad%x09%s",
                         ],
                         timeout=120,
                     )
+
                     commit_list.clear()
+                    sha_edit.clear()
                     local_seen = set()
+
                     for line in fresh.splitlines():
                         parts = line.split("\t", 2)
                         if len(parts) != 3:
                             continue
+
                         sha, date_text, subject = parts
-                        if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
+                        sha = sha.lower()
+
+                        if not re.fullmatch(r"[0-9a-f]{40}", sha):
                             continue
                         if sha in local_seen:
                             continue
+
                         local_seen.add(sha)
                         refreshed_item = QListWidgetItem(
                             f"{date_text}  {sha[:12]}  {subject}"
                         )
                         refreshed_item.setData(0x0100, sha)
                         commit_list.addItem(refreshed_item)
+
                 except Exception as exc:
                     QMessageBox.critical(
                         dialog,
                         "Git",
-                        f"{exc}"
+                        str(exc),
                     )
 
             refresh_button.clicked.connect(refresh_list)
+            repo_combo.currentTextChanged.connect(
+                lambda _name: refresh_list()
+            )
             buttons.accepted.connect(dialog.accept)
             buttons.rejected.connect(dialog.reject)
 
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return False
+            stream_url = str(
+                stream_choices.get(repo_combo.currentText(), "")
+            ).strip()
 
+            if not stream_url:
+                QMessageBox.warning(
+                    self,
+                    "Streamboard",
+                    "Für das ausgewählte Repository fehlt die URL."
+                    if is_de else
+                    "The selected repository has no URL."
+                )
+                return False
             selected = sha_edit.text().strip()
             if not selected:
                 QMessageBox.warning(
@@ -13298,10 +13366,12 @@ class PatchManagerGUI(QWidget):
                 )
 
             self.selected_streamboard_commit = selected
+            self.selected_streamboard_commit_repo_url = stream_url
             self.display_streamboard_commit = selected
             self.update_revision_button_labels()
-            # Für bestehende externe Helfer ebenfalls global verfügbar machen.
+            # Commit und Herkunft für bestehende Helfer verfügbar machen.
             globals()["SELECTED_STREAMBOARD_COMMIT"] = selected
+            globals()["SELECTED_STREAMBOARD_COMMIT_REPO_URL"] = stream_url
 
             # Button/Status optisch aktualisieren, falls vorhanden.
             status_text = (
@@ -13366,6 +13436,7 @@ class PatchManagerGUI(QWidget):
 
         from PyQt6.QtWidgets import (
             QApplication,
+            QComboBox,
             QDialog,
             QDialogButtonBox,
             QLabel,
@@ -13396,7 +13467,13 @@ class PatchManagerGUI(QWidget):
 
         emu_url = str(emu_url or "").strip()
         emu_branch = str(emu_branch or "master").strip() or "master"
+        emu_repo_choices = {
+            "OSCam-EMU Mirror": "https://github.com/oscam-mirror/oscam-emu.git",
+            "speedy005 OSCam-EMU": "https://github.com/speedy005/Oscam-emu.git",
+        }
 
+        if emu_url not in emu_repo_choices.values():
+            emu_repo_choices["Aktuelle Quelle"] = emu_url
         if not emu_dir:
             QMessageBox.critical(
                 self,
@@ -13536,7 +13613,23 @@ class PatchManagerGUI(QWidget):
             dialog.resize(850, 600)
 
             layout = QVBoxLayout(dialog)
+            repo_label = QLabel(
+                "Git-Repository für die Commit-Liste:"
+                if is_de else
+                "Git repository for the commit list:"
+            )
+            layout.addWidget(repo_label)
 
+            repo_combo = QComboBox(dialog)
+
+            for repo_name, repo_url in emu_repo_choices.items():
+                repo_combo.addItem(repo_name, repo_url)
+
+            current_index = repo_combo.findData(emu_url)
+            if current_index >= 0:
+                repo_combo.setCurrentIndex(current_index)
+
+            layout.addWidget(repo_combo)
             info = QLabel(
                 (
                     "Wähle einen OSCam-Emu-Commit aus oder gib einen vollständigen "
@@ -13601,6 +13694,7 @@ class PatchManagerGUI(QWidget):
                 lambda _current, _previous: use_list_selection()
             )
 
+            
             def refresh_list():
                 try:
                     if git_run(["status", "--porcelain"], timeout=60):
@@ -13613,12 +13707,35 @@ class PatchManagerGUI(QWidget):
                         )
                         return
 
-                    git_run(["fetch", "origin", emu_branch], timeout=1200)
+                    selected_url = str(
+                        repo_combo.currentData() or ""
+                    ).strip()
+
+                    if not selected_url:
+                        raise RuntimeError(
+                            "Keine Repository-URL ausgewählt."
+                            if is_de else
+                            "No repository URL selected."
+                        )
+
+                    remote_ref = "refs/remotes/revision-picker/emu"
+
+                    
+                    git_run(
+                        [
+                            "fetch",
+                            "--force",
+                            selected_url,
+                            f"+refs/heads/{emu_branch}:{remote_ref}",
+                        ],
+                        timeout=1200,
+                    )
+
 
                     fresh = git_run(
                         [
                             "log",
-                            f"origin/{emu_branch}",
+                            remote_ref,
                             "-100",
                             "--date=format:%Y-%m-%d %H:%M",
                             "--format=%H%x09%ad%x09%s",
@@ -13627,34 +13744,41 @@ class PatchManagerGUI(QWidget):
                     )
 
                     commit_list.clear()
+                    sha_edit.clear()
                     local_seen = set()
 
                     for line in fresh.splitlines():
                         parts = line.split("\t", 2)
                         if len(parts) != 3:
                             continue
+
                         sha, date_text, subject = parts
                         if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
                             continue
+
                         sha = sha.lower()
                         if sha in local_seen:
                             continue
                         local_seen.add(sha)
 
-                        refreshed_item = QListWidgetItem(
+                        item = QListWidgetItem(
                             f"{date_text}  {sha[:12]}  {subject}"
                         )
-                        refreshed_item.setData(0x0100, sha)
-                        commit_list.addItem(refreshed_item)
+                        item.setData(0x0100, sha)
+                        commit_list.addItem(item)
 
                 except Exception as exc:
                     QMessageBox.critical(
                         dialog,
                         "Git",
-                        f"{exc}"
+                        str(exc),
                     )
 
             refresh_button.clicked.connect(refresh_list)
+            repo_combo.currentIndexChanged.connect(
+                lambda _index: refresh_list()
+            )
+
             buttons.accepted.connect(dialog.accept)
             buttons.rejected.connect(dialog.reject)
 
@@ -13662,6 +13786,20 @@ class PatchManagerGUI(QWidget):
                 return False
 
             selected = sha_edit.text().strip().lower()
+
+            selected_emu_url = str(
+                repo_combo.currentData() or ""
+            ).strip()
+
+            if not selected_emu_url:
+                QMessageBox.warning(
+                    self,
+                    "OSCam-Emu",
+                    "Bitte ein Repository auswählen."
+                    if is_de else
+                    "Please select a repository."
+                )
+                return False
 
             if not selected:
                 QMessageBox.warning(
@@ -13690,16 +13828,13 @@ class PatchManagerGUI(QWidget):
                 timeout=60,
             )
 
+            
             if local_selected != selected:
                 git_run(
-                    ["fetch", "origin", selected],
+                    ["fetch", selected_emu_url, selected],
                     timeout=1200,
                 )
-                local_selected = git_run(
-                    ["rev-parse", "--verify", selected + "^{commit}"],
-                    check=False,
-                    timeout=60,
-                )
+
 
             if local_selected != selected:
                 raise RuntimeError(
@@ -13731,10 +13866,10 @@ class PatchManagerGUI(QWidget):
             # Eine Revision darf später niemals versehentlich mit einer
             # anderen OSCam-Emu-Repo-URL verwendet werden.
             self.selected_emu_commit = selected
-            self.selected_emu_commit_repo_url = emu_url
+            self.selected_emu_commit_repo_url = selected_emu_url
             self.display_emu_commit = selected
             globals()["SELECTED_EMU_COMMIT"] = selected
-            globals()["SELECTED_EMU_COMMIT_REPO_URL"] = emu_url
+            globals()["SELECTED_EMU_COMMIT_REPO_URL"] = selected_emu_url
             self.update_revision_button_labels()
 
             status_text = (
