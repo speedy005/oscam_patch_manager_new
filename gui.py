@@ -8515,19 +8515,34 @@ class PatchManagerGUI(QWidget):
             if answer != QMessageBox.StandardButton.Yes:
                 return False
 
-            self.restart_application_elevated(perform_update=True)
-            return False
+            restart_result = self.restart_application_elevated(
+                perform_update=True
+            )
 
-        # Dauerhaftes ZIP-Backup vor jedem Update erstellen und überschreiben.
-        # Das Backup-Verzeichnis selbst sowie die beiden Git-Ordner werden ausgelassen.
+            if restart_result != "already_elevated":
+                return False
+
+        # Dauerhaftes ZIP-Backup sicher erstellen und erst nach erfolgreicher
+        # Prüfung das bisherige Backup ersetzen.
         persistent_backup_dir = project_dir / "backup"
         persistent_backup_zip = persistent_backup_dir / "backup.zip"
-        backup_excluded_dirs = {"oscam-emu-git", "streamboard-git", "backup"}
+        backup_excluded_dirs = {
+            "oscam-emu-git",
+            "streamboard-git",
+            "backup",
+        }
 
         persistent_backup_dir.mkdir(parents=True, exist_ok=True)
+
+        backup_temp_zip = persistent_backup_dir / "backup.tmp.zip"
+
         try:
+            # Ein eventuell übrig gebliebenes temporäres Backup entfernen.
+            if backup_temp_zip.exists():
+                backup_temp_zip.unlink()
+
             with zipfile.ZipFile(
-                persistent_backup_zip,
+                backup_temp_zip,
                 mode="w",
                 compression=zipfile.ZIP_DEFLATED,
             ) as backup_archive:
@@ -8537,19 +8552,47 @@ class PatchManagerGUI(QWidget):
 
                     relative_path = source_file.relative_to(project_dir)
 
-                    # Niemals backup.zip selbst oder Dateien aus ausgeschlossenen
-                    # Verzeichnissen in das ZIP aufnehmen.
-                    if any(part in backup_excluded_dirs for part in relative_path.parts):
+                    if any(
+                        part in backup_excluded_dirs
+                        for part in relative_path.parts
+                    ):
                         continue
+
                     if source_file.resolve() == persistent_backup_zip.resolve():
                         continue
 
-                    backup_archive.write(source_file, arcname=relative_path.as_posix())
+                    if source_file.resolve() == backup_temp_zip.resolve():
+                        continue
+
+                    backup_archive.write(
+                        source_file,
+                        arcname=relative_path.as_posix(),
+                    )
+
+            # ZIP-Integrität prüfen, bevor das bisherige Backup ersetzt wird.
+            with zipfile.ZipFile(backup_temp_zip, mode="r") as backup_archive:
+                bad_file = backup_archive.testzip()
+
+                if bad_file is not None:
+                    raise RuntimeError(
+                        f"Backup-Prüfung fehlgeschlagen: {bad_file}"
+                    )
+
+            # Erst nach erfolgreicher Erstellung und Prüfung ersetzen.
+            os.replace(backup_temp_zip, persistent_backup_zip)
+
         except Exception as backup_error:
+            try:
+                if backup_temp_zip.exists():
+                    backup_temp_zip.unlink()
+            except OSError:
+                pass
+
             QMessageBox.critical(
                 self,
                 "Backup-Fehler",
-                f"Das Backup konnte nicht erstellt werden:\n{backup_error}\n\n"
+                f"Das Backup konnte nicht sicher erstellt werden:\n"
+                f"{backup_error}\n\n"
                 "Das Update wurde nicht gestartet.",
             )
             return False
@@ -10112,8 +10155,9 @@ class PatchManagerGUI(QWidget):
                     progress_callback(100)
                 except:
                     pass
+    
     def restart_application_elevated(self, *args, **kwargs):
-        """Startet das Tool nach Bestätigung mit erhöhten Rechten neu."""
+        """Startet das Tool mit erhöhten Rechten neu."""
         import os
         import sys
         import shutil
@@ -10125,54 +10169,65 @@ class PatchManagerGUI(QWidget):
 
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
+
         perform_update = bool(kwargs.get("perform_update", False))
+
         extra_args = (
             ["--perform-update"]
             if perform_update and "--perform-update" not in sys.argv
             else []
         )
-        # Keine zweite Rechteerhöhung, wenn sie bereits vorhanden ist.
+
+        # Prüfen, ob der aktuelle Prozess bereits erhöhte Rechte besitzt.
+        already_elevated = False
+
         if os.name == "nt":
             try:
                 import ctypes
-
-                if ctypes.windll.shell32.IsUserAnAdmin():
-                    QMessageBox.information(
-                        self,
-                        "Hinweis" if is_de else "Information",
-                        "Das Tool läuft bereits mit Administratorrechten."
-                        if is_de
-                        else "The application is already running as administrator.",
-                    )
-                    return
-            except Exception:
-                pass
-        else:
-            if hasattr(os, "geteuid") and os.geteuid() == 0:
-                QMessageBox.information(
-                    self,
-                    "Hinweis" if is_de else "Information",
-                    "Das Tool läuft bereits mit Root-Rechten."
-                    if is_de
-                    else "The application is already running as root.",
+                already_elevated = bool(
+                    ctypes.windll.shell32.IsUserAnAdmin()
                 )
-                return
+            except Exception:
+                already_elevated = False
 
-        answer = QMessageBox.question(
-            self,
-            "Administratorrechte" if is_de else "Administrator privileges",
-            (
-                "Das Tool mit erhöhten Rechten neu starten?"
-                if is_de
-                else "Restart the application with elevated privileges?"
-            ),
-            QMessageBox.StandardButton.Yes
-            | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
+        elif hasattr(os, "geteuid"):
+            already_elevated = os.geteuid() == 0
 
-        if answer != QMessageBox.StandardButton.Yes:
-            return
+        
+        if already_elevated:
+            if perform_update:
+                # Der laufende Prozess hat bereits erhöhte Rechte.
+                return "already_elevated"
+
+            QMessageBox.information(
+
+                self,
+                "Hinweis" if is_de else "Information",
+                (
+                    "Das Tool läuft bereits mit Administratorrechten."
+                    if is_de
+                    else "The application is already running with administrator privileges."
+                ),
+            )
+            return True
+
+        # Bei einem manuellen Admin-Neustart erst bestätigen lassen.
+        if not perform_update:
+            answer = QMessageBox.question(
+                self,
+                "Administratorrechte" if is_de else "Administrator privileges",
+                (
+                    "Das Tool mit erhöhten Rechten neu starten?"
+                    if is_de
+                    else "Restart the application with elevated privileges?"
+                ),
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
 
         script = os.path.realpath(sys.argv[0])
         cwd = os.path.dirname(script) or os.getcwd()
@@ -10181,7 +10236,7 @@ class PatchManagerGUI(QWidget):
             if os.name == "nt":
                 import ctypes
 
-                # Auch bei Leerzeichen in Pfaden werden die Argumente korrekt gequotet.
+                # Windows: Neustart über UAC.
                 if getattr(sys, "frozen", False):
                     executable = sys.executable
                     params = subprocess.list2cmdline(
@@ -10203,17 +10258,17 @@ class PatchManagerGUI(QWidget):
                 )
 
                 if result <= 32:
-                    error_message = (
-                        f"ShellExecuteW Fehlercode: {result}\n"
+                    raise RuntimeError(
+                        "ShellExecuteW Fehlercode: "
+                        f"{result}\n"
                         f"Python: {sys.executable}\n"
                         f"Skript: {script}\n"
                         f"Argumente: {params}\n"
                         f"Arbeitsverzeichnis: {cwd}"
                     )
-                    raise RuntimeError(error_message)
-
 
             elif platform.system() == "Linux":
+                # Linux: Rechteerhöhung über PolicyKit.
                 pkexec = shutil.which("pkexec")
 
                 if not pkexec:
@@ -10230,11 +10285,11 @@ class PatchManagerGUI(QWidget):
                             "start the application with root privileges."
                         ),
                     )
-                    return
+                    return False
 
-                # Nur die für eine grafische Sitzung benötigten Variablen
-                # weitergeben, soweit sie vorhanden sind.
+                # Für die grafische Sitzung benötigte Variablen übernehmen.
                 env_args = []
+
                 for key in (
                     "DISPLAY",
                     "XAUTHORITY",
@@ -10244,32 +10299,50 @@ class PatchManagerGUI(QWidget):
                     "DBUS_SESSION_BUS_ADDRESS",
                 ):
                     value = os.environ.get(key)
+                    if value:
+                        env_args.append(f"{key}={value}")
+
                 if getattr(sys, "frozen", False):
-                    command = [sys.executable] + sys.argv[1:] + extra_args
+                    command = (
+                        [sys.executable] + sys.argv[1:] + extra_args
+                    )
                 else:
                     command = (
-                        [sys.executable, script] + sys.argv[1:] + extra_args
+                        [sys.executable, script]
+                        + sys.argv[1:]
+                        + extra_args
                     )
+
+                subprocess.Popen(
+                    [pkexec, "env"] + env_args + command,
+                    cwd=cwd,
+                )
 
             else:
                 QMessageBox.warning(
                     self,
                     "Nicht unterstützt" if is_de else "Unsupported",
-                    "Diese Plattform wird nicht unterstützt."
-                    if is_de
-                    else "This platform is not supported.",
+                    (
+                        "Diese Plattform wird nicht unterstützt."
+                        if is_de
+                        else "This platform is not supported."
+                    ),
                 )
-                return
+                return False
 
-            # Erst nach erfolgreichem Start die bisherige GUI beenden.
+            # Die bisherige GUI erst nach erfolgreichem Anstoßen beenden.
             QTimer.singleShot(500, QApplication.quit)
+            return True
 
         except Exception as exc:
             QMessageBox.critical(
                 self,
                 "Neustart fehlgeschlagen" if is_de else "Restart failed",
-                f"{exc}",
+                str(exc),
             )
+            return False
+
+
 
     def restart_application(self, *args, **kwargs):
         """Startet die Anwendung neu und zeigt kurz den Neon-Status an."""
