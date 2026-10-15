@@ -8499,20 +8499,42 @@ class PatchManagerGUI(QWidget):
         project_dir = Path(__file__).resolve().parent
         # Vor dem Update-Backup Schreibrechte prüfen.
         if not self._has_project_write_access(project_dir):
-            answer = QMessageBox.question(
-                self,
-                "Administratorrechte erforderlich",
+            lang = str(getattr(self, "LANG", "de")).lower()[:2]
+            is_de = lang == "de"
+
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle(
+                "Administratorrechte erforderlich"
+                if is_de
+                else "Administrator privileges required"
+            )
+            msg_box.setText(
                 (
                     "Für das Update fehlen Schreibrechte. "
                     "Das Programm mit Administratorrechten neu starten "
                     "und das Update automatisch fortsetzen?"
-                ),
-                QMessageBox.StandardButton.Yes
-                | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
+                )
+                if is_de
+                else (
+                    "The update requires write access. Restart the application "
+                    "with administrator privileges and continue the update automatically?"
+                )
             )
 
-            if answer != QMessageBox.StandardButton.Yes:
+            yes_button = msg_box.addButton(
+                "Ja" if is_de else "Yes",
+                QMessageBox.ButtonRole.YesRole,
+            )
+            no_button = msg_box.addButton(
+                "Nein" if is_de else "No",
+                QMessageBox.ButtonRole.NoRole,
+            )
+
+            msg_box.setDefaultButton(yes_button)
+            msg_box.setEscapeButton(no_button)
+            msg_box.exec()
+
+            if msg_box.clickedButton() != yes_button:
                 return False
 
             restart_result = self.restart_application_elevated(
@@ -8925,7 +8947,66 @@ class PatchManagerGUI(QWidget):
             shutil.rmtree(backup_dir, ignore_errors=True)
 
             if answer == QMessageBox.StandardButton.Yes:
-                os.execl(sys.executable, sys.executable, *sys.argv)
+                import subprocess
+                import sys
+                import os
+                from PyQt6.QtWidgets import QApplication, QMessageBox
+
+                # Neustart-Befehl abhängig davon erstellen,
+                # ob das Tool als Python-Skript oder EXE läuft.
+                if getattr(sys, "frozen", False):
+                    command = [sys.executable, *sys.argv[1:]]
+                    app_path = sys.executable
+                else:
+                    script_path = os.path.abspath(sys.argv[0])
+                    command = [sys.executable, script_path, *sys.argv[1:]]
+                    app_path = script_path
+
+                popen_kwargs = {
+                    "cwd": os.path.dirname(app_path) or None,
+                    "close_fds": True,
+                }
+
+                if os.name == "nt":
+                    popen_kwargs["creationflags"] = getattr(
+                        subprocess, "CREATE_NEW_PROCESS_GROUP", 0
+                    )
+                else:
+                    popen_kwargs["start_new_session"] = True
+
+                try:
+                    process = subprocess.Popen(
+                        command,
+                        **popen_kwargs,
+                    )
+
+                    # Prüfen, ob der neue Prozess sofort abstürzt.
+                    time.sleep(1)
+
+                    if process.poll() is not None:
+                        raise RuntimeError(
+                            f"Der neue Prozess wurde sofort beendet "
+                            f"(Exit-Code {process.returncode})."
+                        )
+
+                except Exception as restart_error:
+                    QMessageBox.critical(
+                        self,
+                        "Neustart fehlgeschlagen" if is_de else "Restart failed",
+                        (
+                            "Die aktualisierte Anwendung konnte nicht neu "
+                            "gestartet werden:\n"
+                            f"{restart_error}"
+                            if is_de
+                            else
+                            "The updated application could not be restarted:\n"
+                            f"{restart_error}"
+                        ),
+                    )
+                    return True
+
+                # Nur beenden, wenn der neue Prozess gestartet wurde.
+                QApplication.quit()
 
             return True
 
@@ -10213,20 +10294,30 @@ class PatchManagerGUI(QWidget):
 
         # Bei einem manuellen Admin-Neustart erst bestätigen lassen.
         if not perform_update:
-            answer = QMessageBox.question(
-                self,
-                "Administratorrechte" if is_de else "Administrator privileges",
-                (
-                    "Das Tool mit erhöhten Rechten neu starten?"
-                    if is_de
-                    else "Restart the application with elevated privileges?"
-                ),
-                QMessageBox.StandardButton.Yes
-                | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle(
+                "Administratorrechte" if is_de else "Administrator privileges"
+            )
+            msg_box.setText(
+                "Das Tool mit erhöhten Rechten neu starten?"
+                if is_de
+                else "Restart the application with elevated privileges?"
             )
 
-            if answer != QMessageBox.StandardButton.Yes:
+            yes_button = msg_box.addButton(
+                "Ja" if is_de else "Yes",
+                QMessageBox.ButtonRole.YesRole,
+            )
+            no_button = msg_box.addButton(
+                "Nein" if is_de else "No",
+                QMessageBox.ButtonRole.NoRole,
+            )
+
+            msg_box.setDefaultButton(no_button)
+            msg_box.setEscapeButton(no_button)
+            msg_box.exec()
+
+            if msg_box.clickedButton() != yes_button:
                 return False
 
         script = os.path.realpath(sys.argv[0])
