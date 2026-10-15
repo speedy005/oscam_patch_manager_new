@@ -172,6 +172,18 @@ def main():
             main_window.setWindowTitle("OSCam Emu Patch Manager new - by speedy005")
             main_window.showMaximized()
             main_window.raise_()
+            if "--perform-update" in sys.argv:
+                sys.argv.remove("--perform-update")
+                if hasattr(main_window, "plugin_update_action"):
+                    QTimer.singleShot(
+                        1500,
+                        main_window.plugin_update_action,
+                    )
+                else:
+                    print(
+                        "[SYSTEM] Update konnte nicht automatisch "
+                        "gestartet werden: Methode nicht gefunden."
+                    )
 
             if hasattr(main_window, "update_ui_texts"):
                 QTimer.singleShot(100, main_window.update_ui_texts)

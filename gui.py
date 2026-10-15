@@ -8497,6 +8497,26 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtWidgets import QMessageBox, QApplication
 
         project_dir = Path(__file__).resolve().parent
+        # Vor dem Update-Backup Schreibrechte prüfen.
+        if not self._has_project_write_access(project_dir):
+            answer = QMessageBox.question(
+                self,
+                "Administratorrechte erforderlich",
+                (
+                    "Für das Update fehlen Schreibrechte. "
+                    "Das Programm mit Administratorrechten neu starten "
+                    "und das Update automatisch fortsetzen?"
+                ),
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
+
+            self.restart_application_elevated(perform_update=True)
+            return False
 
         # Dauerhaftes ZIP-Backup vor jedem Update erstellen und überschreiben.
         # Das Backup-Verzeichnis selbst sowie die beiden Git-Ordner werden ausgelassen.
@@ -10105,7 +10125,12 @@ class PatchManagerGUI(QWidget):
 
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
         is_de = lang == "de"
-
+        perform_update = bool(kwargs.get("perform_update", False))
+        extra_args = (
+            ["--perform-update"]
+            if perform_update and "--perform-update" not in sys.argv
+            else []
+        )
         # Keine zweite Rechteerhöhung, wenn sie bereits vorhanden ist.
         if os.name == "nt":
             try:
@@ -10159,11 +10184,13 @@ class PatchManagerGUI(QWidget):
                 # Auch bei Leerzeichen in Pfaden werden die Argumente korrekt gequotet.
                 if getattr(sys, "frozen", False):
                     executable = sys.executable
-                    params = subprocess.list2cmdline(sys.argv[1:])
+                    params = subprocess.list2cmdline(
+                        sys.argv[1:] + extra_args
+                    )
                 else:
                     executable = sys.executable
                     params = subprocess.list2cmdline(
-                        [script] + sys.argv[1:]
+                        [script] + sys.argv[1:] + extra_args
                     )
 
                 result = ctypes.windll.shell32.ShellExecuteW(
@@ -10217,19 +10244,12 @@ class PatchManagerGUI(QWidget):
                     "DBUS_SESSION_BUS_ADDRESS",
                 ):
                     value = os.environ.get(key)
-                    if value:
-                        env_args.append(f"{key}={value}")
-
                 if getattr(sys, "frozen", False):
-                    command = [sys.executable] + sys.argv[1:]
+                    command = [sys.executable] + sys.argv[1:] + extra_args
                 else:
-                    command = [sys.executable, script] + sys.argv[1:]
-
-                subprocess.Popen(
-                    [pkexec, "env"] + env_args + command,
-                    cwd=cwd,
-                    start_new_session=True,
-                )
+                    command = (
+                        [sys.executable, script] + sys.argv[1:] + extra_args
+                    )
 
             else:
                 QMessageBox.warning(
