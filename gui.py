@@ -63,7 +63,7 @@ class SystemSoundManager(QObject):
             "success": [(659.25, 85), (783.99, 85), (1046.50, 130)],
             "revision": [(880.00, 65)],
             "exit": [(783.99, 100), (659.25, 100), (523.25, 150)],
-            "click": [(1046.50, 28)],
+            "click": [(1046.50, 80)],
             "info": [(740.00, 70)],
             "warning": [(660.00, 90), (520.00, 120)],
             "error": [(440.00, 130), (330.00, 180)],
@@ -115,16 +115,23 @@ class SystemSoundManager(QObject):
             wav.setframerate(sample_rate)
             wav.writeframes(frames)
 
+
     def _create_effect(self, name, pattern):
         path = os.path.join(self._temp_dir, f"{name}.wav")
         self._write_tone(path, pattern)
+
         effect = QSoundEffect(self)
         effect.setSource(QUrl.fromLocalFile(path))
-        effect.setVolume(self.volume)
+
+        # Klickton lauter als die übrigen UI-Sounds.
+        volume = min(1.0, self.volume * 2.0) if name == "click" else self.volume
+        effect.setVolume(volume)
+
         effect.statusChanged.connect(
             lambda e=effect, n=name: self._log_effect_status(n, e)
         )
         return effect
+
 
     @staticmethod
     def _log_effect_status(name, effect):

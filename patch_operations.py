@@ -3739,11 +3739,7 @@ def create_patch(
         return False
 
 def play_cross_platform_sound(sound_type="success"):
-    """Play a start/success/error notification on Windows and Linux.
-
-    Sound playback is best-effort: missing audio devices, sound files, or
-    player programs must never interrupt patch operations.
-    """
+    """Play a notification sound on Windows or Linux, best-effort."""
     import os
     import sys
     import shutil
@@ -3753,57 +3749,72 @@ def play_cross_platform_sound(sound_type="success"):
     if sound_type not in ("start", "success", "error"):
         sound_type = "success"
 
-    # Windows: use native system notification sounds.
     if sys.platform == "win32":
         try:
             import winsound
-            sound_flags = {
+            flags = {
                 "start": winsound.MB_ICONASTERISK,
                 "success": winsound.MB_OK,
                 "error": winsound.MB_ICONHAND,
             }
-            winsound.MessageBeep(sound_flags[sound_type])
+            winsound.MessageBeep(flags[sound_type])
             return True
         except Exception:
-            # Continue with optional audio helper if native playback fails.
             pass
 
-    # File names available on common Freedesktop/GNOME sound installations.
-    sound_names = {
-        "start": [
-            "message-new-instant.oga", "message-new-instant.ogg",
-            "message-new-instant.wav", "complete.oga", "complete.ogg",
-            "complete.wav",
-        ],
-        "success": ["complete.oga", "complete.ogg", "complete.wav"],
-        "error": [
-            "dialog-error.oga", "dialog-error.ogg", "dialog-error.wav",
-            "dialog-warning.oga", "dialog-warning.ogg", "dialog-warning.wav",
-        ],
-    }[sound_type]
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    own_sounds = {
+        "start": ("boot.wav", "glitch.wav"),
+        "success": ("success.wav", "boot.wav"),
+        "error": ("error.wav", "glitch.wav"),
+    }
 
-    # safe_play may know the application's own sound directory. Only treat
-    # it as successful when it does not raise an exception.
-    safe_play_func = globals().get("safe_play")
-    if callable(safe_play_func):
-        for sound_name in sound_names:
+    # Prefer the application's own sounds on Linux.
+    players = ("paplay", "pw-play", "aplay", "ffplay")
+    for filename in own_sounds[sound_type]:
+        sound_path = os.path.join(base_dir, "sounds", filename)
+        if not os.path.isfile(sound_path):
+            continue
+
+        for player in players:
+            executable = shutil.which(player)
+            if not executable:
+                continue
             try:
-                safe_play_func(sound_name)
+                command = [executable, sound_path]
+                if player == "ffplay":
+                    command = [
+                        executable, "-nodisp", "-autoexit",
+                        "-loglevel", "quiet", sound_path
+                    ]
+                subprocess.Popen(
+                    command,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
                 return True
             except Exception:
                 continue
 
-    sound_dirs = [
+    # Fall back to desktop notification sounds if no project sound works.
+    sound_names = {
+        "start": ("message-new-instant.oga", "complete.oga"),
+        "success": ("complete.oga", "complete.wav"),
+        "error": ("dialog-error.oga", "dialog-warning.oga"),
+    }[sound_type]
+
+    sound_dirs = (
         "/usr/share/sounds/freedesktop/stereo",
         "/usr/share/sounds/gnome/default/alerts",
         "/usr/share/sounds",
         os.path.expanduser("~/.local/share/sounds"),
-    ]
-    players = ("paplay", "pw-play", "aplay", "ffplay")
+    )
 
     for sound_dir in sound_dirs:
-        for sound_name in sound_names:
-            sound_path = os.path.join(sound_dir, sound_name)
+        for filename in sound_names:
+            sound_path = os.path.join(sound_dir, filename)
             if not os.path.isfile(sound_path):
                 continue
             for player in players:
@@ -3813,7 +3824,10 @@ def play_cross_platform_sound(sound_type="success"):
                 try:
                     command = [executable, sound_path]
                     if player == "ffplay":
-                        command = [executable, "-nodisp", "-autoexit", "-loglevel", "quiet", sound_path]
+                        command = [
+                            executable, "-nodisp", "-autoexit",
+                            "-loglevel", "quiet", sound_path
+                        ]
                     subprocess.Popen(
                         command,
                         stdin=subprocess.DEVNULL,
@@ -3825,14 +3839,8 @@ def play_cross_platform_sound(sound_type="success"):
                 except Exception:
                     continue
 
-    # Last resort: terminal bell, but only for an interactive terminal.
-    try:
-        if sys.stderr.isatty() or sys.stdout.isatty():
-            print("\a", end="", flush=True)
-            return True
-    except Exception:
-        pass
     return False
+
 
 # ===================== backup_old_patch =====================
 
