@@ -8714,7 +8714,7 @@ class PatchManagerGUI(QWidget):
             "github_config.json", 
             "install_counter.txt", 
             "oscam_rev.txt", 
-
+        }
         def is_protected(path):
             """Prüft, ob eine Datei vom Update ausgeschlossen ist."""
             relative = path.relative_to(project_dir)
