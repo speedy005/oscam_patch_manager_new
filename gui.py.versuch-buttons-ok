@@ -8710,8 +8710,10 @@ class PatchManagerGUI(QWidget):
         # Lokale Konfigurationsdateien erhalten.
         protected_files = {
             "config.json",
-            "settings.json",
-        }
+            "settings.json", 
+            "github_config.json", 
+            "install_counter.txt", 
+            "oscam_rev.txt", 
 
         def is_protected(path):
             """Prüft, ob eine Datei vom Update ausgeschlossen ist."""
