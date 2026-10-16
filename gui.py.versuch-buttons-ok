@@ -13238,12 +13238,11 @@ class PatchManagerGUI(QWidget):
         # Einstellungen in einer einzigen Reihe links anordnen
         grid_layout.addLayout(settings_row, 1, 0, 1, 6)
 
-        # Buttons bleiben in ihren bisherigen Positionen
-        grid_layout.addWidget(self.btn_patch_online, 0, 9)
-        grid_layout.addWidget(self.btn_check_tools, 1, 6)
-        grid_layout.addWidget(self.btn_modifier, 1, 7)
-        grid_layout.addWidget(self.btn_repo_url, 1, 8)
-        grid_layout.addWidget(self.btn_check_commit, 1, 9)
+        # Die vier Git-/Revisions-Buttons direkt unter den Ordner-Buttons anordnen.
+        # Die Widgets werden aus ihren bisherigen Layout-Positionen verschoben.
+        grid_layout.addWidget(self.oscam_source_button, 1, 6)
+
+        grid_layout.addWidget(self.btn_repo_url, 1, 9)
 
         # Keine Grid-Spalte künstlich verbreitern
         for i in range(grid_layout.columnCount()):
@@ -13336,7 +13335,19 @@ class PatchManagerGUI(QWidget):
             reflow.reflow()
 
         # Weitere Werkzeuge in einer separaten, responsiven Sektion.
+
         self.setup_option_buttons(main_layout)
+
+        # Repo- und Revisions-Buttons direkt neben „Oscam Git URL“ bündeln.
+        # Die Option-Buttons werden erst hier erzeugt, daher nach setup_option_buttons verschieben.
+        for col, key in ((7, "streamboard_checkout"), (8, "oscam_emu_revision")):
+            entry = self.option_buttons.get(key)
+            if entry:
+                button = entry[0] if isinstance(entry, (tuple, list)) else entry
+                grid_layout.addWidget(button, 2, col)
+
+        grid_layout.addWidget(self.btn_repo_url, 2, 9)
+
 
         
         
