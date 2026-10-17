@@ -970,11 +970,22 @@ class PatchManagerGUI(QWidget):
             self.TEXT = all_texts.get(self.LANG, {})
             lang_dict = self.TEXT
 
+            
             ui_text = "UI wird aktualisiert..." if is_de else "Updating UI..."
             update_pbar(50, f"⏳ {ui_text}")
+
             update_language = getattr(self, "update_language", None)
             if callable(update_language):
                 update_language()
+
+            # Alle UI-Texte aktualisieren, einschließlich "Rechte fixen"
+            update_ui_texts = getattr(self, "update_ui_texts", None)
+            if callable(update_ui_texts):
+                try:
+                    update_ui_texts()
+                except Exception as exc:
+                    log_error("UI-Texte konnten nicht aktualisiert werden", exc)
+
 
             # Status der Installationsbuttons prüfen und Beschriftung aktualisieren
             button_config = (
@@ -9691,7 +9702,7 @@ class PatchManagerGUI(QWidget):
             ),
             (
                 "fix_perms",
-                "Fix Permissions",
+                "Rechte fixen" if is_de else "Fix Permissions",
                 "#D3D3D3",
                 self.fix_all_tool_permissions,
                 "black",
@@ -11128,13 +11139,17 @@ class PatchManagerGUI(QWidget):
              "Prüft online auf Updates",
              "Checks online for updates"),
 
+            
             # 5. Dateiberechtigungen reparieren
-            (getattr(self, "btn_fix_perms", None), "Rechte fixen", "Fix Permissions",
-             QStyle.StandardPixmap.SP_DialogNoButton,
-             "🔐 <b>Rechte:</b> Setzt Schreibrechte für Tool-Dateien und Ordner neu.",
-             "🔐 <b>Permissions:</b> Resets write permissions for tool files and folders."),
+            (
+            getattr(self, "btn_fix_perms", None),
+            "Rechte fixen",
+            "Fix Permissions",
+            QStyle.StandardPixmap.SP_DialogNoButton,
+            "🔐 <b>Rechte:</b> Setzt Schreibrechte für Tool-Dateien und Ordner neu.",
+            "🔐 <b>Permissions:</b> Resets write permissions for tool files and folders.",
+        ),
         ]
-
         for btn, de_text, en_text, icon, de_tip, en_tip in mapping:
             if btn is not None:
                 apply_final_style(btn, tr(de_text, en_text), icon)
@@ -11143,47 +11158,47 @@ class PatchManagerGUI(QWidget):
 
 
         
-            # --------------------------------------------------
-            # 7. Grid-Buttons
-            # --------------------------------------------------
-            if isinstance(getattr(self, "buttons", None), dict):
-                # Logische Reihenfolge der Patch-Funktionen
-                grid_icons = {
-                    # 1. Patch erstellen und bearbeiten
-                    "patch_create": QStyle.StandardPixmap.SP_FileIcon,
-                    "patch_renew": QStyle.StandardPixmap.SP_BrowserReload,
+        # --------------------------------------------------
+        # 7. Grid-Buttons
+        # --------------------------------------------------
+        if isinstance(getattr(self, "buttons", None), dict):
+            # Logische Reihenfolge der Patch-Funktionen
+            grid_icons = {
+                # 1. Patch erstellen und bearbeiten
+                "patch_create": QStyle.StandardPixmap.SP_FileIcon,
+                "patch_renew": QStyle.StandardPixmap.SP_BrowserReload,
 
-                    # 2. Patch prüfen und anwenden
-                    "patch_check": QStyle.StandardPixmap.SP_DialogApplyButton,
-                    "patch_apply": QStyle.StandardPixmap.SP_MediaPlay,
+                # 2. Patch prüfen und anwenden
+                "patch_check": QStyle.StandardPixmap.SP_DialogApplyButton,
+                "patch_apply": QStyle.StandardPixmap.SP_MediaPlay,
 
-                    # 3. Patch exportieren und sichern
-                    "patch_zip": QStyle.StandardPixmap.SP_DriveFDIcon,
-                    "backup_old": QStyle.StandardPixmap.SP_DialogSaveButton,
+                # 3. Patch exportieren und sichern
+                "patch_zip": QStyle.StandardPixmap.SP_DriveFDIcon,
+                "backup_old": QStyle.StandardPixmap.SP_DialogSaveButton,
 
-                    # 4. Verzeichnisse verwalten
-                    "change_old_dir": QStyle.StandardPixmap.SP_DirOpenIcon,
-                    "clean_folder": QStyle.StandardPixmap.SP_TrashIcon,
+                # 4. Verzeichnisse verwalten
+                "change_old_dir": QStyle.StandardPixmap.SP_DirOpenIcon,
+                "clean_folder": QStyle.StandardPixmap.SP_TrashIcon,
 
-                    # 5. Programm beenden
-                    "exit": QStyle.StandardPixmap.SP_DialogCloseButton,
-                }
+                # 5. Programm beenden
+                "exit": QStyle.StandardPixmap.SP_DialogCloseButton,
+            }
 
-                get_t = getattr(self, "get_t", None)
+            get_t = getattr(self, "get_t", None)
 
-                for key, btn in self.buttons.items():
-                    if btn is None or key not in grid_icons:
-                        continue
+            for key, btn in self.buttons.items():
+                if btn is None or key not in grid_icons:
+                    continue
 
-                    try:
-                        text = get_t(key, key) if callable(get_t) else key
-                    except Exception as exc:
-                        print(
-                            f"[update_ui_texts] Übersetzung für {key} fehlgeschlagen: {exc}"
-                        )
-                        text = key
+                try:
+                    text = get_t(key, key) if callable(get_t) else key
+                except Exception as exc:
+                    print(
+                        f"[update_ui_texts] Übersetzung für {key} fehlgeschlagen: {exc}"
+                    )
+                    text = key
 
-                    apply_final_style(btn, text, grid_icons[key])
+                apply_final_style(btn, text, grid_icons[key])
 
 
         # --------------------------------------------------

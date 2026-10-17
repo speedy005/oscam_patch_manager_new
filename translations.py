@@ -35,6 +35,7 @@ LANG = "de"
 TEXTS = {
     "en": {
         # Grid Buttons / Patch Aktionen
+        "fix_permissions": "Fix Permissions",
         "restart_tool_admin": "Restart with administrator rights",
         "backup_button_text": "💾 Create Backup",
         "patch_create": "Create Patch",
@@ -458,6 +459,9 @@ TEXTS = {
     },
     "de": {
         # Grid Buttons / Patch Aktionen
+        
+        "fix_perms": "Rechte fixen", 
+        "fix_all_tool_permissions": "Rechte fixen", 
         "restart_tool_admin": "Mit Admin-Rechten neu starten",
         "backup_button_text": "💾 Backup erstellen",
         "patch_folder_s3_ncam": "S3-NCam Patch Pfad",
