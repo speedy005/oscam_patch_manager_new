@@ -2562,8 +2562,13 @@ class PatchManagerGUI(QWidget):
                 "background-color: #00FF00; color: black; font-weight: bold; border-radius: 8px;"
             )
 
-   
-    
+        # Auch nach einer asynchronen NCam-Statusänderung gilt das ausgewählte
+        # Farbschema für alle Buttons; der Status-Text bleibt dabei erhalten.
+        try:
+            if hasattr(self, "apply_global_button_style"):
+                self.apply_global_button_style()
+        except Exception as exc:
+            print(f"[NCAM] Globales Button-Theme konnte nicht angewendet werden: {exc}")
 
         # Animation beenden, ohne einen zusätzlichen Ton auszulösen
         def finish_blink():
@@ -3898,7 +3903,7 @@ class PatchManagerGUI(QWidget):
 
 
     def apply_global_button_style(self, text_color=None):
-        """Einheitliche, sprachabhängige Tooltips und Theme-Stile für alle Buttons."""
+        """Wendet das aktuelle Farbschema auf alle QPushButtons an; Stats bleibt unberührt."""
         from PyQt6.QtWidgets import QPushButton
         from PyQt6.QtCore import Qt
 
@@ -9702,7 +9707,7 @@ class PatchManagerGUI(QWidget):
             ),
             (
                 "fix_perms",
-                "Rechte fixen" if is_de else "Fix Permissions",
+                "Rechte reparieren" if is_de else "Fix Permissions",
                 "#D3D3D3",
                 self.fix_all_tool_permissions,
                 "black",
@@ -11143,7 +11148,8 @@ class PatchManagerGUI(QWidget):
             # 5. Dateiberechtigungen reparieren
             (
             getattr(self, "btn_fix_perms", None),
-            "Rechte fixen",
+            "Rechte reparieren" if self.LANG == "de"
+            else "Fix Permissions",
             "Fix Permissions",
             QStyle.StandardPixmap.SP_DialogNoButton,
             "🔐 <b>Rechte:</b> Setzt Schreibrechte für Tool-Dateien und Ordner neu.",
@@ -13427,6 +13433,18 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         self.change_colors()
         self.update_language()
+
+        # Einheitliches Farbschema nach der vollständigen UI-Initialisierung
+        # nochmals anwenden. Einige Widgets/Statusprüfungen werden verzögert
+        # erstellt oder aktualisiert; diese Aufrufe stellen sicher, dass deren
+        # individuelle Styles nicht dauerhaft das Theme überschreiben.
+        # Stats bleibt eine QCheckBox und wird vom Button-Styling nicht verändert.
+        for _style_delay in (0, 250, 1000):
+            QTimer.singleShot(
+                _style_delay,
+                lambda: self.apply_global_button_style()
+                if hasattr(self, "apply_global_button_style") else None,
+            )
 
         # 2. Fenster-Eigenschaften bildschirmabhängig festlegen
         # Mindestgröße an die tatsächlich verfügbare Bildschirmfläche anpassen.
