@@ -4047,7 +4047,7 @@ class PatchManagerGUI(QWidget):
                 if btn is getattr(self, "telemetry_cb", None):
                     btn.setStyleSheet(f"""
                         QPushButton {{ color: {fg}; background-color: {bg};
-                            border: 1px solid {fg}; border-radius: 8px;
+                            border: 2px solid {fg}; border-radius: 8px;
                             padding: 3px 8px; font-weight: bold; }}
                         QPushButton:hover {{ color: {fg}; background-color: {hover};
                             border: 2px solid {fg}; }}
@@ -4058,12 +4058,12 @@ class PatchManagerGUI(QWidget):
                         QPushButton:pressed {{ background-color: {active}; }}
                         QPushButton:disabled {{ color: #777777; background-color: {active}; }}
                         QToolTip {{ color: {fg}; background-color: {bg};
-                            border: 1px solid {fg}; padding: 5px; }}
+                            border: 2px solid {fg}; padding: 5px; }}
                     """)
                 else:
                     btn.setStyleSheet(f"""
                         QPushButton {{ color: {fg}; background-color: {bg};
-                            border: 1px solid {fg}; border-radius: 8px;
+                            border: 2px solid {fg}; border-radius: 8px;
                             padding: 5px; font-weight: bold; }}
                         QPushButton:hover {{ color: {fg}; background-color: {hover};
                             border: 2px solid {fg}; }}
@@ -4071,7 +4071,7 @@ class PatchManagerGUI(QWidget):
                             border: 2px solid {fg}; }}
                         QPushButton:disabled {{ color: #777777; background-color: {active}; }}
                         QToolTip {{ color: {fg}; background-color: {bg};
-                            border: 1px solid {fg}; padding: 5px; }}
+                            border: 2px solid {fg}; padding: 5px; }}
                     """)
             except RuntimeError:
                 continue
@@ -5685,6 +5685,10 @@ class PatchManagerGUI(QWidget):
                 background-color: #000000;
                 color: #00FF41;
                 border: 1px solid #008F11;
+                border-radius: 4px;
+                padding: 5px;
+                font-size: 10pt;
+                font-weight: bold;
             }
         """
 
@@ -6976,7 +6980,7 @@ class PatchManagerGUI(QWidget):
                             font-weight: bold;
                             background-color: {bg};
                             color: {fg};
-                            border: 1px solid {fg};
+                            border: 2px solid {fg};
                             border-radius: 8px;
                         }}
                         """
@@ -6999,7 +7003,7 @@ class PatchManagerGUI(QWidget):
                     QCheckBox {{
                         background-color: {bg};
                         color: {fg};
-                        border: 1px solid {fg};
+                        border: 2px solid {fg};
                         border-radius: 4px;
                         padding: 5px 10px;
                         font-weight: 700;
@@ -7012,7 +7016,7 @@ class PatchManagerGUI(QWidget):
                     QCheckBox::indicator {{
                         width: 16px;
                         height: 16px;
-                        border: 1px solid {fg};
+                        border: 2px solid {fg};
                         border-radius: 3px;
                         background-color: transparent;
                     }}
@@ -7062,7 +7066,7 @@ class PatchManagerGUI(QWidget):
             }}
 
             QFrame:hover {{
-                border: 1px solid {fg};
+                border: 2px solid {fg};
             }}
         """
 
@@ -7087,7 +7091,7 @@ class PatchManagerGUI(QWidget):
                     }}
 
                     QFrame:hover {{
-                        border: 1px solid {fg};
+                        border: 2px solid {fg};
                     }}
                     """
                 )
@@ -8096,68 +8100,77 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "pbar_idle"):
             QTimer.singleShot(500, self.pbar_idle)
 
+    
     def resizeEvent(self, event):
         """
         Zentrale Steuerung für die UI-Skalierung bei Auflösungsänderung.
-        Erweitert: Automatische Anpassung des Sprachwechsel-Overlays.
+        Passt Header, Logo, Schriftgrößen und Overlay an.
         """
         super().resizeEvent(event)
 
-        # Kopfzeile responsiv halten: kompakte Schrift/Abstände auf kleinen Displays.
+        # 1. Header-Steuerelemente responsiv anpassen
         if hasattr(self, "header_widget"):
             QTimer.singleShot(0, self._fit_header_controls)
 
-        # Banner an den tatsächlich verfügbaren Platz zwischen den Bereichen anpassen.
-        if getattr(self, "original_pixmap", None) is not None and hasattr(self, "logo_label"):
-            QTimer.singleShot(0, self._fit_header_logo)
-
-        # 1. Basis-Schriftgröße berechnen (Faktor 90 statt 75 für kompaktere Schriften)
+        # 2. Dynamische Schriftgrößen berechnen
         dynamic_size = max(10, int(self.width() / 90))
 
-        # Schriftarten erstellen
-        button_font = QFont("Arial", dynamic_size, QFont.Weight.Bold)
-        label_font = QFont("Arial", max(9, dynamic_size - 1))
+        button_font = QFont(
+            "Arial", dynamic_size, QFont.Weight.Bold
+        )
+        label_font = QFont(
+            "Arial", max(9, dynamic_size - 1)
+        )
+        clock_font = QFont(
+            "Arial",
+            max(12, int(dynamic_size * 1.1)),
+            QFont.Weight.Bold,
+        )
 
-        # UHR-FIX: Faktor auf 1.1 reduziert (statt 1.5) und Basis auf 12 (statt 14)
-        clock_font = QFont("Arial", max(12, int(dynamic_size * 1.1)), QFont.Weight.Bold)
-
-        # 2. Alle Buttons in 'all_buttons' aktualisieren
-        for btn in self.all_buttons:
+        # 3. Alle Buttons aktualisieren
+        for btn in getattr(self, "all_buttons", []):
             btn.setFont(button_font)
+
             if not btn.icon().isNull():
-                # Icons etwas kleiner (2.0 statt 2.5)
                 icon_dim = int(dynamic_size * 2.0)
                 btn.setIconSize(QSize(icon_dim, icon_dim))
 
-        # 3. Buttons im Dictionary 'buttons' (Aktions-Grid)
-        for key in self.buttons:
-            self.buttons[key].setFont(button_font)
+        # 4. Aktions-Grid aktualisieren
+        for btn in getattr(self, "buttons", {}).values():
+            btn.setFont(button_font)
 
-        # 4. Spezifische GUI-Elemente anpassen
+        # 5. Uhr aktualisieren
         if hasattr(self, "digital_clock"):
             self.digital_clock.setFont(clock_font)
 
+        # 6. Header-Labels aktualisieren
         if hasattr(self, "lang_label"):
             self.lang_label.setFont(label_font)
+
+        if hasattr(self, "color_label"):
             self.color_label.setFont(label_font)
+
+        if hasattr(self, "commit_label"):
             self.commit_label.setFont(label_font)
 
-        
-        # 5. Logo-Skalierung
-        if hasattr(self, "original_pixmap") and self.original_pixmap:
+        # 7. Logo einmal nach der Layout-Aktualisierung skalieren
+        if (
+            hasattr(self, "logo_label")
+            and getattr(self, "original_pixmap", None) is not None
+        ):
             QTimer.singleShot(0, self._fit_header_logo)
 
-
-        # 6. Info-Text-Skalierung (Courier braucht oft etwas mehr Platz)
+        # 8. Info-Text aktualisieren
         if hasattr(self, "info_text"):
-            text_font = QFont("Courier", max(10, dynamic_size))
+            text_font = QFont(
+                "Courier", max(10, dynamic_size)
+            )
             self.info_text.setFont(text_font)
 
-        # --- 7. NEU: OVERLAY SKALIERUNG ---
-        # Stellt sicher, dass der Lade-Schleier immer das gesamte Fenster füllt
-        if hasattr(self, "loading_overlay") and self.loading_overlay:
-            # Setzt die Geometrie des Overlays exakt auf die neue Fenstergröße
+        # 9. Lade-Overlay auf Fenstergröße halten
+        if getattr(self, "loading_overlay", None):
             self.loading_overlay.setGeometry(self.rect())
+
 
     def open_terminal(self, **kwargs):
         """Öffnet Terminal (S3, S4 oder NCam) mit Sudo-Support, Regenbogen-Progress und Sound."""
@@ -9378,47 +9391,58 @@ class PatchManagerGUI(QWidget):
                 button.setMaximumWidth(260 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
                 button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
-        if hasattr(self, "logo_label"):
-            self.logo_label.setMinimumSize(300, 80)
-            self.logo_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            QTimer.singleShot(0, self._fit_header_logo)
-
+    
     def _fit_header_logo(self):
-        """Skaliert das Banner in die komplette verfügbare mittlere Header-Lücke."""
-        if not hasattr(self, "logo_label") or getattr(self, "original_pixmap", None) is None:
+        """Skaliert das Banner auf die gesamte verfügbare Label-Fläche."""
+        if (
+            not hasattr(self, "logo_label")
+            or self.original_pixmap is None
+        ):
             return
-        available_width = max(450, self.logo_label.contentsRect().width() - 2)
-        # Das Banner nutzt seinen zugewiesenen Platz vollständig, mindestens 350 x 45 px.
-        available_height = max(70, self.logo_label.contentsRect().height() - 7)
-        self.update_logo(width=available_width, height=available_height, fill_gap=True)
+
+        rect = self.logo_label.contentsRect()
+        if rect.width() <= 0 or rect.height() <= 0:
+            return
+
+        self.update_logo(
+            width=rect.width(),
+            height=rect.height(),
+            fill_gap=True,
+        )
 
     def update_logo(self, width=None, height=None, fill_gap=False):
-        """
-        Skaliert das Logo in der Höhe proportional oder füllt bei fill_gap=True
-        die gesamte verfügbare Header-Lücke bei gleichbleibender Höhe.
-        """
-        if not hasattr(self, "original_pixmap") or self.original_pixmap is None:
+        """Skaliert das Banner auf die vorgegebene Fläche."""
+        if (
+            not hasattr(self, "logo_label")
+            or self.original_pixmap is None
+        ):
             return
 
-        if width is None:
-            width = self.TITLE_HEIGHT * 3
-        if height is None:
-            height = self.TITLE_HEIGHT
+        if width is None or height is None:
+            rect = self.logo_label.contentsRect()
+            width = rect.width()
+            height = rect.height()
+
+        if width <= 0 or height <= 0:
+            return
+
+        aspect_mode = (
+            Qt.AspectRatioMode.IgnoreAspectRatio
+            if fill_gap
+            else Qt.AspectRatioMode.KeepAspectRatio
+        )
 
         scaled_pixmap = self.original_pixmap.scaled(
             width,
             height,
-            Qt.AspectRatioMode.IgnoreAspectRatio if fill_gap else Qt.AspectRatioMode.KeepAspectRatio,
+            aspect_mode,
             Qt.TransformationMode.SmoothTransformation,
         )
 
         self.logo_label.setPixmap(scaled_pixmap)
-        # Das QLabel darf vom Header-Layout automatisch angepasst werden.
-        self.logo_label.setMinimumSize(300, 80)
-        self.logo_label.setMaximumSize(400, 400)
-        self.logo_label.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
+
+
+
 
 
     # 🔹 HIER EINSETZEN 🔹
@@ -10955,10 +10979,11 @@ class PatchManagerGUI(QWidget):
                     background-color: {color};
                     color: black;
                 }}
+
                 QToolTip {{
-                    background-color: #303030;
-                    color: #FFFFFF;
-                    border: 1px solid {tip_color};
+                    background-color: #202833;
+                    color: #EAF6FF;
+                    border: 1px solid #00B8D4;
                     border-radius: 5px;
                     padding: 5px;
                     font-size: 10pt;
@@ -12142,32 +12167,47 @@ class PatchManagerGUI(QWidget):
         # =========================================================
 
         header_layout.addWidget(left_header_container, 0)
-        header_layout.addStretch(1)
-
+        #header_layout.addStretch(1)
         # --- MIDDLE: Logo (responsive) ---
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.logo_label.setMinimumSize(300, 80)
+        self.logo_label.setMinimumSize(0, 0)
         self.logo_label.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
         )
-        header_layout.addWidget(
-            self.logo_label, 3,
-            Qt.AlignmentFlag.AlignCenter
-        )
-        header_layout.addStretch(1)
+
+        header_layout.addWidget(self.logo_label, 3)
+
+
+        self.original_pixmap = None
 
         try:
-            url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/speedy_banner.png"
+            url = (
+                "https://raw.githubusercontent.com/"
+                "speedy005/oscam_patch_manager_new/master/"
+                "speedy_banner.png"
+            )
+
             resp = requests.get(url, timeout=5)
             resp.raise_for_status()
-            self.original_pixmap = QPixmap()
-            self.original_pixmap.loadFromData(resp.content)
-            QTimer.singleShot(0, self._fit_header_logo)
-        except Exception:
+
+            pixmap = QPixmap()
+            if pixmap.loadFromData(resp.content):
+                self.original_pixmap = pixmap
+                QTimer.singleShot(0, self._fit_header_logo)
+            else:
+                raise ValueError("Logo konnte nicht geladen werden")
+
+        except Exception as exc:
             self.logo_label.setText("OSCAM TOOLKIT")
-            self.logo_label.setStyleSheet("color: white; font-size: 18px;")
+            self.logo_label.setStyleSheet(
+                "color: white; font-size: 18px;"
+            )
             self.original_pixmap = None
+            print(f"Logo konnte nicht geladen werden: {exc}")
+
+
 
         # --- RIGHT: Log-Button + Version & Autor (OPTIMIERT) ---
         right_header_container = QWidget()
@@ -12425,7 +12465,7 @@ class PatchManagerGUI(QWidget):
 
         # Fonts definieren, BEVOR sie benutzt werden (löst NameError)
         bold_font_header = QFont("Segoe UI", 25, QFont.Weight.Bold)
-        bold_font_version = QFont("Segoe UI", 21, QFont.Weight.Bold)
+        bold_font_version = QFont("Segoe UI", 25, QFont.Weight.Bold)
 
         # Container für die Labels rechts oben
         version_text_container = QWidget()
@@ -13293,6 +13333,18 @@ class PatchManagerGUI(QWidget):
         # --- UNTERE SEKTION: klare Priorität für Patch-Aktionen ---
         self.grid_container = QGroupBox("PATCH & BUILD")
         self.grid_container.setObjectName("patchBuildPanel")
+        self.grid_container.setStyleSheet("""
+            QGroupBox#patchBuildPanel {
+                margin-top: 4px;
+            }
+
+            QGroupBox#patchBuildPanel::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0px 5px;
+                top: -10px;
+            }
+        """)
         self.layout_grid_buttons = QGridLayout(self.grid_container)
         # Kompakte, gleichmäßige Abstände; das Grid passt die Spaltenzahl
         # anhand der tatsächlich verfügbaren Breite dynamisch an.
@@ -15498,15 +15550,15 @@ class PatchManagerGUI(QWidget):
                     }}
 
                     QToolTip {{
-                        background-color: #3d3d3d;
-                        color: {btn_color};
-                        border: 1px solid {btn_color};
-                        border-radius: 4px;
-                        padding: 5px;
-                        font-size: 10pt;
-                        font-weight: bold;
-                    }}
-                    """
+                    background-color: #202833;
+                    color: #EAF6FF;
+                    border: 1px solid #00B8D4;
+                    border-radius: 4px;
+                    padding: 5px;
+                    font-size: 10pt;
+                    font-weight: bold;
+                }}
+                                    """
                 )
 
                 # =====================================================
