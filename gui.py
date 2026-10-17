@@ -9776,7 +9776,7 @@ class PatchManagerGUI(QWidget):
         container = QGroupBox("INSTALLATION & TOOLS")
         container.setObjectName("installationToolsPanel")
         options_grid = QGridLayout(container)
-        options_grid.setSpacing(9)
+        options_grid.setSpacing(6)
         options_grid.setContentsMargins(10, 12, 10, 10)
 
         if not hasattr(self, "all_buttons"):
@@ -11130,7 +11130,7 @@ class PatchManagerGUI(QWidget):
             btn.setText(label)
             btn.setToolTip(tip)
             btn.setToolTipDuration(10000)
-            btn.setMinimumSize(280, 50)
+            btn.setMinimumSize(320, 50)
             btn._original_text = label
             apply_button_style(btn, color)
 
@@ -11970,7 +11970,7 @@ class PatchManagerGUI(QWidget):
         self.UI_RADIUS = 10
 
         B_HEIGHT = self.UI_BUTTON_H
-        B_WIDTH = 260
+        B_WIDTH = 300
         CONTROL_HEIGHT = self.UI_BUTTON_H
         self.BUTTON_HEIGHT = self.UI_BUTTON_H
         main_layout = QVBoxLayout(self)
@@ -12398,7 +12398,7 @@ class PatchManagerGUI(QWidget):
 
         # --- OSCAM-GIT-URL ---
         self.oscam_source_button = QPushButton("Oscam Git URL")
-        self.oscam_source_button.setMinimumSize(280, 50)
+        self.oscam_source_button.setMinimumSize(300, 50)
         self.oscam_source_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.oscam_source_button.setFont(
             QFont("Segoe UI", 8, QFont.Weight.Bold)
@@ -13029,7 +13029,7 @@ class PatchManagerGUI(QWidget):
             }
         """
         # --- Deine neuen Maße (Jetzt auch im Code genutzt!) ---
-        B_WIDTH = 400
+        B_WIDTH = 440
         B_HEIGHT = self.UI_BUTTON_H
         I_SIZE = 25
 
@@ -13152,7 +13152,7 @@ class PatchManagerGUI(QWidget):
         # --- Manuelles Projekt-Backup ---
         self.btn_backup_gui = QPushButton("💾 Backup erstellen")
         self.btn_backup_gui.setIconSize(QSize(I_SIZE, I_SIZE))
-        self.btn_backup_gui.setFixedSize(280, B_HEIGHT)
+        self.btn_backup_gui.setFixedSize(300, B_HEIGHT)
         self.btn_backup_gui.setStyleSheet(button_style)
         self.btn_backup_gui.setToolTip(
             "Erstellt backup/backup_gi.zip mit dem aktuellen Projektstand"
@@ -13449,11 +13449,11 @@ class PatchManagerGUI(QWidget):
 
         # Revisions-Buttons auf dieselbe Zeile wie „Oscam Git URL“ setzen.
         # Repo URL bleibt oben neben Emu-Git und wird nicht erneut verschoben.
-        revision_button_width = 380
+        revision_button_width = 480
         revision_button_height = max(
             self.oscam_source_button.sizeHint().height(),
             self.oscam_source_button.height(),
-            36,
+            50,
         )
         for col, key in ((7, "streamboard_checkout"), (8, "oscam_emu_revision")):
             entry = self.option_buttons.get(key)
