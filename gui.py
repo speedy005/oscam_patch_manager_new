@@ -8123,7 +8123,7 @@ class PatchManagerGUI(QWidget):
         )
         clock_font = QFont(
             "Arial",
-            max(12, int(dynamic_size * 1.1)),
+            max(12, int(dynamic_size * 0.9)),
             QFont.Weight.Bold,
         )
 
@@ -8140,8 +8140,20 @@ class PatchManagerGUI(QWidget):
             btn.setFont(button_font)
 
         # 5. Uhr aktualisieren
+        
+        # Uhr und Datum immer gleich groß und fett
+        clock_date_font = QFont(
+            "Segoe UI",
+            max(12, int(dynamic_size * 0.9)),
+            QFont.Weight.Bold,
+        )
+
         if hasattr(self, "digital_clock"):
-            self.digital_clock.setFont(clock_font)
+            self.digital_clock.setFont(clock_date_font)
+
+        if hasattr(self, "date_label"):
+            self.date_label.setFont(clock_date_font)
+
 
         # 6. Header-Labels aktualisieren
         if hasattr(self, "lang_label"):
@@ -12085,8 +12097,8 @@ class PatchManagerGUI(QWidget):
         time_date_layout.setSpacing(2)
         time_date_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        bold_font_time = QFont("Segoe UI", 20, QFont.Weight.Bold)
-        bold_font_date = QFont("Segoe UI", 15, QFont.Weight.Bold)
+        bold_font_time = QFont("Segoe UI", 10, QFont.Weight.Bold)
+        bold_font_date = QFont("Segoe UI", 10, QFont.Weight.Bold)
 
         # --- CLOCK ---
         self.digital_clock = QLabel("--:--:--")
@@ -12491,7 +12503,7 @@ class PatchManagerGUI(QWidget):
 
         # Autor Label (Blau im Screenshot)
         self.by_label = QLabel("by speedy005")
-        self.by_label.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        self.by_label.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
         self.by_label.setStyleSheet("color: #0055ff; background: transparent;")
 
         # In den kleinen Container packen
