@@ -13,6 +13,52 @@ import tempfile
 import wave
 
 
+class ResponsiveGridReflow(QObject):
+    """Reflow a grid of existing buttons whenever its container is resized."""
+
+    def __init__(self, container, layout, min_item_width=205, parent=None):
+        super().__init__(parent or container)
+        self.container = container
+        self.layout = layout
+        self.min_item_width = min_item_width
+        self._queued = False
+        self._last_columns = 0
+        container.installEventFilter(self)
+        QTimer.singleShot(0, self.reflow)
+
+    def eventFilter(self, obj, event):
+        if obj is self.container and event.type() == QEvent.Type.Resize:
+            if not self._queued:
+                self._queued = True
+                QTimer.singleShot(0, self._run_queued_reflow)
+        return super().eventFilter(obj, event)
+
+    def _run_queued_reflow(self):
+        self._queued = False
+        self.reflow()
+
+    def reflow(self):
+        if self.container is None or self.layout is None:
+            return
+        width = max(1, self.container.contentsRect().width())
+        spacing = max(0, self.layout.spacing())
+        columns = max(1, (width + spacing) // (self.min_item_width + spacing))
+        widgets = []
+        while self.layout.count():
+            item = self.layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widgets.append(widget)
+        if not widgets:
+            return
+        columns = min(columns, len(widgets))
+        for index, widget in enumerate(widgets):
+            self.layout.addWidget(widget, index // columns, index % columns)
+        for col in range(max(columns, self._last_columns)):
+            self.layout.setColumnStretch(col, 1 if col < columns else 0)
+        self._last_columns = columns
+
+
 class ButtonClickSoundFilter(QObject):
     """Spielt beim Mausklick auf einen Button den Klickton ab."""
 
@@ -769,7 +815,7 @@ class PatchManagerGUI(QWidget):
 
                 if hasattr(self, "btn_patch_online"):
                     self.btn_patch_online.setText(
-                        f"🌐 {strip_icons(lang_dict.get('patch_online_download', 'Online-Patches herunterladen' if is_de else 'Download Online Patches'))}"
+                        f"🌐 {strip_icons(lang_dict.get('patch_online_download', 'Patches aus Git laden' if is_de else 'Load Patches from Git'))}"
                     )
 
                 # Theme und Tooltips nach den Textänderungen erneut anwenden
@@ -2164,7 +2210,7 @@ class PatchManagerGUI(QWidget):
 
         try:
             # --- Bereinigung starten ---
-            update_p(40)
+            update_p(50)
             # Annahme: clean_oscam_emu_git existiert global
             result = globals().get("clean_oscam_emu_git", lambda **x: "success")(progress_callback=progress_callback)
 
@@ -2350,71 +2396,44 @@ class PatchManagerGUI(QWidget):
                 print(f"[_fit_all_button_texts] Fehler: {e}")
 
     def _fit_button_text(self, btn):
-        """
-        FINALE BEREINIGUNG: Erhält die volle Textlänge und Einzeiligkeit,
-        stellt aber die korrekten Farben, Ränder und Styles der Buttons im Grid wieder her.
-        """
+        """Hält Button-Texte innerhalb der verfügbaren Breite, ohne Layouts aufzuziehen."""
         from PyQt6.QtWidgets import QPushButton
-        from PyQt6.QtGui import QFont
+        from PyQt6.QtGui import QFont, QFontMetrics
 
         try:
             if not isinstance(btn, QPushButton):
                 return
-
             text = btn.text().strip()
             if not text:
                 return
 
-            # 1. TEXT-REPARATUR (Alte Pünktchen-Kürzungen entfernen)
-            if "..." in text:
-                cleaned_text = text.replace("...", "").strip()
-                btn.setText(cleaned_text)
-                if hasattr(btn, "_original_text"):
-                    btn._original_text = cleaned_text
+            # Text niemals durch künstliche Mindestbreiten ins Grid drücken.
+            # Den vollständigen Originaltext im Tooltip zugänglich halten.
+            btn.setToolTip(btn.toolTip() or text)
+            font = QFont(btn.font())
+            font.setBold(True)
+            font.setWordSpacing(0)
+            font.setStretch(100)
 
-            # 2. FESTE SCHRIFTGRÖSSE SETZEN (Kein Berechnungs-Kollaps)
-            fixed_font = QFont(btn.font())
-            fixed_font.setBold(True)
-            fixed_font.setWordSpacing(0)
-            
-            status_indicators = ["⏳", "⚙️", "🔄", "⚡", "📁", "💾", "🛠️", "✅"]
-            is_action = any(ind in text for ind in status_indicators)
+            available = max(70, btn.contentsRect().width() - 22)
+            if btn.width() <= 1:
+                available = max(70, btn.sizeHint().width() - 22)
 
-            # Kompakt bei langen Texten, Standard bei kurzen
-            if len(text) > 16 or is_action:
-                fixed_font.setPointSize(10)
-                fixed_font.setStretch(98)
-            else:
-                fixed_font.setPointSize(11)
-                fixed_font.setStretch(100)
-
-            if btn.font().pointSize() != fixed_font.pointSize() or btn.font().stretch() != fixed_font.stretch():
-                btn.setFont(fixed_font)
-
-            # 3. STYLESHEET REWARDS (Farben & Design schützen)
-            old_style = btn.styleSheet() or ""
-            
-            # Wir prüfen, ob unser spezifischer Text-Schutz schon aktiv ist.
-            if "white-space" not in old_style.lower():
-                # Wir betten den Schutz so ein, dass er bestehende Hintergrundfarben NICHT überschreibt
-                text_protection_css = """
-                    white-space: nowrap !important;
-                    text-align: center !important;
-                """
-                btn.setStyleSheet(old_style + "\n" + text_protection_css)
-
-            # 4. PLATZHÄRTUNG IM LAYOUT
-            min_width_needed = btn.sizeHint().width() + 12
-            if btn.minimumWidth() < min_width_needed:
-                btn.setMinimumWidth(min_width_needed)
-                
-            if btn.minimumHeight() < 46:
-                btn.setMinimumHeight(46)
-
+            # Kleinste gut lesbare Schrift wählen, die den Text einzeilig hält.
+            for point_size in (10, 9, 8, 7):
+                font.setPointSize(point_size)
+                if QFontMetrics(font).horizontalAdvance(text) <= available:
+                    break
+            btn.setFont(font)
+            btn.setMinimumWidth(0)
+            btn.setMinimumHeight(0)
+            btn.setSizePolicy(
+                btn.sizePolicy().Policy.Expanding,
+                btn.sizePolicy().Policy.Fixed,
+            )
             btn.update()
-
         except Exception as e:
-            print(f"[_fit_button_text] Visueller Fehler blockiert: {e}")
+            print(f"[_fit_button_text] Visueller Fehler: {e}")
 
     def fix_all_tool_permissions(self, **kwargs):
         """Setzt rekursiv Schreibrechte mit ProgressBar, Sound und Sprachprüfung."""
@@ -4335,10 +4354,10 @@ class PatchManagerGUI(QWidget):
 
         self.combo_source = QComboBox()
         self.combo_source.addItems(ONLINE_PATCHES.keys())
-        self.combo_source.setMinimumHeight(40)
+        self.combo_source.setMinimumHeight(50)
 
         self.btn_online = QPushButton(self.T_PATCH_BTN)
-        self.btn_online.setMinimumHeight(40)
+        self.btn_online.setMinimumHeight(50)
         self.btn_online.setStyleSheet(
             "font-weight: bold; background-color: #2c3e50; color: white;"
         )
@@ -5289,7 +5308,7 @@ class PatchManagerGUI(QWidget):
         self.flag_slide = QPropertyAnimation(self.flag_label, b"geometry")
         self.flag_slide.setDuration(900)
         self.flag_slide.setStartValue(
-            QRect(f_x, f_y + 40, self.flag_label.width(), self.flag_label.height())
+            QRect(f_x, f_y + 50, self.flag_label.width(), self.flag_label.height())
         )
         self.flag_slide.setEndValue(
             QRect(f_x, f_y, self.flag_label.width(), self.flag_label.height())
@@ -7532,7 +7551,7 @@ class PatchManagerGUI(QWidget):
         # Schließen-Button
         # --------------------------------------------------
         close_btn = QPushButton(t.get("close", "Schließen" if is_de else "Close"))
-        close_btn.setMinimumHeight(40)
+        close_btn.setMinimumHeight(50)
 
         button_radius = getattr(self, "BUTTON_RADIUS", 8)
 
@@ -8664,9 +8683,11 @@ class PatchManagerGUI(QWidget):
         # Lokale Konfigurationsdateien erhalten.
         protected_files = {
             "config.json",
-            "settings.json",
+            "settings.json", 
+            "github_config.json", 
+            "install_counter.txt", 
+            "oscam_rev.txt", 
         }
-
         def is_protected(path):
             """Prüft, ob eine Datei vom Update ausgeschlossen ist."""
             relative = path.relative_to(project_dir)
@@ -9183,7 +9204,7 @@ class PatchManagerGUI(QWidget):
         fg="white",
         factor_hover=1.15,
         factor_pressed=0.85,
-        min_height=42,
+        min_height=50,
         radius=8,
         icon_name=None,
     ):
@@ -9281,7 +9302,7 @@ class PatchManagerGUI(QWidget):
     ):
         """Erzeugt Buttons basierend auf Dictionary-Listen (DE/EN tauglich)."""
         buttons = {}
-        def_height = getattr(self, "BUTTON_HEIGHT", 42)
+        def_height = getattr(self, "BUTTON_HEIGHT", 50)
         def_radius = getattr(self, "BUTTON_RADIUS", 8)
 
         for bd in button_definitions:
@@ -9337,12 +9358,12 @@ class PatchManagerGUI(QWidget):
                 continue
             button.setFont(QFont("Segoe UI", font_size, QFont.Weight.Bold))
             if name != "info_button":
-                button.setMinimumHeight(30 if compact else 32)
+                button.setMinimumHeight(50 if compact else 50)
                 button.setMaximumWidth(260 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
                 button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
         if hasattr(self, "logo_label"):
-            self.logo_label.setMinimumSize(150, 45)
+            self.logo_label.setMinimumSize(300, 80)
             self.logo_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             QTimer.singleShot(0, self._fit_header_logo)
 
@@ -9377,8 +9398,8 @@ class PatchManagerGUI(QWidget):
 
         self.logo_label.setPixmap(scaled_pixmap)
         # Das QLabel darf vom Header-Layout automatisch angepasst werden.
-        self.logo_label.setMinimumSize(150, 45)
-        self.logo_label.setMaximumSize(16777215, 16777215)
+        self.logo_label.setMinimumSize(300, 80)
+        self.logo_label.setMaximumSize(400, 400)
         self.logo_label.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
@@ -9700,19 +9721,19 @@ class PatchManagerGUI(QWidget):
             ),
         ]
 
-        container = QWidget()
-
+        container = QGroupBox("INSTALLATION & TOOLS")
+        container.setObjectName("installationToolsPanel")
         options_grid = QGridLayout(container)
-        options_grid.setSpacing(6)
-        options_grid.setContentsMargins(0, 5, 0, 5)
+        options_grid.setSpacing(9)
+        options_grid.setContentsMargins(10, 12, 10, 10)
 
         if not hasattr(self, "all_buttons"):
             self.all_buttons = []
 
         self.option_buttons = getattr(self, "option_buttons", {})
 
-        # Immer 5 Buttons pro Reihe
-        cols_per_row = 5
+        # Responsive Startaufteilung; wird bei jeder Größenänderung angepasst.
+        cols_per_row = 4
 
         # Einheitliche Höhe
         FLACH_HEIGHT = 50
@@ -9902,28 +9923,18 @@ class PatchManagerGUI(QWidget):
                 QSizePolicy.Policy.Fixed,
             )
 
-            btn.setMinimumHeight(42)
-            btn.setMaximumHeight(60)
+            btn.setMinimumWidth(220)
+            btn.setMinimumHeight(50)
+            btn.setMaximumHeight(50)
 
             # ---------------------------------------------------------
             # EINZEILIGER BUTTON-TEXT
             # Schrift wird bei langen Namen automatisch kleiner
             # ---------------------------------------------------------
-            font = QFont("Segoe UI", 5, QFont.Weight.Bold)
+            font = QFont("Segoe UI", 9, QFont.Weight.Bold)
             btn.setFont(font)
-
-            # Etwas Platz für Icon + Rand berücksichtigen
-            fm = btn.fontMetrics()
-            text_width = fm.horizontalAdvance(raw_text)
-
-            # Bei langen Buttonnamen kleinere Schrift verwenden
-            if text_width > 150:
-                font.setPointSize(8)
-
-            if text_width > 175:
-                font.setPointSize(4)
-
-            btn.setFont(font)
+            btn.setMinimumWidth(220)
+            btn.setToolTip(btn.toolTip() or raw_text)
 
 
             # -----------------------------------------------------
@@ -9951,6 +9962,11 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         for i in range(cols_per_row):
             options_grid.setColumnStretch(i, 1)
+
+        # Responsive Reflow: Buttons bleiben verbunden und werden nur neu angeordnet.
+        self._options_grid_reflow = ResponsiveGridReflow(
+            container, options_grid, min_item_width=400, parent=self
+        )
 
         # ---------------------------------------------------------
         # CONTAINER
@@ -10944,7 +10960,7 @@ class PatchManagerGUI(QWidget):
             btn.setText(clean_text)
             btn.setIcon(QApplication.style().standardIcon(standard_pixmap))
             btn.setIconSize(QSize(20, 20))
-            btn.setMinimumSize(185, 48)
+            btn.setMinimumSize(200, 50)
             apply_button_style(btn, "#00FFFF")
 
         # --------------------------------------------------
@@ -11061,7 +11077,7 @@ class PatchManagerGUI(QWidget):
             btn.setText(label)
             btn.setToolTip(tip)
             btn.setToolTipDuration(10000)
-            btn.setMinimumSize(185, 48)
+            btn.setMinimumSize(280, 50)
             btn._original_text = label
             apply_button_style(btn, color)
 
@@ -11073,27 +11089,46 @@ class PatchManagerGUI(QWidget):
         # 6. Standard-Buttons und Tooltips
         # --------------------------------------------------
         mapping = [
+            # 1. Arbeitsordner und lokale Repositories
             (getattr(self, "btn_open_work", None), "Arbeitsordner", "Work Folder",
-             QStyle.StandardPixmap.SP_DirIcon, "Öffnet den lokalen Patch-Ordner",
+             QStyle.StandardPixmap.SP_DirIcon,
+             "Öffnet den lokalen Patch-Ordner",
              "Opens the local patch folder"),
-            (getattr(self, "btn_open_temp", None), "Temp-Repo", "Temp Repo",
-             QStyle.StandardPixmap.SP_DirIcon, "Zeigt den lokalen Git-Clone",
+
+            (getattr(self, "btn_open_temp", None), "Temp Git Streamboard", "Temp Git Streamboard",
+             QStyle.StandardPixmap.SP_DirIcon,
+             "Zeigt den lokalen Git-Clone",
              "Shows the local Git clone"),
-            (getattr(self, "btn_open_emu", None), "Emu-Git", "Emu Git",
-             QStyle.StandardPixmap.SP_DirIcon, "Öffnet das Repository im Browser",
+
+            (getattr(self, "btn_open_emu", None), "Emu Git Temp", "Emu Git Temp",
+             QStyle.StandardPixmap.SP_DirIcon,
+             "Öffnet das Repository im Browser",
              "Opens the repository in the browser"),
+
+            # 2. Umgebung prüfen
             (getattr(self, "btn_check_tools", None), "Tools prüfen", "Check Tools",
-             QStyle.StandardPixmap.SP_ComputerIcon, "Prüft Compiler und Abhängigkeiten",
+             QStyle.StandardPixmap.SP_ComputerIcon,
+             "Prüft Compiler und Abhängigkeiten",
              "Checks compilers and dependencies"),
-            (getattr(self, "btn_modifier", None), "Patch Autor", "Patch Author",
-             QStyle.StandardPixmap.SP_FileDialogDetailedView, "Ändert den Namen des Patch-Autors",
-             "Changes the patch author's name"),
-            (getattr(self, "btn_repo_url", None), "Repo URL", "Repo URL",
-             QStyle.StandardPixmap.SP_DriveNetIcon, "Ändert die Git-Repository-URL",
+
+            # 3. Repository konfigurieren
+            (getattr(self, "btn_repo_url", None), "Oscam Emu URL", "Oscam Emu URL",
+             QStyle.StandardPixmap.SP_DriveNetIcon,
+             "Ändert die Git-Repository-URL",
              "Changes the Git repository URL"),
-            (getattr(self, "btn_check_commit", None), "Commit Check", "Commit Check",
-             QStyle.StandardPixmap.SP_BrowserReload, "Prüft online auf Updates",
+
+            (getattr(self, "btn_modifier", None), "Patch Autor", "Patch Author",
+             QStyle.StandardPixmap.SP_FileDialogDetailedView,
+             "Ändert den Namen des Patch-Autors",
+             "Changes the patch author's name"),
+
+            # 4. Änderungen und Updates prüfen
+            (getattr(self, "btn_check_commit", None), "Commit-Prüfung", "Commit Check",
+             QStyle.StandardPixmap.SP_BrowserReload,
+             "Prüft online auf Updates",
              "Checks online for updates"),
+
+            # 5. Dateiberechtigungen reparieren
             (getattr(self, "btn_fix_perms", None), "Rechte fixen", "Fix Permissions",
              QStyle.StandardPixmap.SP_DialogNoButton,
              "🔐 <b>Rechte:</b> Setzt Schreibrechte für Tool-Dateien und Ordner neu.",
@@ -11106,39 +11141,58 @@ class PatchManagerGUI(QWidget):
                 btn.setToolTip(tr(de_tip, en_tip))
                 btn.setToolTipDuration(10000)
 
-        # --------------------------------------------------
-        # 7. Grid-Buttons
-        # --------------------------------------------------
-        if isinstance(getattr(self, "buttons", None), dict):
-            grid_icons = {
-                "patch_create": QStyle.StandardPixmap.SP_FileIcon,
-                "patch_renew": QStyle.StandardPixmap.SP_BrowserReload,
-                "patch_check": QStyle.StandardPixmap.SP_DialogApplyButton,
-                "patch_apply": QStyle.StandardPixmap.SP_MediaPlay,
-                "patch_zip": QStyle.StandardPixmap.SP_DriveFDIcon,
-                "backup_old": QStyle.StandardPixmap.SP_DialogSaveButton,
-                "clean_folder": QStyle.StandardPixmap.SP_TrashIcon,
-                "change_old_dir": QStyle.StandardPixmap.SP_DirOpenIcon,
-                "exit": QStyle.StandardPixmap.SP_DialogCloseButton,
-            }
-            get_t = getattr(self, "get_t", None)
-            for key, btn in self.buttons.items():
-                if btn is None or key not in grid_icons:
-                    continue
-                try:
-                    text = get_t(key, key) if callable(get_t) else key
-                except Exception as exc:
-                    print(f"[update_ui_texts] Übersetzung für {key} fehlgeschlagen: {exc}")
-                    text = key
-                apply_final_style(btn, text, grid_icons[key])
+
+        
+            # --------------------------------------------------
+            # 7. Grid-Buttons
+            # --------------------------------------------------
+            if isinstance(getattr(self, "buttons", None), dict):
+                # Logische Reihenfolge der Patch-Funktionen
+                grid_icons = {
+                    # 1. Patch erstellen und bearbeiten
+                    "patch_create": QStyle.StandardPixmap.SP_FileIcon,
+                    "patch_renew": QStyle.StandardPixmap.SP_BrowserReload,
+
+                    # 2. Patch prüfen und anwenden
+                    "patch_check": QStyle.StandardPixmap.SP_DialogApplyButton,
+                    "patch_apply": QStyle.StandardPixmap.SP_MediaPlay,
+
+                    # 3. Patch exportieren und sichern
+                    "patch_zip": QStyle.StandardPixmap.SP_DriveFDIcon,
+                    "backup_old": QStyle.StandardPixmap.SP_DialogSaveButton,
+
+                    # 4. Verzeichnisse verwalten
+                    "change_old_dir": QStyle.StandardPixmap.SP_DirOpenIcon,
+                    "clean_folder": QStyle.StandardPixmap.SP_TrashIcon,
+
+                    # 5. Programm beenden
+                    "exit": QStyle.StandardPixmap.SP_DialogCloseButton,
+                }
+
+                get_t = getattr(self, "get_t", None)
+
+                for key, btn in self.buttons.items():
+                    if btn is None or key not in grid_icons:
+                        continue
+
+                    try:
+                        text = get_t(key, key) if callable(get_t) else key
+                    except Exception as exc:
+                        print(
+                            f"[update_ui_texts] Übersetzung für {key} fehlgeschlagen: {exc}"
+                        )
+                        text = key
+
+                    apply_final_style(btn, text, grid_icons[key])
+
 
         # --------------------------------------------------
         # 8. Matrix-Button
         # --------------------------------------------------
         matrix_btn = getattr(self, "btn_matrix", None)
         if matrix_btn is not None:
-            matrix_btn.setText(tr("🔙 MATRIX VERLASSEN", "🔙 EXIT MATRIX"))
-            matrix_btn.setMinimumSize(185, 48)
+            matrix_btn.setText(tr("🔙 MATRIX Beenden", "🔙 EXIT MATRIX"))
+            matrix_btn.setMinimumSize(220, 50)
             matrix_btn.setToolTip(
                 tr("Verlässt den Matrix-Modus.", "Exits Matrix mode.")
             )
@@ -11662,7 +11716,7 @@ class PatchManagerGUI(QWidget):
             log("update_fail", "error", error=str(e))
             if pbar:
                 pbar.setStyleSheet("QProgressBar { color: red; font-weight: bold; }")
-                pbar.setFormat(f"❌ {error_label}: {str(e)[:40]}")
+                pbar.setFormat(f"❌ {error_label}: {str(e)[:50]}")
                 pbar.setValue(100)
 
         # Timer zum Aufräumen
@@ -11851,10 +11905,10 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         # 1. Grundwerte & Hauptlayout
         # ---------------------------------------------------------
-        self.UI_BUTTON_H = 40
-        self.UI_BADGE_H = 40
-        self.UI_PROGRESS_H = 540
-        self.UI_STATUS_H = 40
+        self.UI_BUTTON_H = 50
+        self.UI_BADGE_H = 50
+        self.UI_PROGRESS_H = 24
+        self.UI_STATUS_H = 50
         self.UI_RADIUS = 10
 
         B_HEIGHT = self.UI_BUTTON_H
@@ -11863,8 +11917,30 @@ class PatchManagerGUI(QWidget):
         self.BUTTON_HEIGHT = self.UI_BUTTON_H
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(12)
-        main_layout.setContentsMargins(5, 0, 20, 10)
-        self.setStyleSheet("background-color: #2F2F2F;")
+        main_layout.setContentsMargins(12, 10, 12, 14)
+        self.setStyleSheet("""
+            QWidget { background-color: #10141d; color: #e8f1ff; }
+            QGroupBox {
+                background-color: #171d29;
+                border: 1px solid #29384b;
+                border-radius: 12px;
+                margin-top: 13px;
+                padding: 10px 8px 8px 8px;
+                font-weight: 800;
+                color: #35e6ff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 14px;
+                padding: 0 8px;
+                color: #35e6ff;
+                letter-spacing: 1px;
+            }
+            QToolTip {
+                background: #111827; color: #f2f7ff;
+                border: 1px solid #35e6ff; padding: 7px; border-radius: 6px;
+            }
+        """)
         self.create_buttons()
         
         # =========================================================
@@ -11873,7 +11949,7 @@ class PatchManagerGUI(QWidget):
 
         header_widget = QFrame()
         self.header_widget = header_widget
-        header_widget.setMinimumHeight(125)
+        header_widget.setMinimumHeight(200)
         header_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         header_widget.setStyleSheet(
             """
@@ -11994,7 +12070,7 @@ class PatchManagerGUI(QWidget):
         s3_s4_h_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         for _install_btn in (self.btn_s3, self.btn_s4, self.btn_ncam):
-            _install_btn.setMinimumSize(105, 34)
+            _install_btn.setMinimumSize(105, 50)
             _install_btn.setMaximumWidth(260)
             _install_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
@@ -12050,7 +12126,7 @@ class PatchManagerGUI(QWidget):
         # --- MIDDLE: Logo (responsive) ---
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.logo_label.setMinimumSize(150, 45)
+        self.logo_label.setMinimumSize(300, 80)
         self.logo_label.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
@@ -12061,7 +12137,7 @@ class PatchManagerGUI(QWidget):
         header_layout.addStretch(1)
 
         try:
-            url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/speedy_oscam_managert.png"
+            url = "https://raw.githubusercontent.com/speedy005/oscam_patch_manager_new/master/speedy_banner.png"
             resp = requests.get(url, timeout=5)
             resp.raise_for_status()
             self.original_pixmap = QPixmap()
@@ -12106,7 +12182,7 @@ class PatchManagerGUI(QWidget):
         patch_button_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.header_btn_s3_ncam = QPushButton(self.TEXT.get("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad"))
-        self.header_btn_s3_ncam.setMinimumSize(125, 32)
+        self.header_btn_s3_ncam.setMinimumSize(200, 40)
         self.header_btn_s3_ncam.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_s3_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s3_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
@@ -12118,7 +12194,7 @@ class PatchManagerGUI(QWidget):
         path_button_layout.addWidget(self.header_btn_s3_ncam)
 
         self.header_btn_s4 = QPushButton(self.TEXT.get("patch_folder_s4", "S4-Pfad"))
-        self.header_btn_s4.setMinimumSize(125, 32)
+        self.header_btn_s4.setMinimumSize(200, 40)
         self.header_btn_s4.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
@@ -12131,7 +12207,7 @@ class PatchManagerGUI(QWidget):
 
         # Die beiden Patch-Kopieraktionen ebenfalls untereinander.
         self.header_btn_patch_ncam = QPushButton(self.TEXT.get("patch_copy_s3_ncam", "Patch → S3-NCam"))
-        self.header_btn_patch_ncam.setMinimumSize(125, 32)
+        self.header_btn_patch_ncam.setMinimumSize(200, 40)
         self.header_btn_patch_ncam.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_patch_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
@@ -12147,7 +12223,7 @@ class PatchManagerGUI(QWidget):
         patch_button_layout.addWidget(self.header_btn_patch_ncam)
 
         self.header_btn_patch_s4 = QPushButton(self.TEXT.get("patch_copy_s4", "Patch → S4"))
-        self.header_btn_patch_s4.setMinimumSize(125, 32)
+        self.header_btn_patch_s4.setMinimumSize(200, 40)
         self.header_btn_patch_s4.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_patch_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
@@ -12175,8 +12251,8 @@ class PatchManagerGUI(QWidget):
         header_actions_container = QWidget()
         header_actions_layout = QGridLayout(header_actions_container)
         header_actions_layout.setContentsMargins(0, 0, 0, 0)
-        header_actions_layout.setHorizontalSpacing(6)
-        header_actions_layout.setVerticalSpacing(6)
+        header_actions_layout.setHorizontalSpacing(3)
+        header_actions_layout.setVerticalSpacing(3)
         header_actions_layout.setAlignment(
             Qt.AlignmentFlag.AlignHCenter |
             Qt.AlignmentFlag.AlignVCenter
@@ -12249,7 +12325,7 @@ class PatchManagerGUI(QWidget):
 
         # --- OSCAM-GIT-URL ---
         self.oscam_source_button = QPushButton("Oscam Git URL")
-        self.oscam_source_button.setMinimumSize(135, 32)
+        self.oscam_source_button.setMinimumSize(280, 50)
         self.oscam_source_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.oscam_source_button.setFont(
             QFont("Segoe UI", 8, QFont.Weight.Bold)
@@ -12389,20 +12465,27 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         # INFO + PROGRESS
         # ---------------------------------------------------------
+        # Große Live-Konsole als visueller Mittelpunkt der Oberfläche
+        console_panel = QGroupBox("LIVE SYSTEM CONSOLE  /  STATUS & LOGS")
+        self.console_panel = console_panel
+        console_layout = QVBoxLayout(console_panel)
+        console_layout.setContentsMargins(10, 12, 10, 10)
+        console_layout.setSpacing(8)
         self.info_text = QTextEdit()
+        self.info_text.setObjectName("liveConsole")
         self.info_text.setReadOnly(True)
-        self.info_text.setFont(QFont("Consolas", 12))
-        self.info_text.setStyleSheet(
-            """
-            QTextEdit {
-                background-color: #000000;
-                color: #FFFFFF;
-                border: 1px solid #444;
-                border-radius: 5px;
+        self.info_text.setMinimumHeight(220)
+        self.info_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.info_text.setFont(QFont("Consolas", 11))
+        self.info_text.setStyleSheet("""
+            QTextEdit#liveConsole {
+                background-color: #080c12; color: #b9f7ff;
+                border: 1px solid #24465a; border-radius: 9px;
+                padding: 10px; selection-background-color: #176b80;
             }
-        """
-        )
-        main_layout.addWidget(self.info_text, 10)
+        """)
+        console_layout.addWidget(self.info_text, 1)
+        main_layout.addWidget(console_panel, 10)
 
         # --- AUTO-SCROLL LOGIK HIER EINFÜGEN ---
         # Timer erstellen, der alle 50 Millisekunden feuert
@@ -12425,7 +12508,8 @@ class PatchManagerGUI(QWidget):
         main_layout.addSpacing(12)
 
         self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(self.UI_PROGRESS_H)
+        self.progress_bar.setMinimumHeight(self.UI_PROGRESS_H)
+        self.progress_bar.setMaximumHeight(40)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(True)
@@ -12465,7 +12549,7 @@ class PatchManagerGUI(QWidget):
 
         # FIX 1: Feste Breite und statische Attribute verhindern das "Zucken" des Textes
         self.status_info_label = QLabel("SYSTEM STATUS:")
-        self.status_info_label.setFixedWidth(180)  # Reserviert festen Platz
+        self.status_info_label.setFixedWidth(220)  # Reserviert festen Platz
         self.status_info_label.setAttribute(Qt.WidgetAttribute.WA_StaticContents)
         self.status_info_label.setStyleSheet(
             "color: #FF0000; font-size: 22px; font-weight: bold; border: none; background: transparent;"
@@ -12536,7 +12620,7 @@ class PatchManagerGUI(QWidget):
             # Tool Container
             t_widget = QWidget()
             # FIX 2: Feste Breite für Container verhindert Layout-Verschiebungen in der Zeile
-            t_widget.setMinimumWidth(80)
+            t_widget.setMinimumWidth(120)
             t_lay = QHBoxLayout(t_widget)
             t_lay.setContentsMargins(0, 0, 0, 0)
             t_lay.setSpacing(6)
@@ -12609,7 +12693,7 @@ class PatchManagerGUI(QWidget):
         # BUTTONS
         # ---------------------------------------------------------
         self.btn_matrix = QPushButton("📟 MATRIX MODE")
-        self.btn_matrix.setFixedSize(210, self.UI_BUTTON_H)
+        self.btn_matrix.setFixedSize(300, self.UI_BUTTON_H)
         self.btn_matrix.setStyleSheet(
             "QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; }"
         )
@@ -12618,7 +12702,7 @@ class PatchManagerGUI(QWidget):
         status_bar_layout.addWidget(self.btn_matrix)
 
         self.btn_theme = QPushButton("🌓 THEME")
-        self.btn_theme.setFixedSize(210, self.UI_BUTTON_H)
+        self.btn_theme.setFixedSize(200, self.UI_BUTTON_H)
         self.btn_theme.setStyleSheet(
             "QPushButton { background-color: #444; color: red; border: 1px solid #666; border-radius: 6px; font-size: 18px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }"
         )
@@ -12666,9 +12750,9 @@ class PatchManagerGUI(QWidget):
         translated_text = self.get_t("settings_header", "Einstellungen")
         self.controls_header = QLabel(translated_text)
 
-        self.controls_header.setMinimumWidth(220)
+        self.controls_header.setMinimumWidth(280)
         # OPTIMIERUNG: Header-Höhe von 28 auf 45 erhöht für mehr Präsenz
-        self.controls_header.setMinimumHeight(40)
+        self.controls_header.setMinimumHeight(50)
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         bg = current_diff_colors.get("bg", "#2F2F2F")  # Dunkelgrauer Hintergrund
@@ -12699,7 +12783,7 @@ class PatchManagerGUI(QWidget):
         controls_layout.setSpacing(0)
 
         # Nutze hier deine neue B_HEIGHT (z.B. 60), falls definiert, sonst BUTTON_HEIGHT
-        CONTROL_HEIGHT = getattr(self, "B_HEIGHT", 40)
+        CONTROL_HEIGHT = getattr(self, "B_HEIGHT", 50)
         controls_layout.addStretch(0)
         control_style = f"""
         QComboBox, QSpinBox {{
@@ -12719,7 +12803,7 @@ class PatchManagerGUI(QWidget):
             lbl.setMinimumHeight(CONTROL_HEIGHT)
 
             # FIX: Von 85 auf 65 verringert, damit die Boxen näher am Wort kleben
-            lbl.setFixedWidth(65)
+            lbl.setFixedWidth(50)
 
             lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
             lbl.setStyleSheet(
@@ -12872,7 +12956,7 @@ class PatchManagerGUI(QWidget):
             }
         """
         # --- Deine neuen Maße (Jetzt auch im Code genutzt!) ---
-        B_WIDTH = 230
+        B_WIDTH = 400
         B_HEIGHT = self.UI_BUTTON_H
         I_SIZE = 25
 
@@ -12995,7 +13079,7 @@ class PatchManagerGUI(QWidget):
         # --- Manuelles Projekt-Backup ---
         self.btn_backup_gui = QPushButton("💾 Backup erstellen")
         self.btn_backup_gui.setIconSize(QSize(I_SIZE, I_SIZE))
-        self.btn_backup_gui.setFixedSize(210, B_HEIGHT)
+        self.btn_backup_gui.setFixedSize(280, B_HEIGHT)
         self.btn_backup_gui.setStyleSheet(button_style)
         self.btn_backup_gui.setToolTip(
             "Erstellt backup/backup_gi.zip mit dem aktuellen Projektstand"
@@ -13025,7 +13109,7 @@ class PatchManagerGUI(QWidget):
 
         # --- A) LINKER BADGE (Einstellungen - Länge 220) ---
         self.left_badge = QFrame()
-        self.left_badge.setFixedSize(220, self.UI_BADGE_H)
+        self.left_badge.setFixedSize(180, self.UI_BADGE_H)
         self.left_badge.setStyleSheet(
             f"""
             QFrame {{
@@ -13109,17 +13193,18 @@ class PatchManagerGUI(QWidget):
 
         # --- Integration ins Grid (Zeile 0) ---
         grid_layout.addWidget(self.header_container, 0, 0, 1, 4)
+        grid_layout.addWidget(self.btn_open_work, 1, 9)
 
-        grid_layout.addWidget(self.btn_open_work, 0, 6)
-        grid_layout.addWidget(self.btn_open_temp, 0, 7)
-        grid_layout.addWidget(self.btn_open_emu, 0, 8)
+        grid_layout.addWidget(self.btn_open_emu, 0, 6)
+        grid_layout.addWidget(self.btn_repo_url, 0, 7)
 
-        
-        
+        grid_layout.addWidget(self.btn_open_temp, 0, 8)
+        grid_layout.addWidget(self.btn_backup_gui, 0, 9)
+
         # --- EINSTELLUNGEN: kompakt, linksbündig, eine Reihe ---
         settings_row = QHBoxLayout()
         settings_row.setContentsMargins(0, 0, 0, 0)
-        settings_row.setSpacing(10)
+        settings_row.setSpacing(6)
 
         # Sprache
         self.lang_label.setFixedWidth(120)
@@ -13151,13 +13236,13 @@ class PatchManagerGUI(QWidget):
         self.commit_label.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
-        self.commit_spin.setFixedWidth(70)
+        self.commit_spin.setFixedWidth(80)
 
         settings_row.addWidget(self.commit_label)
         settings_row.addWidget(self.commit_spin)
 
         # Backup-Button direkt hinter der Commit-Anzahl-Auswahl
-        settings_row.addWidget(self.btn_backup_gui)
+        #settings_row.addWidget(self.btn_backup_gui)
 
         # Freier Platz bleibt rechts von den Einstellungen
         settings_row.addStretch(1)
@@ -13165,12 +13250,11 @@ class PatchManagerGUI(QWidget):
         # Einstellungen in einer einzigen Reihe links anordnen
         grid_layout.addLayout(settings_row, 1, 0, 1, 6)
 
-        # Buttons bleiben in ihren bisherigen Positionen
-        grid_layout.addWidget(self.btn_patch_online, 0, 9)
-        grid_layout.addWidget(self.btn_check_tools, 1, 6)
-        grid_layout.addWidget(self.btn_modifier, 1, 7)
-        grid_layout.addWidget(self.btn_repo_url, 1, 8)
-        grid_layout.addWidget(self.btn_check_commit, 1, 9)
+        # Die vier Git-/Revisions-Buttons direkt unter den Ordner-Buttons anordnen.
+        # Die Widgets werden aus ihren bisherigen Layout-Positionen verschoben.
+        grid_layout.addWidget(self.oscam_source_button, 1, 6)
+
+        # Repo URL ist bereits oben neben Emu-Git platziert.
 
         # Keine Grid-Spalte künstlich verbreitern
         for i in range(grid_layout.columnCount()):
@@ -13185,18 +13269,125 @@ class PatchManagerGUI(QWidget):
         controls_group_layout.addLayout(grid_layout)
         main_layout.addWidget(controls_group)
 
-        # --- UNTERE SEKTION (Korrigierte Reihenfolge) ---
-        self.setup_option_buttons(main_layout)
-        
-        self.grid_container = QWidget()
+        # --- UNTERE SEKTION: klare Priorität für Patch-Aktionen ---
+        self.grid_container = QGroupBox("PATCH & BUILD")
+        self.grid_container.setObjectName("patchBuildPanel")
         self.layout_grid_buttons = QGridLayout(self.grid_container)
-        self.layout_grid_buttons.setSpacing(10)
-        
-        # SCHRITT 1: Container ZUERST in das Hauptlayout einbetten
+        # Kompakte, gleichmäßige Abstände; das Grid passt die Spaltenzahl
+        # anhand der tatsächlich verfügbaren Breite dynamisch an.
+        self.layout_grid_buttons.setHorizontalSpacing(6)
+        self.layout_grid_buttons.setVerticalSpacing(6)
+        self.layout_grid_buttons.setContentsMargins(8, 8, 8, 8)
+
+        # Container zuerst einbetten, dann die vorhandenen Aktionsbuttons erzeugen.
         main_layout.addWidget(self.grid_container)
-        
-        # SCHRITT 2: JETZT ERST die Buttons im eingebetteten Container generieren
         self.setup_grid_buttons()
+
+        # Die sechs bisher oben rechts platzierten Aktionsbuttons werden
+        # in den PATCH & BUILD-Bereich integriert. Die Reihenfolge folgt
+        # dem typischen Arbeitsablauf: Patch holen/erstellen, prüfen und
+        # anwenden, sichern, anschließend Repository-/Systemwerkzeuge.
+        
+        patch_build_order = [
+            getattr(self, "btn_patch_online", None),
+            getattr(self, "buttons", {}).get("patch_create"),
+            getattr(self, "buttons", {}).get("patch_renew"),
+            getattr(self, "buttons", {}).get("patch_check"),
+            getattr(self, "buttons", {}).get("patch_apply"),
+            getattr(self, "buttons", {}).get("patch_zip"),
+            getattr(self, "buttons", {}).get("backup_old"),
+            getattr(self, "buttons", {}).get("clean_folder"),
+            getattr(self, "buttons", {}).get("change_old_dir"),
+            getattr(self, "btn_check_commit", None),
+            getattr(self, "btn_modifier", None),
+            getattr(self, "btn_check_tools", None),
+
+            # Beenden
+            getattr(self, "buttons", {}).get("exit"),
+
+            # Direkt danach: Rechte fixen
+            getattr(self, "btn_fix_perms", None),
+        ]
+
+
+        # Alte Grid-Einträge leeren und in der gewünschten Reihenfolge neu
+        # einsetzen. Signale/Callbacks bleiben dabei unverändert verbunden.
+        patch_layout = self.layout_grid_buttons
+        while patch_layout.count():
+            item = patch_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(self.grid_container)
+
+        from PyQt6.QtWidgets import QSizePolicy
+        seen_patch_buttons = set()
+        ordered_patch_buttons = []
+        for button in patch_build_order:
+            if button is None or id(button) in seen_patch_buttons:
+                continue
+            seen_patch_buttons.add(id(button))
+            ordered_patch_buttons.append(button)
+            button.setParent(self.grid_container)
+            # Die sechs verschobenen Buttons sollen sich genauso flexibel
+            # an die Spaltenbreite anpassen wie die nativen Patch-Buttons.
+            if button in (
+                getattr(self, "btn_patch_online", None),
+                #getattr(self, "btn_backup_gui", None),
+                getattr(self, "btn_repo_url", None),
+                getattr(self, "btn_check_commit", None),
+                getattr(self, "btn_modifier", None),
+                getattr(self, "btn_check_tools", None),
+            ):
+                button.setMinimumSize(250, 50)
+                # Keine künstliche Maximalbreite: sonst entstehen im rechten
+                # Bereich große Lücken, obwohl das Grid seine Spalten streckt.
+                button.setMaximumHeight(50)
+                button.setSizePolicy(
+                    QSizePolicy.Policy.Expanding,
+                    QSizePolicy.Policy.Fixed,
+                )
+
+        # Erst kompakt einsetzen; ResponsiveGridReflow ordnet danach anhand
+        # der realen Containerbreite in passende Spalten um.
+        for index, button in enumerate(ordered_patch_buttons):
+            patch_layout.addWidget(button, index, 0)
+
+        # ResponsiveGridReflow liest dieselbe Layout-Reihenfolge aus und
+        # passt die Spaltenzahl beim Fenster-Resize automatisch an.
+        reflow = getattr(self, "_patch_grid_reflow", None)
+        if reflow is not None:
+            reflow.reflow()
+
+        # Weitere Werkzeuge in einer separaten, responsiven Sektion.
+
+        self.setup_option_buttons(main_layout)
+
+        # Revisions-Buttons auf dieselbe Zeile wie „Oscam Git URL“ setzen.
+        # Repo URL bleibt oben neben Emu-Git und wird nicht erneut verschoben.
+        revision_button_width = 380
+        revision_button_height = max(
+            self.oscam_source_button.sizeHint().height(),
+            self.oscam_source_button.height(),
+            36,
+        )
+        for col, key in ((7, "streamboard_checkout"), (8, "oscam_emu_revision")):
+            entry = self.option_buttons.get(key)
+            if entry:
+                button = entry[0] if isinstance(entry, (tuple, list)) else entry
+                button.setMinimumSize(revision_button_width, revision_button_height)
+                button.setMaximumSize(revision_button_width, revision_button_height)
+                button.setFixedSize(revision_button_width, revision_button_height)
+                button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+                button.setStyleSheet(
+                    button.styleSheet()
+                    + "\nQPushButton { padding-left: 6px; padding-right: 6px; margin: 0px; }"
+                )
+                button.setToolTip(button.text())
+                grid_layout.addWidget(
+                    button, 1, col,
+                    alignment=Qt.AlignmentFlag.AlignVCenter
+                )
+
 
         
         
@@ -13228,7 +13419,7 @@ class PatchManagerGUI(QWidget):
         screen = QApplication.primaryScreen()
         if screen is not None:
             available = screen.availableGeometry()  # ohne Taskleiste/Dock
-            min_width = min(1200, max(640, available.width() - 40))
+            min_width = min(1200, max(640, available.width() - 50))
             min_height = min(850, max(480, available.height() - 80))
         else:
             min_width, min_height = 800, 600
@@ -14475,13 +14666,9 @@ class PatchManagerGUI(QWidget):
                     except Exception:
                         pass
 
-            grid_layout.setSpacing(8)
-            grid_layout.setContentsMargins(
-                0,
-                5,
-                0,
-                5
-            )
+            grid_layout.setHorizontalSpacing(6)
+            grid_layout.setVerticalSpacing(6)
+            grid_layout.setContentsMargins(8, 8, 8, 8)
 
             # =========================================================
             # ICONS
@@ -15204,15 +15391,15 @@ class PatchManagerGUI(QWidget):
                 )
 
                 btn.setMinimumWidth(
-                    180
+                    230
                 )
 
                 btn.setMinimumHeight(
-                    46
+                    50
                 )
 
                 btn.setMaximumHeight(
-                    46
+                    50
                 )
 
                 # =====================================================
@@ -15261,9 +15448,20 @@ class PatchManagerGUI(QWidget):
                     +
                     f"""
                     QPushButton {{
-                        padding-left: 8px;
-                        padding-right: 8px;
+                        padding: 8px 10px;
                         text-align: center;
+                        border: 1px solid #2d7185;
+                        border-radius: 9px;
+                        font-weight: 700;
+                        min-height: 42px;
+                    }}
+                    QPushButton:hover {{
+                        border: 1px solid #35e6ff;
+                        color: #ffffff;
+                    }}
+                    QPushButton:pressed {{
+                        padding-top: 10px;
+                        background-color: #123b49;
                     }}
 
                     QToolTip {{
@@ -15317,6 +15515,11 @@ class PatchManagerGUI(QWidget):
                     i,
                     1
                 )
+
+            # Bei schmalen Fenstern weniger Spalten, bei breiten mehr.
+            self._patch_grid_reflow = ResponsiveGridReflow(
+                grid_container, grid_layout, min_item_width=320, parent=self
+            )
 
             # =========================================================
             # TEXT ANPASSEN
@@ -17858,7 +18061,7 @@ class PatchManagerGUI(QWidget):
             "btn_patch_online", "setText",
             "🌐 " + str(get_t(
                 "patch_online_download",
-                "Online-Patches herunterladen" if lang == "de" else "Download Online Patches"
+                "Patches aus Git laden" if lang == "de" else "Load Patches from Git"
             ))
         )
 
