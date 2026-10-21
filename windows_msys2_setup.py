@@ -1,18 +1,24 @@
+
 # -*- coding: utf-8 -*-
 """
 Cross-platform Simplebuild launcher.
 
 Windows:
 - Prüft WSL2 und Ubuntu.
-- Fordert die Installation bei Bedarf an.
-- Belässt die Quell-Repositories an ihren Windows-Pfaden.
-- Klont oder aktualisiert die ausgewählten Repositories.
-- Startet Simplebuild in einem separaten WSL2-Konsolenfenster.
-- Startet das ausgewählte Skript mit ./s3 menu oder ./s4 menu.
-- Verwendet kein MSYS2.
+- Klont nur, wenn das Zielverzeichnis noch nicht existiert.
+- Verwendet vorhandene Repository-Kopien weiter.
+- Aktualisiert Git-Referenzen, ohne lokale Änderungen zu überschreiben.
+- Bei einem fehlgeschlagenen Fetch kann ein vorhandenes Repository
+  weiterhin lokal gestartet werden.
+- Startet Simplebuild in einem separaten WSL-Konsolenfenster.
 
 Linux:
 - Startet Simplebuild in einem nativen Terminal.
+
+Startbefehle:
+- S3:   ./s3 menu
+- S4:   ./s4
+- NCam: ./s3 menu
 """
 
 from __future__ import annotations
@@ -22,6 +28,7 @@ import platform
 import shlex
 import shutil
 import subprocess
+import base64
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -35,7 +42,7 @@ REPOSITORIES = {
 WSL_DISTRO = "Ubuntu"
 
 
-def _log_func(log: Optional[Callable[[str], None]] = None):
+def _log_func(log=None):
     return log or print
 
 
@@ -48,6 +55,8 @@ def _run(
     capture=True,
     env=None,
 ):
+    """Führt einen Prozess aus und zeigt seine Ausgabe an."""
+
     command = [str(item) for item in command]
 
     log("Starte: " + subprocess.list2cmdline(command))
@@ -63,20 +72,23 @@ def _run(
         check=False,
     )
 
-    if capture and result.stdout:
-        log(result.stdout.rstrip())
+    output = (result.stdout or "").strip() if capture else ""
+
+    if output:
+        log(output)
 
     if check and result.returncode != 0:
         raise RuntimeError(
-            f"Befehl fehlgeschlagen (Exit-Code {result.returncode}): "
-            f"{subprocess.list2cmdline(command)}"
+            f"Befehl fehlgeschlagen (Exit-Code {result.returncode}):\n"
+            f"{subprocess.list2cmdline(command)}\n"
+            f"Ausgabe:\n{output or '(keine Ausgabe)'}"
         )
 
     return result
 
 
 def _find_wsl() -> str:
-    """Findet wsl.exe auf Windows."""
+    """Findet wsl.exe unter Windows."""
 
     if platform.system() != "Windows":
         raise RuntimeError("WSL wird nur unter Windows benötigt.")
@@ -95,8 +107,8 @@ def _find_wsl() -> str:
             return candidate
 
     raise RuntimeError(
-        "wsl.exe wurde nicht gefunden. Installiere WSL über PowerShell "
-        "mit 'wsl --install -d Ubuntu'."
+        "wsl.exe wurde nicht gefunden. Installiere WSL mit:\n"
+        "wsl --install -d Ubuntu"
     )
 
 
@@ -112,8 +124,6 @@ def _wsl(arguments, *, log, check=True, capture=True):
 
 
 def _clean_wsl_output(value):
-    """Entfernt typische WSL-Ausgabe-Artefakte."""
-
     return (
         (value or "")
         .replace("\x00", "")
@@ -122,8 +132,8 @@ def _clean_wsl_output(value):
     )
 
 
-def ensure_wsl(log: Optional[Callable[[str], None]] = None) -> None:
-    """Prüft, ob Ubuntu installiert und über WSL2 erreichbar ist."""
+def ensure_wsl(log=None) -> None:
+    """Prüft Ubuntu und stellt sicher, dass die Distribution WSL2 nutzt."""
 
     if platform.system() != "Windows":
         return
@@ -144,11 +154,11 @@ def ensure_wsl(log: Optional[Callable[[str], None]] = None) -> None:
             check=False,
         )
         raise RuntimeError(
-            "Die WSL-Installation wurde angefordert. Schließe die "
-            "Installation ab und öffne Ubuntu zur Einrichtung."
+            "Die WSL-Installation wurde angefordert. "
+            "Schließe die Installation ab und öffne Ubuntu."
         )
 
-    distros_result = _wsl(
+    result = _wsl(
         ["--list", "--quiet"],
         log=log,
         check=False,
@@ -156,9 +166,7 @@ def ensure_wsl(log: Optional[Callable[[str], None]] = None) -> None:
 
     distros = [
         line.strip()
-        for line in _clean_wsl_output(
-            distros_result.stdout
-        ).splitlines()
+        for line in _clean_wsl_output(result.stdout).splitlines()
         if line.strip()
     ]
 
@@ -172,22 +180,21 @@ def ensure_wsl(log: Optional[Callable[[str], None]] = None) -> None:
             check=False,
         )
         raise RuntimeError(
-            "Ubuntu wurde zur Installation angefordert. Öffne Ubuntu "
-            "nach der Installation und richte den Linux-Benutzer ein."
+            "Ubuntu wurde zur Installation angefordert. "
+            "Öffne Ubuntu nach der Installation und richte "
+            "deinen Linux-Benutzer ein."
         )
 
-    versions = _wsl(
+    result = _wsl(
         ["--list", "--verbose"],
         log=log,
         check=False,
     )
 
-    version_text = _clean_wsl_output(versions.stdout)
-
     ubuntu_line = next(
         (
             line
-            for line in version_text.splitlines()
+            for line in _clean_wsl_output(result.stdout).splitlines()
             if WSL_DISTRO.lower() in line.lower()
         ),
         "",
@@ -195,12 +202,13 @@ def ensure_wsl(log: Optional[Callable[[str], None]] = None) -> None:
 
     if not ubuntu_line:
         raise RuntimeError(
-            "Die Ubuntu-Version konnte nicht ermittelt werden. "
-            "Prüfe 'wsl --list --verbose'."
+            "Ubuntu konnte nicht erkannt werden. Prüfe "
+            "'wsl --list --verbose' in PowerShell."
         )
 
     if not ubuntu_line.rstrip().endswith("2"):
         log("Ubuntu wird auf WSL2 umgestellt.")
+
         _wsl(
             ["--set-version", WSL_DISTRO, "2"],
             log=log,
@@ -224,25 +232,25 @@ def ensure_wsl(log: Optional[Callable[[str], None]] = None) -> None:
         or "WSL_READY" not in _clean_wsl_output(ready.stdout)
     ):
         raise RuntimeError(
-            "Ubuntu ist noch nicht vollständig eingerichtet. Öffne "
-            "Ubuntu über das Startmenü und schließe die Einrichtung ab."
+            "Ubuntu ist noch nicht vollständig eingerichtet. "
+            "Öffne Ubuntu über das Startmenü und schließe "
+            "die Einrichtung ab."
         )
 
     log("WSL2 und Ubuntu sind verfügbar.")
 
 
 def _script_candidates(tool: str):
-    """Erwartete Startskriptnamen je Repository."""
+    """Erwartete Startskripte."""
 
     if tool == "s4":
         return ("s4",)
 
-    # s3 und ncam verwenden ./s3 menu.
     return ("s3",)
 
 
 def _find_script(root: Path, tool: str):
-    """Sucht das erwartete Skript im Repository und Unterordnern."""
+    """Sucht das Startskript im Repository und bekannten Unterordnern."""
 
     folders = (
         "",
@@ -264,29 +272,39 @@ def _find_script(root: Path, tool: str):
 
 
 def ensure_repository(tool: str, destination, log=None) -> Path:
-    """Klonen oder aktualisieren, ohne lokale Änderungen zu verwerfen."""
+    """
+    Verwendet vorhandene Quellen oder klont ein neues Repository.
+
+    Bestehende Git-Repositories werden nur gefetcht.
+    Es werden keine lokalen Änderungen zurückgesetzt.
+    """
 
     log = _log_func(log)
     tool = str(tool).lower().strip()
 
     if tool not in REPOSITORIES:
         raise ValueError(
-            f"Unbekanntes Tool {tool!r}; "
-            f"erlaubt: {', '.join(REPOSITORIES)}"
+            f"Unbekanntes Tool {tool!r}. Erlaubt: "
+            f"{', '.join(REPOSITORIES)}"
         )
 
     dest = Path(destination).expanduser().resolve()
+
     git = shutil.which("git") or shutil.which("git.exe")
 
     if not git:
         raise RuntimeError(
-            "Git wurde nicht gefunden. Installiere Git oder ergänze "
-            "Git im PATH."
+            "Git wurde nicht gefunden. Installiere Git "
+            "oder ergänze Git im PATH."
         )
 
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    if (dest / ".git").is_dir():
+    # Vorhandenes Git-Repository: nicht erneut klonen.
+    if (dest / ".git").exists():
+        log(f"Vorhandenes Git-Repository: {dest}")
+
+        # Die Repository-Adresse bei Bedarf korrigieren.
         _run(
             [
                 git,
@@ -300,24 +318,38 @@ def ensure_repository(tool: str, destination, log=None) -> Path:
             log=log,
         )
 
-        _run(
-            [
-                git,
-                "-C",
-                str(dest),
-                "fetch",
-                "--all",
-                "--prune",
-            ],
-            log=log,
-        )
+        # Nur origin abrufen.
+        # Bei einem Serverfehler darf eine vorhandene lokale
+        # Kopie weiterhin gestartet werden.
+        try:
+            _run(
+                [
+                    git,
+                    "-C",
+                    str(dest),
+                    "fetch",
+                    "origin",
+                    "--prune",
+                ],
+                log=log,
+            )
 
-        log(
-            "Repository vorhanden; Fetch abgeschlossen. "
-            "Lokale Änderungen bleiben erhalten."
-        )
+            log("Git-Fetch erfolgreich.")
+
+        except RuntimeError as exc:
+            log(
+                "WARNUNG: Git-Fetch fehlgeschlagen. "
+                "Die vorhandenen lokalen Dateien bleiben erhalten."
+            )
+            log(str(exc))
+            log(
+                "Es wird mit dem lokalen Repository weitergearbeitet. "
+                "Es wurden keine neuen Commits übernommen."
+            )
+
         return dest
 
+    # Vorhandenes Verzeichnis ohne Git-Metadaten.
     if dest.exists() and any(dest.iterdir()):
         if _find_script(dest, tool) is not None:
             log(
@@ -327,21 +359,31 @@ def ensure_repository(tool: str, destination, log=None) -> Path:
             return dest
 
         raise RuntimeError(
-            f"Zielverzeichnis ist nicht leer und kein Git-Repository: "
-            f"{dest}. Sichere den Inhalt oder wähle einen leeren Ordner."
+            "Das Zielverzeichnis ist nicht leer und kein "
+            f"Git-Repository:\n{dest}\n"
+            "Bitte sichere den Inhalt oder wähle einen anderen Ordner."
         )
 
+    # Nur bei fehlendem oder leerem Zielverzeichnis klonen.
+    log(f"Klone {tool} nach {dest}")
+
     _run(
-        [git, "clone", REPOSITORIES[tool], str(dest)],
+        [
+            git,
+            "clone",
+            REPOSITORIES[tool],
+            str(dest),
+        ],
         log=log,
     )
 
-    log("Repository geklont; keine Patches angewendet.")
+    log(f"{tool} wurde erfolgreich geklont.")
+
     return dest
 
 
 def prepare_tool(tool: str, destination, log=None) -> Path:
-    """Bereitet das Repository vor und prüft WSL unter Windows."""
+    """Prüft WSL und bereitet ausschließlich das ausgewählte Tool vor."""
 
     log = _log_func(log)
     tool = str(tool).lower().strip()
@@ -352,48 +394,82 @@ def prepare_tool(tool: str, destination, log=None) -> Path:
     if platform.system() == "Windows":
         ensure_wsl(log=log)
 
-    path = ensure_repository(tool, destination, log=log)
+    path = ensure_repository(
+        tool,
+        destination,
+        log=log,
+    )
+
     log(f"{tool} ist bereit: {path}")
 
     return path
 
 
+
+
 def _wsl_path(path: Path, log) -> str:
-    """Konvertiert einen Windows-Pfad in einen absoluten WSL-Pfad."""
+    """Konvertiert einen Windows-Pfad zuverlässig in einen WSL-Pfad."""
 
-    windows_path = str(path.resolve()).replace("\\", "/")
+    windows_path = str(path.expanduser().resolve())
+    wsl_exe = _find_wsl()
 
-    result = _wsl(
+    # Windows-Pfad sicher als Base64 übertragen, damit Backslashes
+    # und Sonderzeichen nicht durch die Argumentübergabe verloren gehen.
+    import base64
+    encoded_path = base64.b64encode(
+        windows_path.encode("utf-8")
+    ).decode("ascii")
+
+    result = _run(
         [
+            wsl_exe,
             "-d",
             WSL_DISTRO,
-            "--",
+            "--exec",
+            "bash",
+            "-lc",
+            'printf %s "$1" | base64 -d | '
+            'xargs -0 -r -I {} wslpath -a "{}"',
             "wslpath",
-            "-a",
-            windows_path,
+            encoded_path,
         ],
         log=log,
+        check=False,
+        capture=True,
     )
 
     converted = _clean_wsl_output(result.stdout)
 
-    if not converted or not converted.startswith("/"):
+    if result.returncode != 0 or not converted.startswith("/"):
         raise RuntimeError(
-            "Windows-Pfad konnte nicht nach WSL konvertiert werden: "
-            f"{path}. Ausgabe: {converted!r}"
+            "Windows-Pfad konnte nicht nach WSL konvertiert werden.\n"
+            f"Windows-Pfad: {windows_path}\n"
+            f"Exit-Code: {result.returncode}\n"
+            f"Ausgabe: {converted!r}"
         )
 
     return converted
 
 
+
+
 def bash_quote(value):
-    """Quotiert einen Wert sicher für Bash."""
+    """Sicheres Quoting für Bash."""
 
     return shlex.quote(str(value))
 
 
+def _start_command(tool: str) -> str:
+    """Liefert den korrekten Startbefehl für das ausgewählte Tool."""
+
+    if tool == "s4":
+        return "./s4"
+
+    return "./s3 menu"
+
+
 def _launch_native_linux(tool: str, source: Path, log) -> None:
-    """Startet das Menü in einem nativen Linux-Terminal."""
+    """Startet Simplebuild in einem nativen Linux-Terminal."""
 
     script = _find_script(source, tool)
 
@@ -402,9 +478,15 @@ def _launch_native_linux(tool: str, source: Path, log) -> None:
             f"Kein Startskript für {tool} in {source} gefunden."
         )
 
+    start_command = _start_command(tool)
+
     command = (
-        f"cd {shlex.quote(str(script.parent))} && "
-        f"exec ./{shlex.quote(script.name)} menu"
+        f"cd {bash_quote(str(script.parent))} && "
+        f"chmod +x {bash_quote(script.name)} && "
+        f"{start_command}; "
+        "result=$?; "
+        'echo "Simplebuild beendet (Exit-Code: $result)."; '
+        "exec bash"
     )
 
     terminals = [
@@ -421,7 +503,7 @@ def _launch_native_linux(tool: str, source: Path, log) -> None:
             [
                 "xfce4-terminal",
                 "--command",
-                f"bash -lc {shlex.quote(command)}",
+                f"bash -lc {bash_quote(command)}",
             ],
         ),
         (
@@ -433,17 +515,17 @@ def _launch_native_linux(tool: str, source: Path, log) -> None:
     for executable, arguments in terminals:
         if shutil.which(executable):
             subprocess.Popen(arguments, start_new_session=True)
-            log(f"Starte {tool} unter Linux: ./{script.name} menu")
+            log(f"Starte {tool} unter Linux: {start_command}")
             return
 
     raise RuntimeError(
-        "Kein unterstützter Terminal-Emulator gefunden. Installiere "
-        "beispielsweise xterm, gnome-terminal oder konsole."
+        "Kein unterstützter Terminal-Emulator gefunden. "
+        "Installiere beispielsweise xterm, gnome-terminal oder konsole."
     )
 
 
 def launch_tool_menu(tool: str, source: Path, log=None) -> None:
-    """Startet ./s3 menu oder ./s4 menu in einem separaten Terminal."""
+    """Startet das ausgewählte Tool in einem separaten Terminal."""
 
     log = _log_func(log)
     tool = str(tool).lower().strip()
@@ -455,11 +537,11 @@ def launch_tool_menu(tool: str, source: Path, log=None) -> None:
     script = _find_script(source, tool)
 
     if script is None:
-        expected = "./s4" if tool == "s4" else "./s3"
         raise FileNotFoundError(
-            f"Startskript {expected} wurde für {tool} "
-            f"im Repository {source} nicht gefunden."
+            f"Startskript für {tool} wurde in {source} nicht gefunden."
         )
+
+    start_command = _start_command(tool)
 
     if platform.system() != "Windows":
         _launch_native_linux(tool, source, log)
@@ -467,24 +549,21 @@ def launch_tool_menu(tool: str, source: Path, log=None) -> None:
 
     ensure_wsl(log=log)
 
-    
-    wsl_source = _wsl_path(source, log)
-
-    # Das Repository-Verzeichnis ist die Arbeitsbasis.
-    # Die Startdatei heißt s3 beziehungsweise s4.
-    script_name = "s4" if tool == "s4" else "s3"
+    # Wichtig: Das Startskript kann in einem Unterordner liegen.
+    wsl_script_dir = _wsl_path(script.parent, log)
+    script_name = script.name
 
     linux_command = (
-        f"cd {bash_quote(wsl_source)} || exec bash; "
+        f"cd {bash_quote(wsl_script_dir)} || exec bash; "
         f"if [ ! -f {bash_quote('./' + script_name)} ]; then "
         f"echo {bash_quote('Startdatei nicht gefunden: ' + script_name)}; "
         "pwd; ls -la; exec bash; "
         "fi; "
-        f"chmod +x {bash_quote('./' + script_name)}; "
-        f"./{script_name} menu; "
+        f"chmod +x {bash_quote(script_name)}; "
+        f"{start_command}; "
         "result=$?; "
         "echo; "
-        'echo "Simplebuild wurde beendet (Exit-Code: $result)."; '
+        'echo "Simplebuild beendet (Exit-Code: $result)."; '
         "exec bash"
     )
 
@@ -498,12 +577,13 @@ def launch_tool_menu(tool: str, source: Path, log=None) -> None:
         linux_command,
     ]
 
-    log(f"WSL-Quellpfad: {wsl_source!r}")
-    log(f"WSL-Tool: {tool!r}")
-    log(f"Startbefehl: ./{script_name} menu")
-    log("Starte Simplebuild in einem neuen WSL2-Konsolenfenster.")
+    log(f"WSL-Quellpfad: {wsl_script_dir}")
+    log(f"WSL-Tool: {tool}")
+    log(f"Startbefehl: {start_command}")
+    log("Starte Simplebuild in einem neuen WSL-Konsolenfenster.")
 
     creationflags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+
     process = subprocess.Popen(
         command,
         creationflags=creationflags,
@@ -512,14 +592,15 @@ def launch_tool_menu(tool: str, source: Path, log=None) -> None:
     log(f"WSL-Prozess gestartet, PID={process.pid}")
 
 
-
 def launch_simplebuild(tool_path, menu_arg="menu", log=None) -> None:
     """Kompatibler Einstiegspunkt für ältere Aufrufer."""
 
     path = Path(tool_path).expanduser().resolve()
 
     if menu_arg != "menu":
-        raise ValueError("Der unterstützte Menüparameter ist 'menu'.")
+        raise ValueError(
+            "Der unterstützte Menüparameter ist 'menu'."
+        )
 
     source = path if path.is_dir() else path.parent
     lower = str(source).lower()
@@ -536,6 +617,6 @@ def launch_simplebuild(tool_path, menu_arg="menu", log=None) -> None:
 
 if __name__ == "__main__":
     print(
-        "Dieses Modul wird von der Oberfläche importiert. "
+        "Dieses Modul wird von der Oberfläche importiert.\n"
         "Rufe prepare_tool() und launch_tool_menu() aus der GUI auf."
     )
