@@ -176,6 +176,84 @@ import subprocess
 import tempfile
 from PyQt6.QtCore import QThread, pyqtSignal
 
+
+
+def _windows_msys2_log_adapter(worker):
+    """Gibt MSYS2-Installationsmeldungen aus und nutzt optional ein Worker-Logsignal."""
+    def _log(message):
+        message = str(message).strip()
+        if not message:
+            return
+        signal = getattr(worker, "log_signal", None)
+        if signal is not None and hasattr(signal, "emit"):
+            try:
+                signal.emit(message)
+            except Exception:
+                pass
+        print(f"[MSYS2] {message}")
+    return _log
+
+
+def _windows_prepare_or_reuse(tool, base_target_dir, log=None):
+    """Installiert Windows-Abhängigkeiten und verwendet vorhandene Quellen, falls möglich.
+
+    Erwartete Struktur:
+      <Basisordner>/s3/s3
+      <Basisordner>/s3_ncam_bonecrew/s3
+      <Basisordner>/simplebuild4/simplebuild (oder s4)
+
+    Wenn der Benutzer direkt den jeweiligen Tool-Ordner auswählt, wird dieser
+    ebenfalls erkannt. Vorhandene Dateien werden nicht erneut geklont/überschrieben.
+    """
+    from pathlib import Path
+    from windows_msys2_setup import prepare_tool
+
+    log = log or (lambda _message: None)
+    base = Path(base_target_dir).expanduser().resolve()
+    folder_names = {
+        "s3": "s3",
+        "ncam": "s3_ncam_bonecrew",
+        "s4": "simplebuild4",
+    }
+    if tool not in folder_names:
+        raise ValueError(f"Unbekanntes Tool: {tool}")
+
+    def is_ready(path):
+        if not path.is_dir():
+            return False
+        if tool == "s4":
+            return any((path / name).is_file() for name in
+                       ("simplebuild", "simplebuild.exe", "s4", "s4.exe", "simplebuild.sh"))
+        # S3 und NCam/Bonecrew verwenden den Startpunkt "s3".
+        return any((path / name).is_file() for name in ("s3", "s3.exe", "simplebuild"))
+
+    # Der Pfad kann entweder der gemeinsame Basisordner oder bereits der
+    # Projektordner selbst sein. prepare_tool erwartet den Basisordner.
+    candidates = [base, base / folder_names[tool]]
+    existing = next((candidate for candidate in candidates if is_ready(candidate)), None)
+    setup_base = base
+    if existing is not None and existing == base and base.name.lower() == folder_names[tool].lower():
+        setup_base = base.parent
+        log(f"Vorhandener Projektordner erkannt: {existing}")
+    elif existing is not None:
+        log(f"Vorhandener Projektordner erkannt: {existing}")
+    else:
+        log("Kein vorhandener Startpunkt erkannt; Einrichtung prüft, ob das Repository fehlt.")
+
+    # Wichtig: prepare_tool wird auch bei vorhandenen Quellen aufgerufen, damit
+    # nicht nur MSYS2 selbst, sondern auch die tool-spezifischen Compiler- und
+    # Build-Pakete installiert/validiert werden. Das Setup-Modul muss vorhandene
+    # Repositories wiederverwenden und darf sie nicht erneut klonen/überschreiben.
+    result = prepare_tool(tool, str(setup_base), log=log)
+
+    # Bei vorhandenen Quellen den erkannten Pfad als maßgeblichen Projektpfad
+    # zurückgeben, sofern er nach dem Setup weiterhin existiert.
+    if existing is not None and existing.is_dir():
+        log(f"Vorhandener Quellcode bleibt erhalten: {existing}")
+        return existing
+    return result
+
+
 class S3InstallWorker(QThread):
     finished_signal = pyqtSignal(bool, str)
 
@@ -184,6 +262,23 @@ class S3InstallWorker(QThread):
         self.base_target_dir = os.path.normpath(base_target_dir)
 
     def run(self):
+        # Windows verwendet das separate Bootstrap-Modul; Linux bleibt beim
+        # bisherigen Installationsablauf in dieser Worker-Klasse.
+        if platform.system() == "Windows":
+            try:
+                installed_path = _windows_prepare_or_reuse(
+                    "s3", self.base_target_dir, log=_windows_msys2_log_adapter(self)
+                )
+                self.finished_signal.emit(
+                    True, f"S3 Standard erfolgreich installiert!\nPfad: {installed_path}"
+                )
+            except Exception as e:
+                error_msg = str(e)
+                if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
+                    error_msg += "\n\nTipp: Wählen Sie einen anderen Installationsort oder prüfen Sie die Windows-Berechtigungen."
+                self.finished_signal.emit(False, f"S3 Standard Fehler:\n{error_msg}")
+            return
+
         temp_clone = None
         proj_name = "S3 Standard"
         sub_folder = "s3"
@@ -253,6 +348,23 @@ class NcamBonecrewInstallWorker(QThread):
         self.base_target_dir = os.path.normpath(base_target_dir)
 
     def run(self):
+        # Windows verwendet das separate Bootstrap-Modul; Linux bleibt beim
+        # bisherigen Installationsablauf in dieser Worker-Klasse.
+        if platform.system() == "Windows":
+            try:
+                installed_path = _windows_prepare_or_reuse(
+                    "ncam", self.base_target_dir, log=_windows_msys2_log_adapter(self)
+                )
+                self.finished_signal.emit(
+                    True, f"NCam Bonecrew erfolgreich installiert!\nPfad: {installed_path}"
+                )
+            except Exception as e:
+                error_msg = str(e)
+                if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
+                    error_msg += "\n\nTipp: Wählen Sie einen anderen Installationsort oder prüfen Sie die Windows-Berechtigungen."
+                self.finished_signal.emit(False, f"NCam Bonecrew Fehler:\n{error_msg}")
+            return
+
         temp_clone = None
         proj_name = "NCam Bonecrew"
         sub_folder = "s3_ncam_bonecrew"
@@ -345,6 +457,23 @@ class S4InstallWorker(QThread):
         self.base_target_dir = os.path.normpath(base_target_dir)
 
     def run(self):
+        # Windows verwendet das separate Bootstrap-Modul; Linux bleibt beim
+        # bisherigen Installationsablauf in dieser Worker-Klasse.
+        if platform.system() == "Windows":
+            try:
+                installed_path = _windows_prepare_or_reuse(
+                    "s4", self.base_target_dir, log=_windows_msys2_log_adapter(self)
+                )
+                self.finished_signal.emit(
+                    True, f"SimpleBuild 4 erfolgreich installiert!\nPfad: {installed_path}"
+                )
+            except Exception as e:
+                error_msg = str(e)
+                if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
+                    error_msg += "\n\nTipp: Wählen Sie einen anderen Installationsort oder prüfen Sie die Windows-Berechtigungen."
+                self.finished_signal.emit(False, f"SimpleBuild 4 Fehler:\n{error_msg}")
+            return
+
         temp_clone = None
         proj_name = "SimpleBuild 4"
         sub_folder = "simplebuild4"

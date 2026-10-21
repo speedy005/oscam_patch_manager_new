@@ -3448,7 +3448,7 @@ class PatchManagerGUI(QWidget):
             QTimer.singleShot(3000, restore_pbar)
 
     def start_s3_menu(self):
-        """Sucht s3, installiert die exakten MSYS2/Cygwin-Compiler-Tools und startet das Terminal."""
+        """Startet das S3-Menü unter Windows in WSL2 und unter Linux nativ."""
 
         # --- Final Label ausblenden ---
         if hasattr(self, "hide_final_label"):
@@ -3462,76 +3462,27 @@ class PatchManagerGUI(QWidget):
         is_de = getattr(self, "LANG", "de") == "de"
         is_win = platform.system() == "Windows"
 
-        # --- AUTOMATISCHER CYGWIN/MSYS2 COMPILER-INSTALLER FÜR GIT BASH ---
-        if is_win:
-            # 1. Ermitteln wo Git Bash installiert ist (Standardpfade)
-            git_path = None
-            for p in ["C:\\Program Files\\Git", "C:\\Program Files (x86)\\Git", os.path.expanduser("~\\AppData\\Local\\Programs\\Git")]:
-                if os.path.exists(p):
-                    git_path = p
-                    break
-        
-            if git_path:
-                usr_bin = os.path.join(git_path, "usr", "bin")
-                usr_include = os.path.join(git_path, "usr", "include")
-            
-                # Wenn gcc oder make fehlen, laden wir die echten MSYS2-Zwillingspakete
-                if not os.path.exists(os.path.join(usr_bin, "gcc.exe")) or not os.path.exists(os.path.join(usr_bin, "make.exe")):
-                    if hasattr(self, "info_text") and self.info_text:
-                        self.info_text.append('<br><span style="color:#00FFFF;"><b>⚙️ Installiere MSYS2-POSIX-Compiler (gcc, make, pthread...) in Git Bash...</b></span>')
-                        from PyQt6.QtWidgets import QApplication; QApplication.processEvents()
-
-                    # Direkter Download der offiziellen, vorkompilierten MSYS2-Kernelemente, 
-                    # die nativ in der Git-Bash-Umgebung laufen
-                    components = {
-                        "make": "https://msys2.org",
-                        "gcc": "https://msys2.org",
-                        "headers": "https://msys2.org"
-                    }
-
-                    # Nutzen von Windows 11 integriertem 'curl' und 'tar', um .tar.zst Archive zu entpacken
-                    # Das umgeht Python-Rechteprobleme im geschützten Program-Files-Ordner
-                    for name, url in components.items():
-                        tmp_pkg = os.path.join(os.path.expanduser("~"), f"msys_{name}.pkg.tar.zst")
-                        try:
-                            # Download via Python
-                            urllib.request.urlretrieve(url, tmp_pkg)
-                        
-                            # Windows 11 tar kann .zst Archive nativ entpacken. Wir entpacken direkt in das Git-Wurzelverzeichnis.
-                            subprocess.run(
-                                [
-                                    "tar",
-                                    "-xvf",
-                                    tmp_pkg,
-                                    "-C",
-                                    git_path,
-                                    "--strip-components=1",
-                                ],
-                                shell=False,
-                                stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL,
-                                check=False,
-                            )
-                        
-                            if os.path.exists(tmp_pkg): os.remove(tmp_pkg)
-                        except Exception as e:
-                            print(f"Error deployment {name}: {e}")
-
-                # 2. Ergänzende Zusätze nachladen (UPX für Binaries & Dialog-Fixes)
-                additional_tools = {
-                    "dialog.exe": "https://github.com",
-                    "jq.exe": "https://github.com",
-                    "wget.exe": "https://eternallybored.org",
-                }
-                for tool_name, tool_url in additional_tools.items():
-                    target_file = os.path.join(usr_bin, tool_name)
-                    if not os.path.exists(target_file):
-                        try: urllib.request.urlretrieve(tool_url, target_file)
-                        except Exception: pass
-
         # 1. Basis-Pfad holen
         default_start = "C:\\s3" if is_win else "/opt/s3"
         s3_path = getattr(self, "S3_PATH", default_start)
+        if is_win:
+            try:
+                from windows_msys2_setup import prepare_tool
+                from PyQt6.QtWidgets import QApplication, QMessageBox
+                def _setup_log(line):
+                    if hasattr(self, "info_text") and self.info_text:
+                        self.info_text.append(str(line).replace("&", "&amp;").replace("<", "&lt;"))
+                    QApplication.processEvents()
+                s3_path = str(prepare_tool("s3", s3_path, log=_setup_log))
+                self.S3_PATH = s3_path
+                if "save_config" in globals():
+                    save_config({"s3_custom_path": self.S3_PATH}, gui_instance=self, silent=True)
+                from windows_msys2_setup import launch_tool_menu
+                launch_tool_menu("s3", s3_path, log=_setup_log)
+                return
+            except Exception as exc:
+                QMessageBox.critical(self, "S3 / WSL2", f"WSL2-Einrichtung oder S3-Start fehlgeschlagen:\n{exc}")
+                return
         sub_folder = "s3"
 
         possible_names = ["s3", "s3.exe"] if is_win else ["s3"]
@@ -3564,26 +3515,6 @@ class PatchManagerGUI(QWidget):
                 msg = f"🚀 S3 Menü: {s3_exec}"
                 self.append_info(self.info_text, msg, "info")
 
-            if is_win and not shutil.which("bc"):
-                user_home = os.path.expanduser("~")
-                bash_profiles = [os.path.join(user_home, ".bashrc"), os.path.join(user_home, ".bash_profile")]
-                bc_injection = (
-                    "\n# --- s3_compat bc start ---\n"
-                    "function bc() { read -r in; echo \"$in\" | awk '{gsub(/[^0-9\\+\\-\\*/\\.]/, \"\"); cmd=\"awk \\\"BEGIN{print \" $0 \"}\\\"\"; system(cmd)}'; }\n"
-                    "export -f bc\n"
-                    "# --- s3_compat bc end ---\n"
-                )
-                for profile_path in bash_profiles:
-                    content = ""
-                    if os.path.exists(profile_path):
-                        try:
-                            with open(profile_path, "r", encoding="utf-8", errors="ignore") as f: content = f.read()
-                        except Exception: pass
-                    if "function bc()" not in content:
-                        try:
-                            with open(profile_path, "a", encoding="utf-8") as f: f.write(bc_injection)
-                        except Exception: pass
-
             # Terminal starten
             self.open_terminal(s3_path=s3_exec, use_sudo=not is_win)
         else:
@@ -3593,7 +3524,7 @@ class PatchManagerGUI(QWidget):
             self.open_terminal()
 
     def start_s4_menu(self):
-        """Sucht SimpleBuild 4 (bevorzugt Config-Pfad) und startet das Terminal via Bash."""
+        """Startet SimpleBuild 4 unter Windows in WSL2 und unter Linux nativ."""
 
         # --- Final Label ausblenden ---
         if hasattr(self, "hide_final_label"):
@@ -3610,6 +3541,24 @@ class PatchManagerGUI(QWidget):
         # 1. Basis-Pfad holen für S4
         default_start = "C:\\opt\\simplebuild4" if is_win else "/opt/simplebuild4"
         s4_path = getattr(self, "S4_PATH", default_start)
+        if is_win:
+            try:
+                from windows_msys2_setup import prepare_tool
+                from PyQt6.QtWidgets import QApplication, QMessageBox
+                def _setup_log(line):
+                    if hasattr(self, "info_text") and self.info_text:
+                        self.info_text.append(str(line).replace("&", "&amp;").replace("<", "&lt;"))
+                    QApplication.processEvents()
+                s4_path = str(prepare_tool("s4", s4_path, log=_setup_log))
+                self.S4_PATH = s4_path
+                if "save_config" in globals():
+                    save_config({"s4_custom_path": self.S4_PATH}, gui_instance=self, silent=True)
+                from windows_msys2_setup import launch_tool_menu
+                launch_tool_menu("s4", s4_path, log=_setup_log)
+                return
+            except Exception as exc:
+                QMessageBox.critical(self, "S4 / WSL2", f"WSL2-Einrichtung oder S4-Start fehlgeschlagen:\n{exc}")
+                return
         sub_folder = "simplebuild4"
 
         # Mögliche Dateinamen für das S4 Skript
@@ -3658,39 +3607,14 @@ class PatchManagerGUI(QWidget):
                 self.append_info(self.info_text, msg, "info")
 
             # --- BC FIX FÜR DIE GLOBALEN USER-PROFILEDATEIEN ---
-            if is_win and not shutil.which("bc"):
-                user_home = os.path.expanduser("~")
-                bash_profiles = [os.path.join(user_home, ".bashrc"), os.path.join(user_home, ".bash_profile")]
-            
-                bc_injection = (
-                    "\n# --- s4_compat bc start ---\n"
-                    "function bc() { read -r in; echo \"$in\" | awk '{gsub(/[^0-9\\+\\-\\*/\\.]/, \"\"); cmd=\"awk \\\"BEGIN{print \" $0 \"}\\\"\"; system(cmd)}'; }\n"
-                    "export -f bc\n"
-                    "# --- s4_compat bc end ---\n"
-                )
-            
-                for profile_path in bash_profiles:
-                    content = ""
-                    if os.path.exists(profile_path):
-                        try:
-                            with open(profile_path, "r", encoding="utf-8", errors="ignore") as f:
-                                content = f.read()
-                        except Exception: pass
-                
-                    if "function bc()" not in content:
-                        try:
-                            with open(profile_path, "a", encoding="utf-8") as f: f.write(bc_injection)
-                        except Exception: pass
-
             # --- FORCIERTER BASH-AUFRUF UNTER WINDOWS ---
             if is_win:
                 # Suchen nach Git Bash oder MSYS2 Bash
                 bash_executable = None
                 for potential_bash in [
-                    "C:\\Program Files\\Git\\bin\\bash.exe",
-                    "C:\\Program Files\\Git\\git-bash.exe",
-                    "C:\\msys64\\usr\\bin\\bash.exe",
-                    shutil.which("bash")
+                    os.environ.get("MSYS2_BASH", r"C:\msys64\usr\bin\bash.exe"),
+                    os.path.join(os.environ.get("MSYS2_ROOT", r"C:\msys64"), "usr", "bin", "bash.exe"),
+                    r"C:\tools\msys64\usr\bin\bash.exe",
                 ]:
                     if potential_bash and os.path.exists(potential_bash):
                         bash_executable = potential_bash
@@ -3703,9 +3627,12 @@ class PatchManagerGUI(QWidget):
                     
                     # Startet ein neues, echtes Konsolenfenster direkt in der Bash mit dem Menü-Parameter
                     # Dadurch interpretiert Windows die Datei niemals wieder als Python-Datei!
+                    from windows_msys2_setup import bash_environment
+                    s4_cmd = (f'export MSYSTEM=UCRT64; export PATH=/ucrt64/bin:/usr/bin:/bin; '
+                              f'cd "{exec_dir}" || exit 2; ./{os.path.basename(s4_unix)} menu; exec bash -i')
                     subprocess.Popen(
-                        [bash_executable, "--login", "-i", "-c", f'cd "{exec_dir}"; ./{os.path.basename(s4_unix)} menu; exec bash'],
-                        creationflags=subprocess.CREATE_NEW_CONSOLE
+                        [bash_executable, "--login", "-i", "-c", s4_cmd],
+                        env=bash_environment(), creationflags=subprocess.CREATE_NEW_CONSOLE
                     )
                     return
 
@@ -3724,7 +3651,7 @@ class PatchManagerGUI(QWidget):
             self.open_terminal()
 
     def start_ncam_menu(self):
-        """Sucht NCam, installiert fehlende Windows-Tools automatisch und startet das Terminal."""
+        """Startet NCam Bonecrew unter Windows in WSL2 und unter Linux nativ."""
 
         # --- Final Label ausblenden ---
         if hasattr(self, "hide_final_label"):
@@ -3737,56 +3664,27 @@ class PatchManagerGUI(QWidget):
         is_de = getattr(self, "LANG", "de") == "de"
         is_win = platform.system() == "Windows"
 
-        # --- AUTOMATISCHER WINDOWS INSTALLER FÜR DIE GIT BASH ---
-        if is_win:
-            # Ermitteln wo die Git Bash installiert ist (Standard-Pfade)
-            git_path = None
-            for p in ["C:\\Program Files\\Git", "C:\\Program Files (x86)\\Git", os.path.expanduser("~\\AppData\\Local\\Programs\\Git")]:
-                if os.path.exists(p):
-                    git_path = p
-                    break
-            
-            if git_path:
-                usr_bin = os.path.join(git_path, "usr", "bin")
-                
-                # Prüfen, ob die kritischen Compiler-Tools fehlen
-                if not os.path.exists(os.path.join(usr_bin, "make.exe")) or not os.path.exists(os.path.join(usr_bin, "gcc.exe")):
-                    if hasattr(self, "info_text") and self.info_text:
-                        self.info_text.append('<br><span style="color:cyan;"><b>⚙️ Installiere fehlende Compiler-Tools (gcc, make, headers...) in Git Bash...</b></span>')
-                    
-                    # Temporärer Download-Pfad im Benutzerverzeichnis (umgehe Rechteprobleme)
-                    tmp_tar = os.path.join(os.path.expanduser("~"), "git-bash-devel.tar.gz")
-                    url = "https://github.com"
-                    
-                    try:
-                        # 1. Entwickler-Paket herunterladen
-                        urllib.request.urlretrieve(url, tmp_tar)
-                        
-                        # 2. Direkt in das geschützte Git-Verzeichnis mit Administrator-Rechten entpacken
-                        # Windows benötigt dafür ein kurzes PowerShell-Kommando im Hintergrund
-                        ps_cmd = f'Expand-Archive -Path "{tmp_tar}" -DestinationPath "{git_path}" -Force'
-                        # Falls es ein echtes .tar.gz ist, nutzen wir das integrierte tar-Tool von Windows 11:
-                        subprocess.run(["tar", "-xzf", tmp_tar, "-C", git_path], shell=False, stdout=subprocess.DEVNULL)
-                        
-                        # Temporäre Datei löschen
-                        if os.path.exists(tmp_tar): os.remove(tmp_tar)
-                    except Exception as e:
-                        if hasattr(self, "info_text") and self.info_text:
-                            self.info_text.append(f'<br><span style="color:red;"><b>Fehler beim Entpacken: {str(e)}</b></span>')
-
-                # Zusätzliche UI-Tools laden (dialog.exe und jq.exe), falls sie fehlen
-                if not os.path.exists(os.path.join(usr_bin, "dialog.exe")):
-                    try:
-                        urllib.request.urlretrieve("https://github.com", os.path.join(usr_bin, "dialog.exe"))
-                    except Exception: pass
-                if not os.path.exists(os.path.join(usr_bin, "jq.exe")):
-                    try:
-                        urllib.request.urlretrieve("https://github.com", os.path.join(usr_bin, "jq.exe"))
-                    except Exception: pass
-
         # 1. Pfade ermitteln für NCam / S3
         default_start = "C:\\opt\\ncam" if is_win else "/opt/s3_ncam_bonecrew"
         ncam_path = getattr(self, "NCAM_PATH", default_start)
+        if is_win:
+            try:
+                from windows_msys2_setup import prepare_tool
+                from PyQt6.QtWidgets import QApplication, QMessageBox
+                def _setup_log(line):
+                    if hasattr(self, "info_text") and self.info_text:
+                        self.info_text.append(str(line).replace("&", "&amp;").replace("<", "&lt;"))
+                    QApplication.processEvents()
+                ncam_path = str(prepare_tool("ncam", ncam_path, log=_setup_log))
+                self.NCAM_PATH = ncam_path
+                if "save_config" in globals():
+                    save_config({"ncam_custom_path": self.NCAM_PATH}, gui_instance=self, silent=True)
+                from windows_msys2_setup import launch_tool_menu
+                launch_tool_menu("ncam", ncam_path, log=_setup_log)
+                return
+            except Exception as exc:
+                QMessageBox.critical(self, "NCam Bonecrew / WSL2", f"WSL2-Einrichtung oder NCam-Start fehlgeschlagen:\n{exc}")
+                return
         sub_folder = "s3_ncam_bonecrew"
 
         possible_names = ["s3", "s3.exe"] if is_win else ["s3"]
@@ -3814,26 +3712,6 @@ class PatchManagerGUI(QWidget):
                 self.append_info(self.info_text, msg, "info")
 
             # --- BC FIX ÜBER DIE GLOBALEN USER-PROFILEDATEIEN ---
-            if is_win and not shutil.which("bc"):
-                user_home = os.path.expanduser("~")
-                bash_profiles = [os.path.join(user_home, ".bashrc"), os.path.join(user_home, ".bash_profile")]
-                bc_injection = (
-                    "\n# --- ncam_compat bc start ---\n"
-                    "function bc() { read -r in; echo \"$in\" | awk '{gsub(/[^0-9\\+\\-\\*/\\.]/, \"\"); cmd=\"awk \\\"BEGIN{print \" $0 \"}\\\"\"; system(cmd)}'; }\n"
-                    "export -f bc\n"
-                    "# --- ncam_compat bc end ---\n"
-                )
-                for profile_path in bash_profiles:
-                    content = ""
-                    if os.path.exists(profile_path):
-                        try:
-                            with open(profile_path, "r", encoding="utf-8", errors="ignore") as f: content = f.read()
-                        except Exception: pass
-                    if "function bc()" not in content:
-                        try:
-                            with open(profile_path, "a", encoding="utf-8") as f: f.write(bc_injection)
-                        except Exception: pass
-
             # Startet Terminal exakt wie das funktionierende S3-Menü
             self.open_terminal(s3_path=ncam_exec, use_sudo=not is_win)
         else:
@@ -8258,58 +8136,53 @@ class PatchManagerGUI(QWidget):
                     s3_cmd = f"sudo ./{exe_name} menu"
                 
                 if system == "Windows":
+                    # Gemeinsamer Windows-Start für S3, S4 und S3-NCam-BoneCrew.
+                    # Linux wird von diesem Block nicht verändert.
+                    from windows_msys2_setup import bash_environment
+
+                    msys2_root = os.environ.get("MSYS2_ROOT", r"C:\msys64")
+                    bash_candidates = [
+                        os.environ.get("MSYS2_BASH"),
+                        os.path.join(msys2_root, "usr", "bin", "bash.exe"),
+                        r"C:\msys64\usr\bin\bash.exe",
+                        r"C:\tools\msys64\usr\bin\bash.exe",
+                    ]
+                    msys2_bash = next(
+                        (
+                            os.path.normpath(candidate)
+                            for candidate in bash_candidates
+                            if candidate and os.path.isfile(candidate)
+                        ),
+                        None,
+                    )
+
+                    if not msys2_bash:
+                        raise FileNotFoundError(
+                            "MSYS2 Bash nicht gefunden. Erwartet z. B. "
+                            r"C:\msys64\usr\bin\bash.exe"
+                            ". Bitte MSYS2_ROOT oder MSYS2_BASH prüfen."
+                        )
+
                     s3_dir_win = os.path.normpath(s3_dir)
-                    if is_s4_script:
-                        exec_cmd = f'cd /d "{s3_dir_win}" && python "{exe_name}" menu'
-                    else:
-                        s3_dir_bash = s3_dir_win.replace("\\", "/")
-                        exec_cmd = f'cd "{s3_dir_bash}" && bash "{exe_name}" menu'
-                else:
-                    exec_cmd = f"cd '{s3_dir}' && {s3_cmd}"
+                    s3_dir_bash = s3_dir_win.replace("\\", "/")
+                    # Quote einfache Anführungszeichen für Bash-Pfade sicher.
+                    s3_dir_bash_q = "'" + s3_dir_bash.replace("'", "'\\''") + "'"
+                    exe_name_q = "'" + exe_name.replace("'", "'\\''") + "'"
+                    bash_cmd = (
+                        "export MSYSTEM=UCRT64; "
+                        "export PATH=/ucrt64/bin:/usr/bin:/bin; "
+                        f"cd {s3_dir_bash_q} || exit 2; "
+                        f"./{exe_name_q} menu; exec bash -i"
+                    )
+                    subprocess.Popen(
+                        [msys2_bash, "--login", "-i", "-c", bash_cmd],
+                        env=bash_environment(),
+                        creationflags=subprocess.CREATE_NEW_CONSOLE,
+                    )
+                    terminal_opened = True
 
-            # --- 4. BETRIEBSSYSTEM LOGIK ---
-            if system == "Windows":
-                git_bash = shutil.which("bash") or os.path.expandvars("%ProgramFiles%\\Git\\bin\\bash.exe")
-        
-                if s3_path:
-                    # 1. Wir entfernen radikal alle reingeschriebenen Anführungszeichen aus dem String
-                    s3_path_clean = str(s3_path).replace('"', '').strip()
-                
-                    # 2. Falls der Pfad in der config.json bereits verdoppelt wurde, reparieren wir ihn live im RAM
-                    if s3_path_clean.count(":") > 1:
-                        s3_path_clean = s3_path_clean.split(":")[-1]
-                        if not s3_path_clean.startswith("\\") and len(s3_path_clean) > 0:
-                            drive = str(s3_path).split(":")[0] if ":" in str(s3_path) else "C"
-                            s3_path_clean = f"{drive}:{s3_path_clean}"
-                
-                    s3_path_win = os.path.normpath(s3_path_clean)
-                    s3_dir_win = os.path.dirname(s3_path_win)
-                    exe_name = os.path.basename(s3_path_win)
-
-                    if is_s4_script:
-                        # REVOLUTIONÄRER FIX: Da 'cwd=s3_dir_win' gesetzt ist, steht CMD bereits im richtigen Ordner!
-                        # Wir übergeben Python KEINEN langen Pfad mehr. Wir rufen nur noch die Datei direkt auf.
-                        # Das tötet jede Pfad-Verschachtelung und jeden [Errno 22] endgültig!
-                        cmd_args = ["cmd", "/K", f"python {exe_name} menu"]
-                        subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE, cwd=s3_dir_win)
-                        terminal_opened = True
-                    else:
-                        # S3 & NCam laufen stabil in der echten Git-Bash (Verarbeitet Vorwärts-Slashes)
-                        if os.path.exists(git_bash) and exec_cmd:
-                            exec_cmd_clean = exec_cmd.replace('"', '')
-                            # Backslash-Ersetzung vorab außerhalb des f-Strings durchführen:
-                            git_bash_cmd = exec_cmd_clean.replace('\\', '/')
-                            cmd_args = [git_bash, "--login", "-i", "-c", f"{git_bash_cmd}; exec bash"]
-                            subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
-                            terminal_opened = True
-                        elif exec_cmd:
-                            win_cmd = exec_cmd.replace("/", "\\").replace('"', '')
-                            cmd_args = ["cmd", "/K", win_cmd]
-                            subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
-                            terminal_opened = True
-
-                else:
-                    # Fallback: Einfach nur leeres Terminal öffnen, falls kein Pfad da ist
+                elif system == "Windows":
+                    # Fallback nur für Windows, falls kein Programm-Pfad übergeben wurde.
                     subprocess.Popen(["cmd"], creationflags=subprocess.CREATE_NEW_CONSOLE)
                     terminal_opened = True
 
@@ -9404,8 +9277,9 @@ class PatchManagerGUI(QWidget):
                 button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
     
+   
     def _fit_header_logo(self):
-        """Skaliert das Banner auf die gesamte verfügbare Label-Fläche."""
+        """Skaliert das Banner proportional bis zur maximalen Größe."""
         if (
             not hasattr(self, "logo_label")
             or self.original_pixmap is None
@@ -9416,11 +9290,19 @@ class PatchManagerGUI(QWidget):
         if rect.width() <= 0 or rect.height() <= 0:
             return
 
+        # MAXIMALE LOGO-GRÖSSE HIER EINSTELLEN
+        MAX_LOGO_WIDTH = 550
+        MAX_LOGO_HEIGHT = 150
+
+        width = min(rect.width(), MAX_LOGO_WIDTH)
+        height = min(rect.height(), MAX_LOGO_HEIGHT)
+
         self.update_logo(
-            width=rect.width(),
-            height=rect.height(),
-            fill_gap=True,
+            width=width,
+            height=height,
+            fill_gap=False,
         )
+
 
     def update_logo(self, width=None, height=None, fill_gap=False):
         """Skaliert das Banner auf die vorgegebene Fläche."""
@@ -12039,7 +11921,7 @@ class PatchManagerGUI(QWidget):
 
         header_layout = QHBoxLayout(header_widget)
         self.header_layout = header_layout
-        header_layout.setContentsMargins(8, 6, 8, 6)
+        header_layout.setContentsMargins(8, 6, 0, 6)
         header_layout.setSpacing(6)
         header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
@@ -12189,7 +12071,7 @@ class PatchManagerGUI(QWidget):
             QSizePolicy.Policy.Expanding,
         )
 
-        header_layout.addWidget(self.logo_label, 3)
+        header_layout.addWidget(self.logo_label, 1)
 
 
         self.original_pixmap = None
@@ -12513,7 +12395,11 @@ class PatchManagerGUI(QWidget):
         # Installations-/Patch-Buttons rechts neben dem mittigen Banner.
         # Version, Stats und "by speedy005" bleiben ganz rechts.
         right_header_layout.addWidget(install_path_container)
-        right_header_layout.setSpacing(8)
+        right_header_layout.setSpacing(4)
+
+        # Versionsanzeige etwas nach rechts verschieben
+        right_header_layout.addSpacing(40)
+
         right_header_layout.addWidget(version_text_container)
 
         self.telemetry_cb.setSizePolicy(
