@@ -8344,6 +8344,53 @@ class PatchManagerGUI(QWidget):
 
     
     
+    def get_backup_excluded_dirs(self, project_dir):
+        """Ermittelt geschützte Projektordner aus config.json."""
+        import json
+        from pathlib import Path
+
+        project_dir = Path(project_dir).resolve()
+
+        excluded_dirs = {
+            "backup",
+            "oscam-emu-git",
+            "streamboard-git",
+            "__pycache__",
+        }
+
+        config_file = project_dir / "config.json"
+
+        try:
+            with config_file.open("r", encoding="utf-8") as file:
+                config = json.load(file)
+
+            for key in (
+                "s3_custom_path",
+                "ncam_custom_path",
+                "s4_custom_path",
+            ):
+                value = config.get(key)
+
+                if not isinstance(value, str) or not value.strip():
+                    continue
+
+                custom_path = Path(value).resolve()
+
+                # Nur Ordner ausschließen, die innerhalb des
+                # Projektordners liegen, nicht externe Verzeichnisse.
+                try:
+                    relative = custom_path.relative_to(project_dir)
+                except ValueError:
+                    continue
+
+                if relative.parts:
+                    excluded_dirs.add(relative.parts[0])
+
+        except (OSError, ValueError, TypeError) as exc:
+            print(f"[BACKUP] config.json konnte nicht gelesen werden: {exc}")
+
+        return excluded_dirs
+
     
     def create_gi_backup(self):
         """Erstellt backup/backup_git.zip und schließt geschützte Ordner aus."""
@@ -8599,751 +8646,751 @@ class PatchManagerGUI(QWidget):
 
     
     
-def plugin_update_action(self, latest_version=None, progress_callback=None):
-    """Aktualisiert das Projekt aus GitHub und schützt lokale Daten."""
+    def plugin_update_action(self, latest_version=None, progress_callback=None):
+        """Aktualisiert das Projekt aus GitHub und schützt lokale Daten."""
 
-    import json
-    import os
-    import sys
-    import time
-    import shutil
-    import tempfile
-    import zipfile
-    import subprocess
+        import json
+        import os
+        import sys
+        import time
+        import shutil
+        import tempfile
+        import zipfile
+        import subprocess
 
-    from pathlib import Path, PurePosixPath
-    from io import BytesIO
+        from pathlib import Path, PurePosixPath
+        from io import BytesIO
 
-    import requests
+        import requests
 
-    from PyQt6.QtCore import QTime
-    from PyQt6.QtWidgets import QMessageBox, QApplication
+        from PyQt6.QtCore import QTime
+        from PyQt6.QtWidgets import QMessageBox, QApplication
 
-    project_dir = Path(__file__).resolve().parent.resolve()
+        project_dir = Path(__file__).resolve().parent.resolve()
 
-    # --------------------------------------------------
-    # 1. Grundeinstellungen und geschützte Ordner
-    # --------------------------------------------------
-    protected_dirs = {
-        "backup",
-        ".git",
-        "oscam-emu-git",
-        "streamboard-git",
-        "__pycache__",
-        ".venv",
-        "venv",
-    }
+        # --------------------------------------------------
+        # 1. Grundeinstellungen und geschützte Ordner
+        # --------------------------------------------------
+        protected_dirs = {
+            "backup",
+            ".git",
+            "oscam-emu-git",
+            "streamboard-git",
+            "__pycache__",
+            ".venv",
+            "venv",
+        }
 
-    protected_files = {
-        "Noto_Color_Emoji.zip",
-        "oscam_emu_toolkit2.png",
-        "oscam-patch-generator.png",
-        "speedy_oscam_managert.png",
-        "final-oscam-emu-patch-maker.png",
-        "final-englisch.png",
-        "speedy_banner.png",
-        "README.md",
-        "version.txt",
-        "config.json",
-        "settings.json",
-        "github_config.json",
-        "install_counter.txt",
-        "oscam_rev.txt",
-    }
+        protected_files = {
+            "Noto_Color_Emoji.zip",
+            "oscam_emu_toolkit2.png",
+            "oscam-patch-generator.png",
+            "speedy_oscam_managert.png",
+            "final-oscam-emu-patch-maker.png",
+            "final-englisch.png",
+            "speedy_banner.png",
+            "README.md",
+            "version.txt",
+            "config.json",
+            "settings.json",
+            "github_config.json",
+            "install_counter.txt",
+            "oscam_rev.txt",
+        }
 
-    config_file = project_dir / "config.json"
-    custom_keys = (
-        "s3_custom_path",
-        "ncam_custom_path",
-        "s4_custom_path",
-    )
-
-    # Einheitliche Pfadbehandlung, insbesondere unter Windows.
-    def normalized_path(path):
-        return os.path.normcase(
-            os.path.abspath(os.fspath(path))
+        config_file = project_dir / "config.json"
+        custom_keys = (
+            "s3_custom_path",
+            "ncam_custom_path",
+            "s4_custom_path",
         )
 
-    project_norm = normalized_path(project_dir)
+        # Einheitliche Pfadbehandlung, insbesondere unter Windows.
+        def normalized_path(path):
+            return os.path.normcase(
+                os.path.abspath(os.fspath(path))
+            )
 
-    def is_inside(path, parent):
-        """True, wenn path gleich parent ist oder darunter liegt."""
+        project_norm = normalized_path(project_dir)
+
+        def is_inside(path, parent):
+            """True, wenn path gleich parent ist oder darunter liegt."""
+            try:
+                return os.path.commonpath(
+                    [normalized_path(path), normalized_path(parent)]
+                ) == normalized_path(parent)
+            except (ValueError, OSError):
+                return False
+
+        # --------------------------------------------------
+        # 2. Konfigurierte Ordner sicher ermitteln
+        # --------------------------------------------------
+        protected_custom_paths = []
+
         try:
-            return os.path.commonpath(
-                [normalized_path(path), normalized_path(parent)]
-            ) == normalized_path(parent)
-        except (ValueError, OSError):
+            with config_file.open("r", encoding="utf-8") as file:
+                config = json.load(file)
+
+            if not isinstance(config, dict):
+                raise ValueError(
+                    "config.json enthält kein gültiges JSON-Objekt."
+                )
+
+            for key in custom_keys:
+                value = config.get(key)
+
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError(
+                        f"Der Konfigurationswert '{key}' fehlt."
+                    )
+
+                custom_path = Path(value.strip()).expanduser()
+
+                if not custom_path.is_absolute():
+                    custom_path = project_dir / custom_path
+
+                custom_path = custom_path.resolve()
+
+                # Externe Pfade nicht stillschweigend akzeptieren.
+                if not is_inside(custom_path, project_dir):
+                    raise ValueError(
+                        f"Der Ordner '{key}' liegt außerhalb des "
+                        f"Projektverzeichnisses: {custom_path}"
+                    )
+
+                if normalized_path(custom_path) == project_norm:
+                    raise ValueError(
+                        f"Der Ordner '{key}' verweist auf das gesamte Projekt."
+                    )
+
+                if normalized_path(custom_path) not in {
+                    normalized_path(p) for p in protected_custom_paths
+                }:
+                    protected_custom_paths.append(custom_path)
+
+            if len(protected_custom_paths) != 3:
+                raise ValueError(
+                    "Die drei konfigurierten Ordner müssen eindeutig sein."
+                )
+
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            QMessageBox.critical(
+                self,
+                "Konfigurationsfehler",
+                "Das Update wurde aus Sicherheitsgründen nicht gestartet.\n\n"
+                "Die drei Ordner aus config.json konnten nicht sicher "
+                "ermittelt werden.\n\n"
+                f"Details: {exc}",
+            )
             return False
 
-    # --------------------------------------------------
-    # 2. Konfigurierte Ordner sicher ermitteln
-    # --------------------------------------------------
-    protected_custom_paths = []
+        # --------------------------------------------------
+        # 3. Zentrale Schutzprüfung für Backup und Update
+        # --------------------------------------------------
+        def is_protected(path):
+            path = Path(path)
 
-    try:
-        with config_file.open("r", encoding="utf-8") as file:
-            config = json.load(file)
-
-        if not isinstance(config, dict):
-            raise ValueError(
-                "config.json enthält kein gültiges JSON-Objekt."
-            )
-
-        for key in custom_keys:
-            value = config.get(key)
-
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(
-                    f"Der Konfigurationswert '{key}' fehlt."
-                )
-
-            custom_path = Path(value.strip()).expanduser()
-
-            if not custom_path.is_absolute():
-                custom_path = project_dir / custom_path
-
-            custom_path = custom_path.resolve()
-
-            # Externe Pfade nicht stillschweigend akzeptieren.
-            if not is_inside(custom_path, project_dir):
-                raise ValueError(
-                    f"Der Ordner '{key}' liegt außerhalb des "
-                    f"Projektverzeichnisses: {custom_path}"
-                )
-
-            if normalized_path(custom_path) == project_norm:
-                raise ValueError(
-                    f"Der Ordner '{key}' verweist auf das gesamte Projekt."
-                )
-
-            if normalized_path(custom_path) not in {
-                normalized_path(p) for p in protected_custom_paths
-            }:
-                protected_custom_paths.append(custom_path)
-
-        if len(protected_custom_paths) != 3:
-            raise ValueError(
-                "Die drei konfigurierten Ordner müssen eindeutig sein."
-            )
-
-    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
-        QMessageBox.critical(
-            self,
-            "Konfigurationsfehler",
-            "Das Update wurde aus Sicherheitsgründen nicht gestartet.\n\n"
-            "Die drei Ordner aus config.json konnten nicht sicher "
-            "ermittelt werden.\n\n"
-            f"Details: {exc}",
-        )
-        return False
-
-    # --------------------------------------------------
-    # 3. Zentrale Schutzprüfung für Backup und Update
-    # --------------------------------------------------
-    def is_protected(path):
-        path = Path(path)
-
-        try:
-            relative = path.relative_to(project_dir)
-        except ValueError:
-            return True
-
-        # Geschützte Standardordner überall im relativen Pfad.
-        if any(
-            part.casefold() in {name.casefold() for name in protected_dirs}
-            for part in relative.parts
-        ):
-            return True
-
-        # Die drei konfigurierten Ordner samt Inhalt schützen.
-        for custom_path in protected_custom_paths:
-            if is_inside(path, custom_path):
+            try:
+                relative = path.relative_to(project_dir)
+            except ValueError:
                 return True
 
-        # Bestimmte Dateien nicht sichern oder überschreiben.
-        if path.name.casefold() in {
-            name.casefold() for name in protected_files
-        }:
-            return True
-
-        # INI-Dateien grundsätzlich erhalten.
-        if path.suffix.casefold() == ".ini":
-            return True
-
-        return False
-
-    def update_progress(value, message):
-        """Aktualisiert Fortschritt und optionale Statusanzeige."""
-        if progress_callback:
-            progress_callback(value, message)
-
-        pbar = getattr(self, "progress_bar", None)
-        if pbar is not None:
-            pbar.setValue(value)
-            pbar.setFormat(message)
-
-        info = getattr(self, "info_text", None)
-        if info is not None:
-            timestamp = QTime.currentTime().toString("HH:mm:ss")
-            self.append_info(
-                info,
-                f"🔄 [{timestamp}] Update {value}% – {message}",
-                "info",
-            )
-
-        QApplication.processEvents()
-
-    # --------------------------------------------------
-    # 4. Schreibrechte prüfen
-    # --------------------------------------------------
-    if not self._has_project_write_access(project_dir):
-        lang = str(getattr(self, "LANG", "de")).lower()[:2]
-        is_de = lang == "de"
-
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle(
-            "Administratorrechte erforderlich"
-            if is_de else "Administrator privileges required"
-        )
-        msg_box.setText(
-            (
-                "Für das Update fehlen Schreibrechte. "
-                "Soll das Programm mit Administratorrechten neu starten "
-                "und das Update automatisch fortsetzen?"
-            )
-            if is_de else
-            (
-                "The update requires write access. Restart the application "
-                "with administrator privileges and continue automatically?"
-            )
-        )
-
-        yes_button = msg_box.addButton(
-            "Ja" if is_de else "Yes",
-            QMessageBox.ButtonRole.YesRole,
-        )
-        no_button = msg_box.addButton(
-            "Nein" if is_de else "No",
-            QMessageBox.ButtonRole.NoRole,
-        )
-
-        msg_box.setDefaultButton(yes_button)
-        msg_box.setEscapeButton(no_button)
-        msg_box.exec()
-
-        if msg_box.clickedButton() != yes_button:
-            return False
-
-        restart_result = self.restart_application_elevated(
-            perform_update=True
-        )
-
-        if restart_result != "already_elevated":
-            return False
-
-    # --------------------------------------------------
-    # 5. Dauerhaftes Backup sicher erstellen
-    # --------------------------------------------------
-    persistent_backup_dir = project_dir / "backup"
-    persistent_backup_zip = persistent_backup_dir / "backup.zip"
-    backup_temp_zip = persistent_backup_dir / "backup.tmp.zip"
-
-    try:
-        persistent_backup_dir.mkdir(parents=True, exist_ok=True)
-
-        if backup_temp_zip.exists():
-            backup_temp_zip.unlink()
-
-        # os.walk mit topdown=True ist entscheidend:
-        # Geschützte Verzeichnisse werden aus dirs entfernt,
-        # bevor os.walk diese Verzeichnisse betreten kann.
-        with zipfile.ZipFile(
-            backup_temp_zip,
-            mode="w",
-            compression=zipfile.ZIP_DEFLATED,
-        ) as backup_archive:
-
-            for root, dirs, files in os.walk(
-                project_dir,
-                topdown=True,
-                followlinks=False,
+            # Geschützte Standardordner überall im relativen Pfad.
+            if any(
+                part.casefold() in {name.casefold() for name in protected_dirs}
+                for part in relative.parts
             ):
-                root_path = Path(root)
+                return True
 
-                filtered_dirs = []
+            # Die drei konfigurierten Ordner samt Inhalt schützen.
+            for custom_path in protected_custom_paths:
+                if is_inside(path, custom_path):
+                    return True
 
-                for dirname in dirs:
-                    candidate = root_path / dirname
+            # Bestimmte Dateien nicht sichern oder überschreiben.
+            if path.name.casefold() in {
+                name.casefold() for name in protected_files
+            }:
+                return True
 
-                    # Standardordner ausschließen.
-                    if dirname.casefold() in {
-                        name.casefold() for name in protected_dirs
-                    }:
+            # INI-Dateien grundsätzlich erhalten.
+            if path.suffix.casefold() == ".ini":
+                return True
+
+            return False
+
+        def update_progress(value, message):
+            """Aktualisiert Fortschritt und optionale Statusanzeige."""
+            if progress_callback:
+                progress_callback(value, message)
+
+            pbar = getattr(self, "progress_bar", None)
+            if pbar is not None:
+                pbar.setValue(value)
+                pbar.setFormat(message)
+
+            info = getattr(self, "info_text", None)
+            if info is not None:
+                timestamp = QTime.currentTime().toString("HH:mm:ss")
+                self.append_info(
+                    info,
+                    f"🔄 [{timestamp}] Update {value}% – {message}",
+                    "info",
+                )
+
+            QApplication.processEvents()
+
+        # --------------------------------------------------
+        # 4. Schreibrechte prüfen
+        # --------------------------------------------------
+        if not self._has_project_write_access(project_dir):
+            lang = str(getattr(self, "LANG", "de")).lower()[:2]
+            is_de = lang == "de"
+
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle(
+                "Administratorrechte erforderlich"
+                if is_de else "Administrator privileges required"
+            )
+            msg_box.setText(
+                (
+                    "Für das Update fehlen Schreibrechte. "
+                    "Soll das Programm mit Administratorrechten neu starten "
+                    "und das Update automatisch fortsetzen?"
+                )
+                if is_de else
+                (
+                    "The update requires write access. Restart the application "
+                    "with administrator privileges and continue automatically?"
+                )
+            )
+
+            yes_button = msg_box.addButton(
+                "Ja" if is_de else "Yes",
+                QMessageBox.ButtonRole.YesRole,
+            )
+            no_button = msg_box.addButton(
+                "Nein" if is_de else "No",
+                QMessageBox.ButtonRole.NoRole,
+            )
+
+            msg_box.setDefaultButton(yes_button)
+            msg_box.setEscapeButton(no_button)
+            msg_box.exec()
+
+            if msg_box.clickedButton() != yes_button:
+                return False
+
+            restart_result = self.restart_application_elevated(
+                perform_update=True
+            )
+
+            if restart_result != "already_elevated":
+                return False
+
+        # --------------------------------------------------
+        # 5. Dauerhaftes Backup sicher erstellen
+        # --------------------------------------------------
+        persistent_backup_dir = project_dir / "backup"
+        persistent_backup_zip = persistent_backup_dir / "backup.zip"
+        backup_temp_zip = persistent_backup_dir / "backup.tmp.zip"
+
+        try:
+            persistent_backup_dir.mkdir(parents=True, exist_ok=True)
+
+            if backup_temp_zip.exists():
+                backup_temp_zip.unlink()
+
+            # os.walk mit topdown=True ist entscheidend:
+            # Geschützte Verzeichnisse werden aus dirs entfernt,
+            # bevor os.walk diese Verzeichnisse betreten kann.
+            with zipfile.ZipFile(
+                backup_temp_zip,
+                mode="w",
+                compression=zipfile.ZIP_DEFLATED,
+            ) as backup_archive:
+
+                for root, dirs, files in os.walk(
+                    project_dir,
+                    topdown=True,
+                    followlinks=False,
+                ):
+                    root_path = Path(root)
+
+                    filtered_dirs = []
+
+                    for dirname in dirs:
+                        candidate = root_path / dirname
+
+                        # Standardordner ausschließen.
+                        if dirname.casefold() in {
+                            name.casefold() for name in protected_dirs
+                        }:
+                            continue
+
+                        # Konfigurierte Ordner vor dem Betreten ausschließen.
+                        if any(
+                            normalized_path(candidate)
+                            == normalized_path(custom_path)
+                            for custom_path in protected_custom_paths
+                        ):
+                            continue
+
+                        # Keine Verzeichnis-Symlinks verfolgen.
+                        if candidate.is_symlink():
+                            continue
+
+                        filtered_dirs.append(dirname)
+
+                    dirs[:] = filtered_dirs
+
+                    for filename in files:
+                        source_file = root_path / filename
+
+                        # Keine Datei-Symlinks oder externen Ziele archivieren.
+                        if source_file.is_symlink():
+                            continue
+
+                        if not is_inside(source_file, project_dir):
+                            continue
+
+                        # Zusätzliche Schutzprüfung, bevor die Datei gelesen wird.
+                        if is_protected(source_file):
+                            continue
+
+                        relative_path = source_file.relative_to(project_dir)
+
+                        backup_archive.write(
+                            source_file,
+                            arcname=relative_path.as_posix(),
+                        )
+
+            # Integrität des ZIP-Archivs prüfen.
+            with zipfile.ZipFile(backup_temp_zip, "r") as backup_archive:
+                bad_file = backup_archive.testzip()
+
+                if bad_file is not None:
+                    raise RuntimeError(
+                        f"Backup-Prüfung fehlgeschlagen: {bad_file}"
+                    )
+
+            # Erst jetzt das bisherige Backup ersetzen.
+            os.replace(backup_temp_zip, persistent_backup_zip)
+
+        except Exception as backup_error:
+            try:
+                if backup_temp_zip.exists():
+                    backup_temp_zip.unlink()
+            except OSError:
+                pass
+
+            QMessageBox.critical(
+                self,
+                "Backup-Fehler",
+                "Das Backup konnte nicht sicher erstellt werden:\n"
+                f"{backup_error}\n\n"
+                "Das Update wurde nicht gestartet. "
+                "Ein eventuell vorhandenes backup.zip wurde nicht absichtlich "
+                "durch ein unvollständiges Archiv ersetzt.",
+            )
+            return False
+
+        # --------------------------------------------------
+        # 6. Temporäres Rollback-Backup
+        # --------------------------------------------------
+        backup_dir = Path(tempfile.mkdtemp(prefix="oscam_backup_"))
+
+        download_url = (
+            "https://github.com/speedy005/oscam_patch_manager_new/"
+            "archive/refs/heads/master.zip"
+        )
+
+        backup_files = []
+        new_files = []
+        rollback_errors = []
+
+        try:
+            # --------------------------------------------------
+            # 7. GitHub-Archiv herunterladen
+            # --------------------------------------------------
+            update_progress(10, "GitHub wird heruntergeladen...")
+
+            response = requests.get(
+                download_url,
+                timeout=(15, 120),
+                headers={"Accept": "application/vnd.github+json"},
+            )
+            response.raise_for_status()
+
+            update_progress(20, "Download abgeschlossen. ZIP wird geprüft...")
+
+            # --------------------------------------------------
+            # 8. Archiv prüfen und Update-Dateien ermitteln
+            # --------------------------------------------------
+            with zipfile.ZipFile(BytesIO(response.content), "r") as archive:
+                members = archive.namelist()
+
+                file_members = [
+                    member for member in members
+                    if not member.endswith("/")
+                ]
+
+                if not file_members:
+                    raise RuntimeError("Das GitHub-Archiv ist leer.")
+
+                # GitHub-Archive müssen genau einen gemeinsamen Stammordner haben.
+                first_parts = PurePosixPath(
+                    file_members[0].replace("\\", "/")
+                ).parts
+
+                if not first_parts:
+                    raise RuntimeError("Ungültige Archivstruktur.")
+
+                root_name = first_parts[0]
+                updates = []
+
+                for member in file_members:
+                    normalized_member = member.replace("\\", "/")
+                    member_path = PurePosixPath(normalized_member)
+                    parts = member_path.parts
+
+                    if (
+                        not parts
+                        or parts[0] != root_name
+                        or member_path.is_absolute()
+                        or ".." in parts
+                        or any(":" in part for part in parts)
+                    ):
+                        raise RuntimeError(
+                            f"Unsicherer Dateipfad im Update: {member}"
+                        )
+
+                    relative_parts = parts[1:]
+
+                    if not relative_parts:
                         continue
 
-                    # Konfigurierte Ordner vor dem Betreten ausschließen.
-                    if any(
-                        normalized_path(candidate)
-                        == normalized_path(custom_path)
-                        for custom_path in protected_custom_paths
+                    relative_name = PurePosixPath(*relative_parts)
+
+                    if any(part in ("", ".", "..") for part in relative_parts):
+                        raise RuntimeError(
+                            f"Ungültiger Dateipfad im Update: {member}"
+                        )
+
+                    target = (
+                        project_dir / Path(*relative_parts)
+                    ).resolve()
+
+                    if not is_inside(target, project_dir):
+                        raise RuntimeError(
+                            f"Datei liegt außerhalb des Projektordners: {target}"
+                        )
+
+                    # Geschützte Verzeichnisse und Dateien nie aktualisieren.
+                    if is_protected(target):
+                        continue
+
+                    if target.exists() and not target.is_file():
+                        raise RuntimeError(
+                            f"Zielpfad ist keine Datei: {target}"
+                        )
+
+                    updates.append((member, target))
+
+                if not updates:
+                    raise RuntimeError(
+                        "Keine aktualisierbaren Projektdateien gefunden."
+                    )
+
+                update_progress(
+                    23,
+                    f"{len(updates)} Update-Dateien gefunden.",
+                )
+
+                # --------------------------------------------------
+                # 9. Vorhandene Dateien für Rollback sichern
+                # --------------------------------------------------
+                update_progress(25, "Rollback-Backup wird erstellt...")
+
+                for _, target in updates:
+                    if target.is_file():
+                        backup_file = backup_dir / target.relative_to(project_dir)
+                        backup_file.parent.mkdir(parents=True, exist_ok=True)
+
+                        shutil.copy2(target, backup_file)
+                        backup_files.append((target, backup_file))
+                    else:
+                        new_files.append(target)
+
+                update_progress(35, "Rollback-Backup abgeschlossen.")
+
+                # --------------------------------------------------
+                # 10. Update installieren
+                # --------------------------------------------------
+                update_progress(40, "Projektdateien werden ersetzt...")
+
+                for index, (member, target) in enumerate(updates):
+                    relative_target = target.relative_to(project_dir)
+
+                    # Vorhandene WAV-Dateien im sounds-Ordner erhalten.
+                    if (
+                        target.is_file()
+                        and target.suffix.lower() == ".wav"
+                        and "sounds" in relative_target.parts
                     ):
                         continue
 
-                    # Keine Verzeichnis-Symlinks verfolgen.
-                    if candidate.is_symlink():
-                        continue
+                    target.parent.mkdir(parents=True, exist_ok=True)
 
-                    filtered_dirs.append(dirname)
-
-                dirs[:] = filtered_dirs
-
-                for filename in files:
-                    source_file = root_path / filename
-
-                    # Keine Datei-Symlinks oder externen Ziele archivieren.
-                    if source_file.is_symlink():
-                        continue
-
-                    if not is_inside(source_file, project_dir):
-                        continue
-
-                    # Zusätzliche Schutzprüfung, bevor die Datei gelesen wird.
-                    if is_protected(source_file):
-                        continue
-
-                    relative_path = source_file.relative_to(project_dir)
-
-                    backup_archive.write(
-                        source_file,
-                        arcname=relative_path.as_posix(),
+                    temp_target = target.with_name(
+                        target.name + ".update_tmp"
                     )
 
-        # Integrität des ZIP-Archivs prüfen.
-        with zipfile.ZipFile(backup_temp_zip, "r") as backup_archive:
-            bad_file = backup_archive.testzip()
+                    try:
+                        with archive.open(member, "r") as source:
+                            with open(temp_target, "wb") as destination:
+                                shutil.copyfileobj(source, destination)
 
-            if bad_file is not None:
-                raise RuntimeError(
-                    f"Backup-Prüfung fehlgeschlagen: {bad_file}"
-                )
+                        replace_error = None
 
-        # Erst jetzt das bisherige Backup ersetzen.
-        os.replace(backup_temp_zip, persistent_backup_zip)
+                        for attempt in range(4):
+                            try:
+                                os.replace(temp_target, target)
+                                replace_error = None
+                                break
 
-    except Exception as backup_error:
-        try:
-            if backup_temp_zip.exists():
-                backup_temp_zip.unlink()
-        except OSError:
-            pass
+                            except PermissionError as exc:
+                                replace_error = exc
 
-        QMessageBox.critical(
-            self,
-            "Backup-Fehler",
-            "Das Backup konnte nicht sicher erstellt werden:\n"
-            f"{backup_error}\n\n"
-            "Das Update wurde nicht gestartet. "
-            "Ein eventuell vorhandenes backup.zip wurde nicht absichtlich "
-            "durch ein unvollständiges Archiv ersetzt.",
-        )
-        return False
+                                print(
+                                    f"[UPDATE DEBUG] Versuch {attempt + 1}/4: "
+                                    f"{exc!r}; Ziel={target}"
+                                )
 
-    # --------------------------------------------------
-    # 6. Temporäres Rollback-Backup
-    # --------------------------------------------------
-    backup_dir = Path(tempfile.mkdtemp(prefix="oscam_backup_"))
+                                if attempt < 3:
+                                    time.sleep(0.5 * (attempt + 1))
 
-    download_url = (
-        "https://github.com/speedy005/oscam_patch_manager_new/"
-        "archive/refs/heads/master.zip"
-    )
+                        if replace_error is not None:
+                            raise replace_error
 
-    backup_files = []
-    new_files = []
-    rollback_errors = []
+                    finally:
+                        try:
+                            if temp_target.exists():
+                                temp_target.unlink()
+                        except OSError:
+                            pass
 
-    try:
-        # --------------------------------------------------
-        # 7. GitHub-Archiv herunterladen
-        # --------------------------------------------------
-        update_progress(10, "GitHub wird heruntergeladen...")
+                    if not target.is_file():
+                        raise RuntimeError(
+                            f"Datei konnte nicht installiert werden: {target}"
+                        )
 
-        response = requests.get(
-            download_url,
-            timeout=(15, 120),
-            headers={"Accept": "application/vnd.github+json"},
-        )
-        response.raise_for_status()
-
-        update_progress(20, "Download abgeschlossen. ZIP wird geprüft...")
-
-        # --------------------------------------------------
-        # 8. Archiv prüfen und Update-Dateien ermitteln
-        # --------------------------------------------------
-        with zipfile.ZipFile(BytesIO(response.content), "r") as archive:
-            members = archive.namelist()
-
-            file_members = [
-                member for member in members
-                if not member.endswith("/")
-            ]
-
-            if not file_members:
-                raise RuntimeError("Das GitHub-Archiv ist leer.")
-
-            # GitHub-Archive müssen genau einen gemeinsamen Stammordner haben.
-            first_parts = PurePosixPath(
-                file_members[0].replace("\\", "/")
-            ).parts
-
-            if not first_parts:
-                raise RuntimeError("Ungültige Archivstruktur.")
-
-            root_name = first_parts[0]
-            updates = []
-
-            for member in file_members:
-                normalized_member = member.replace("\\", "/")
-                member_path = PurePosixPath(normalized_member)
-                parts = member_path.parts
-
-                if (
-                    not parts
-                    or parts[0] != root_name
-                    or member_path.is_absolute()
-                    or ".." in parts
-                    or any(":" in part for part in parts)
-                ):
-                    raise RuntimeError(
-                        f"Unsicherer Dateipfad im Update: {member}"
+                    progress = 40 + int(
+                        50 * (index + 1) / len(updates)
                     )
 
-                relative_parts = parts[1:]
-
-                if not relative_parts:
-                    continue
-
-                relative_name = PurePosixPath(*relative_parts)
-
-                if any(part in ("", ".", "..") for part in relative_parts):
-                    raise RuntimeError(
-                        f"Ungültiger Dateipfad im Update: {member}"
+                    update_progress(
+                        progress,
+                        f"Installiere Datei {index + 1}/{len(updates)}",
                     )
 
-                target = (
-                    project_dir / Path(*relative_parts)
-                ).resolve()
-
-                if not is_inside(target, project_dir):
-                    raise RuntimeError(
-                        f"Datei liegt außerhalb des Projektordners: {target}"
-                    )
-
-                # Geschützte Verzeichnisse und Dateien nie aktualisieren.
-                if is_protected(target):
-                    continue
-
-                if target.exists() and not target.is_file():
-                    raise RuntimeError(
-                        f"Zielpfad ist keine Datei: {target}"
-                    )
-
-                updates.append((member, target))
-
-            if not updates:
-                raise RuntimeError(
-                    "Keine aktualisierbaren Projektdateien gefunden."
-                )
+            # --------------------------------------------------
+            # 11. Update erfolgreich
+            # --------------------------------------------------
+            lang = str(getattr(self, "LANG", "de")).lower()[:2]
+            is_de = lang == "de"
 
             update_progress(
-                23,
-                f"{len(updates)} Update-Dateien gefunden.",
+                100,
+                "Update erfolgreich" if is_de else "Update successful",
             )
 
-            # --------------------------------------------------
-            # 9. Vorhandene Dateien für Rollback sichern
-            # --------------------------------------------------
-            update_progress(25, "Rollback-Backup wird erstellt...")
+            timestamp = QTime.currentTime().toString("HH:mm:ss")
 
-            for _, target in updates:
-                if target.is_file():
-                    backup_file = backup_dir / target.relative_to(project_dir)
-                    backup_file.parent.mkdir(parents=True, exist_ok=True)
-
-                    shutil.copy2(target, backup_file)
-                    backup_files.append((target, backup_file))
-                else:
-                    new_files.append(target)
-
-            update_progress(35, "Rollback-Backup abgeschlossen.")
-
-            # --------------------------------------------------
-            # 10. Update installieren
-            # --------------------------------------------------
-            update_progress(40, "Projektdateien werden ersetzt...")
-
-            for index, (member, target) in enumerate(updates):
-                relative_target = target.relative_to(project_dir)
-
-                # Vorhandene WAV-Dateien im sounds-Ordner erhalten.
-                if (
-                    target.is_file()
-                    and target.suffix.lower() == ".wav"
-                    and "sounds" in relative_target.parts
-                ):
-                    continue
-
-                target.parent.mkdir(parents=True, exist_ok=True)
-
-                temp_target = target.with_name(
-                    target.name + ".update_tmp"
-                )
-
-                try:
-                    with archive.open(member, "r") as source:
-                        with open(temp_target, "wb") as destination:
-                            shutil.copyfileobj(source, destination)
-
-                    replace_error = None
-
-                    for attempt in range(4):
-                        try:
-                            os.replace(temp_target, target)
-                            replace_error = None
-                            break
-
-                        except PermissionError as exc:
-                            replace_error = exc
-
-                            print(
-                                f"[UPDATE DEBUG] Versuch {attempt + 1}/4: "
-                                f"{exc!r}; Ziel={target}"
-                            )
-
-                            if attempt < 3:
-                                time.sleep(0.5 * (attempt + 1))
-
-                    if replace_error is not None:
-                        raise replace_error
-
-                finally:
-                    try:
-                        if temp_target.exists():
-                            temp_target.unlink()
-                    except OSError:
-                        pass
-
-                if not target.is_file():
-                    raise RuntimeError(
-                        f"Datei konnte nicht installiert werden: {target}"
-                    )
-
-                progress = 40 + int(
-                    50 * (index + 1) / len(updates)
-                )
-
-                update_progress(
-                    progress,
-                    f"Installiere Datei {index + 1}/{len(updates)}",
-                )
-
-        # --------------------------------------------------
-        # 11. Update erfolgreich
-        # --------------------------------------------------
-        lang = str(getattr(self, "LANG", "de")).lower()[:2]
-        is_de = lang == "de"
-
-        update_progress(
-            100,
-            "Update erfolgreich" if is_de else "Update successful",
-        )
-
-        timestamp = QTime.currentTime().toString("HH:mm:ss")
-
-        info = getattr(self, "info_text", None)
-        if info is not None:
-            self.append_info(
-                info,
-                f"✅ [{timestamp}] "
-                + (
-                    "Update erfolgreich abgeschlossen."
-                    if is_de
-                    else "Update completed successfully."
-                ),
-                "success",
-            )
-
-        msg_box = QMessageBox(self)
-        msg_box.setIcon(QMessageBox.Icon.Question)
-        msg_box.setWindowTitle(
-            "Update erfolgreich" if is_de else "Update successful"
-        )
-        msg_box.setText(
-            (
-                "Das Projekt wurde aktualisiert.\n\n"
-                "Lokale Konfigurationen und geschützte Ordner wurden erhalten.\n\n"
-                "Programm jetzt neu starten?"
-            )
-            if is_de else
-            (
-                "The project has been updated.\n\n"
-                "Local configurations and protected folders were preserved.\n\n"
-                "Restart the application now?"
-            )
-        )
-
-        yes_btn = msg_box.addButton(
-            "Ja" if is_de else "Yes",
-            QMessageBox.ButtonRole.YesRole,
-        )
-        msg_box.addButton(
-            "Nein" if is_de else "No",
-            QMessageBox.ButtonRole.NoRole,
-        )
-
-        msg_box.setDefaultButton(yes_btn)
-        msg_box.exec()
-
-        should_restart = msg_box.clickedButton() == yes_btn
-
-        # Erfolgreiches Update: Rollback-Dateien nicht mehr erforderlich.
-        shutil.rmtree(backup_dir, ignore_errors=True)
-
-        if should_restart:
-            if getattr(sys, "frozen", False):
-                command = [sys.executable, *sys.argv[1:]]
-                app_path = sys.executable
-            else:
-                script_path = os.path.abspath(sys.argv[0])
-                command = [
-                    sys.executable,
-                    script_path,
-                    *sys.argv[1:],
-                ]
-                app_path = script_path
-
-            popen_kwargs = {
-                "cwd": os.path.dirname(app_path) or None,
-                "close_fds": True,
-            }
-
-            if os.name == "nt":
-                popen_kwargs["creationflags"] = getattr(
-                    subprocess,
-                    "CREATE_NEW_PROCESS_GROUP",
-                    0,
-                )
-            else:
-                popen_kwargs["start_new_session"] = True
-
-            try:
-                process = subprocess.Popen(command, **popen_kwargs)
-
-                time.sleep(1)
-
-                if process.poll() is not None:
-                    raise RuntimeError(
-                        "Der neue Prozess wurde sofort beendet "
-                        f"(Exit-Code {process.returncode})."
-                    )
-
-            except Exception as restart_error:
-                QMessageBox.critical(
-                    self,
-                    "Neustart fehlgeschlagen" if is_de else "Restart failed",
-                    (
-                        "Die aktualisierte Anwendung konnte nicht neu "
-                        f"gestartet werden:\n{restart_error}"
-                    )
-                    if is_de else
-                    (
-                        "The updated application could not be restarted:\n"
-                        f"{restart_error}"
+            info = getattr(self, "info_text", None)
+            if info is not None:
+                self.append_info(
+                    info,
+                    f"✅ [{timestamp}] "
+                    + (
+                        "Update erfolgreich abgeschlossen."
+                        if is_de
+                        else "Update completed successfully."
                     ),
-                )
-                return True
-
-            QApplication.quit()
-
-        return True
-
-    except Exception as error:
-        # --------------------------------------------------
-        # 12. Fehler: Rollback versuchen
-        # --------------------------------------------------
-        timestamp = QTime.currentTime().toString("HH:mm:ss")
-
-        info = getattr(self, "info_text", None)
-        if info is not None:
-            self.append_info(
-                info,
-                f"❌ [{timestamp}] Update fehlgeschlagen: {error}",
-                "error",
-            )
-            self.append_info(
-                info,
-                f"↩️ [{timestamp}] Rollback wird ausgeführt...",
-                "warning",
-            )
-
-        # Neu angelegte Dateien entfernen.
-        for target in reversed(new_files):
-            try:
-                if target.exists() and target.is_file():
-                    target.unlink()
-            except Exception as rollback_error:
-                rollback_errors.append(
-                    f"{target}: {rollback_error}"
-                )
-
-        # Vorhandene Dateien wiederherstellen.
-        for target, backup_file in reversed(backup_files):
-            try:
-                if backup_file.exists():
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(backup_file, target)
-            except Exception as rollback_error:
-                rollback_errors.append(
-                    f"{target}: {rollback_error}"
-                )
-
-        details = f"Update fehlgeschlagen:\n{error}"
-
-        if rollback_errors:
-            details += (
-                "\n\nRollback nicht vollständig!\n"
-                f"Rollback-Backup:\n{backup_dir}\n\n"
-                + "\n".join(rollback_errors)
-            )
-
-            if info is not None:
-                self.append_info(
-                    info,
-                    f"⚠️ [{timestamp}] Rollback unvollständig. "
-                    f"Backup prüfen: {backup_dir}",
-                    "error",
-                )
-        else:
-            details += (
-                "\n\nDie geänderten Dateien wurden wiederhergestellt."
-            )
-
-            shutil.rmtree(backup_dir, ignore_errors=True)
-
-            if info is not None:
-                self.append_info(
-                    info,
-                    f"✅ [{timestamp}] Rollback abgeschlossen.",
                     "success",
                 )
 
-        QMessageBox.critical(
-            self,
-            "Update-Fehler",
-            details,
-        )
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Question)
+            msg_box.setWindowTitle(
+                "Update erfolgreich" if is_de else "Update successful"
+            )
+            msg_box.setText(
+                (
+                    "Das Projekt wurde aktualisiert.\n\n"
+                    "Lokale Konfigurationen und geschützte Ordner wurden erhalten.\n\n"
+                    "Programm jetzt neu starten?"
+                )
+                if is_de else
+                (
+                    "The project has been updated.\n\n"
+                    "Local configurations and protected folders were preserved.\n\n"
+                    "Restart the application now?"
+                )
+            )
 
-        return False
+            yes_btn = msg_box.addButton(
+                "Ja" if is_de else "Yes",
+                QMessageBox.ButtonRole.YesRole,
+            )
+            msg_box.addButton(
+                "Nein" if is_de else "No",
+                QMessageBox.ButtonRole.NoRole,
+            )
+
+            msg_box.setDefaultButton(yes_btn)
+            msg_box.exec()
+
+            should_restart = msg_box.clickedButton() == yes_btn
+
+            # Erfolgreiches Update: Rollback-Dateien nicht mehr erforderlich.
+            shutil.rmtree(backup_dir, ignore_errors=True)
+
+            if should_restart:
+                if getattr(sys, "frozen", False):
+                    command = [sys.executable, *sys.argv[1:]]
+                    app_path = sys.executable
+                else:
+                    script_path = os.path.abspath(sys.argv[0])
+                    command = [
+                        sys.executable,
+                        script_path,
+                        *sys.argv[1:],
+                    ]
+                    app_path = script_path
+
+                popen_kwargs = {
+                    "cwd": os.path.dirname(app_path) or None,
+                    "close_fds": True,
+                }
+
+                if os.name == "nt":
+                    popen_kwargs["creationflags"] = getattr(
+                        subprocess,
+                        "CREATE_NEW_PROCESS_GROUP",
+                        0,
+                    )
+                else:
+                    popen_kwargs["start_new_session"] = True
+
+                try:
+                    process = subprocess.Popen(command, **popen_kwargs)
+
+                    time.sleep(1)
+
+                    if process.poll() is not None:
+                        raise RuntimeError(
+                            "Der neue Prozess wurde sofort beendet "
+                            f"(Exit-Code {process.returncode})."
+                        )
+
+                except Exception as restart_error:
+                    QMessageBox.critical(
+                        self,
+                        "Neustart fehlgeschlagen" if is_de else "Restart failed",
+                        (
+                            "Die aktualisierte Anwendung konnte nicht neu "
+                            f"gestartet werden:\n{restart_error}"
+                        )
+                        if is_de else
+                        (
+                            "The updated application could not be restarted:\n"
+                            f"{restart_error}"
+                        ),
+                    )
+                    return True
+
+                QApplication.quit()
+
+            return True
+
+        except Exception as error:
+            # --------------------------------------------------
+            # 12. Fehler: Rollback versuchen
+            # --------------------------------------------------
+            timestamp = QTime.currentTime().toString("HH:mm:ss")
+
+            info = getattr(self, "info_text", None)
+            if info is not None:
+                self.append_info(
+                    info,
+                    f"❌ [{timestamp}] Update fehlgeschlagen: {error}",
+                    "error",
+                )
+                self.append_info(
+                    info,
+                    f"↩️ [{timestamp}] Rollback wird ausgeführt...",
+                    "warning",
+                )
+
+            # Neu angelegte Dateien entfernen.
+            for target in reversed(new_files):
+                try:
+                    if target.exists() and target.is_file():
+                        target.unlink()
+                except Exception as rollback_error:
+                    rollback_errors.append(
+                        f"{target}: {rollback_error}"
+                    )
+
+            # Vorhandene Dateien wiederherstellen.
+            for target, backup_file in reversed(backup_files):
+                try:
+                    if backup_file.exists():
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(backup_file, target)
+                except Exception as rollback_error:
+                    rollback_errors.append(
+                        f"{target}: {rollback_error}"
+                    )
+
+            details = f"Update fehlgeschlagen:\n{error}"
+
+            if rollback_errors:
+                details += (
+                    "\n\nRollback nicht vollständig!\n"
+                    f"Rollback-Backup:\n{backup_dir}\n\n"
+                    + "\n".join(rollback_errors)
+                )
+
+                if info is not None:
+                    self.append_info(
+                        info,
+                        f"⚠️ [{timestamp}] Rollback unvollständig. "
+                        f"Backup prüfen: {backup_dir}",
+                        "error",
+                    )
+            else:
+                details += (
+                    "\n\nDie geänderten Dateien wurden wiederhergestellt."
+                )
+
+                shutil.rmtree(backup_dir, ignore_errors=True)
+
+                if info is not None:
+                    self.append_info(
+                        info,
+                        f"✅ [{timestamp}] Rollback abgeschlossen.",
+                        "success",
+                    )
+
+            QMessageBox.critical(
+                self,
+                "Update-Fehler",
+                details,
+            )
+
+            return False
 
     def ask_for_update(self, latest_version):
         """Fragt nach Update mit Sound und bereitet die Regenbogen-Bar vor."""
