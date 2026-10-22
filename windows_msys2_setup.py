@@ -533,8 +533,10 @@ def _start_command(tool: str) -> str:
     return "./s3 menu"
 
 
+
+
 def _launch_native_linux(tool: str, source: Path, log) -> None:
-    """Startet Simplebuild in einem nativen Linux-Terminal."""
+    """Startet Simplebuild nativ unter Linux in einem neuen Terminal."""
     script = _find_script(source, tool)
 
     if script is None:
@@ -543,37 +545,59 @@ def _launch_native_linux(tool: str, source: Path, log) -> None:
         )
 
     start_command = _start_command(tool)
-    script_name = script.name
 
     command = (
-        f"cd {bash_quote(str(script.parent))} || exec bash; "
-        f"chmod +x {bash_quote(script_name)}; "
+        f"cd {bash_quote(str(script.parent))} || exit 1; "
+        f"chmod +x {bash_quote(script.name)} || exit 1; "
         f"{start_command}; "
         "result=$?; "
-        'echo "Simplebuild beendet (Exit-Code: $result)."; '
+        'echo; echo "Simplebuild beendet (Exit-Code: $result)."; '
         "exec bash"
     )
 
     terminals = [
-        ("gnome-terminal", ["gnome-terminal", "--", "bash", "-lc", command]),
-        ("konsole", ["konsole", "-e", "bash", "-lc", command]),
-        (
-            "xfce4-terminal",
-            ["xfce4-terminal", "--command", f"bash -lc {bash_quote(command)}"],
-        ),
-        ("xterm", ["xterm", "-e", "bash", "-lc", command]),
+        ("x-terminal-emulator", ["-e", "bash", "-lc", command]),
+        ("gnome-terminal", ["--", "bash", "-lc", command]),
     ]
 
+    errors = []
+
     for executable, arguments in terminals:
-        if shutil.which(executable):
-            subprocess.Popen(arguments, start_new_session=True)
-            log(f"Starte {tool} unter Linux: {start_command}")
+        path = shutil.which(executable)
+
+        if not path:
+            log(f"Nicht im PATH gefunden: {executable}")
+            continue
+
+        try:
+            process = subprocess.Popen(
+                [path, *arguments],
+                start_new_session=True,
+                close_fds=True,
+            )
+
+            log(
+                f"Terminal-Aufruf gesendet: {path} "
+                f"(PID {process.pid})"
+            )
+            log(f"Tool: {tool}; Startbefehl: {start_command}")
             return
 
+        except OSError as exc:
+            message = f"{executable}: {exc}"
+            errors.append(message)
+            log(f"Terminalstart fehlgeschlagen: {message}")
+
     raise RuntimeError(
-        "Kein unterstützter Terminal-Emulator gefunden. "
-        "Installiere beispielsweise xterm, gnome-terminal oder konsole."
+        "Kein Terminal konnte gestartet werden.\n"
+        + (
+            "\n".join(errors)
+            if errors
+            else "Kein unterstützter Terminal-Emulator im PATH gefunden."
+        )
     )
+
+
 
 
 def launch_tool_menu(tool: str, source: Path, log=None) -> None:

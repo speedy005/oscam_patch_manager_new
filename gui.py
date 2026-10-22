@@ -11,6 +11,7 @@ import os
 import struct
 import tempfile
 import wave
+import shlex
 
 
 class ResponsiveGridReflow(QObject):
@@ -8120,6 +8121,7 @@ class PatchManagerGUI(QWidget):
             pbar.show()
             QApplication.processEvents()
 
+        
         try:
             # 3. BEFEHL ZUSAMMENBAUEN
             system = platform.system()
@@ -8130,14 +8132,14 @@ class PatchManagerGUI(QWidget):
             if s3_path:
                 s3_dir = os.path.dirname(s3_path)
                 exe_name = os.path.basename(s3_path)
-                
+
                 s3_cmd = f"./{exe_name} menu"
+                if is_s4_script:
+                    s3_cmd = f"./{exe_name}"
                 if use_sudo and system == "Linux":
-                    s3_cmd = f"sudo ./{exe_name} menu"
-                
+                    s3_cmd = f"sudo {s3_cmd}"
+
                 if system == "Windows":
-                    # Gemeinsamer Windows-Start für S3, S4 und S3-NCam-BoneCrew.
-                    # Linux wird von diesem Block nicht verändert.
                     from windows_msys2_setup import bash_environment
 
                     msys2_root = os.environ.get("MSYS2_ROOT", r"C:\msys64")
@@ -8158,22 +8160,20 @@ class PatchManagerGUI(QWidget):
 
                     if not msys2_bash:
                         raise FileNotFoundError(
-                            "MSYS2 Bash nicht gefunden. Erwartet z. B. "
-                            r"C:\msys64\usr\bin\bash.exe"
-                            ". Bitte MSYS2_ROOT oder MSYS2_BASH prüfen."
+                            "MSYS2 Bash nicht gefunden. Bitte MSYS2_ROOT "
+                            "oder MSYS2_BASH prüfen."
                         )
 
-                    s3_dir_win = os.path.normpath(s3_dir)
-                    s3_dir_bash = s3_dir_win.replace("\\", "/")
-                    # Quote einfache Anführungszeichen für Bash-Pfade sicher.
+                    s3_dir_bash = os.path.normpath(s3_dir).replace("\\", "/")
                     s3_dir_bash_q = "'" + s3_dir_bash.replace("'", "'\\''") + "'"
                     exe_name_q = "'" + exe_name.replace("'", "'\\''") + "'"
                     bash_cmd = (
                         "export MSYSTEM=UCRT64; "
                         "export PATH=/ucrt64/bin:/usr/bin:/bin; "
                         f"cd {s3_dir_bash_q} || exit 2; "
-                        f"./{exe_name_q} menu; exec bash -i"
+                        f"{s3_cmd}; exec bash -i"
                     )
+
                     subprocess.Popen(
                         [msys2_bash, "--login", "-i", "-c", bash_cmd],
                         env=bash_environment(),
@@ -8181,44 +8181,115 @@ class PatchManagerGUI(QWidget):
                     )
                     terminal_opened = True
 
-                elif system == "Windows":
-                    # Fallback nur für Windows, falls kein Programm-Pfad übergeben wurde.
-                    subprocess.Popen(["cmd"], creationflags=subprocess.CREATE_NEW_CONSOLE)
-                    terminal_opened = True
+                elif system == "Linux":
+                    # Shell-Befehl als Argumente aufbauen, nicht als
+                    # zusätzlich verschachtelten, gequoteten Befehl.
+                    exec_cmd = (
+                        f"cd {shlex.quote(s3_dir)} && "
+                        f"{s3_cmd}"
+                    )
 
-            elif system == "Linux":
+            elif system == "Windows":
+                subprocess.Popen(
+                    ["cmd"],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE,
+                )
+                terminal_opened = True
+
+            if system == "Linux" and not terminal_opened:
                 terminals = [
-                    "gnome-terminal",
-                    "konsole",
-                    "xfce4-terminal",
-                    "xterm",
-                    "lxterminal",
+                    ("x-terminal-emulator", "debian"),
+                    ("gnome-terminal", "gnome"),
+                    ("konsole", "kde"),
+                    ("xfce4-terminal", "xfce"),
+                    ("mate-terminal", "mate"),
+                    ("lxterminal", "lx"),
+                    ("xterm", "xterm"),
+                    ("kgx", "gnome"),
+                    ("ptyxis", "gnome"),
+                    ("tilix", "tilix"),
+                    ("kitty", "kitty"),
+                    ("alacritty", "alacritty"),
+                    ("wezterm", "wezterm"),
+                    ("foot", "foot"),
                 ]
-                for term in terminals:
-                    if shutil.which(term):
-                        if exec_cmd:
-                            if term == "gnome-terminal":
-                                args = [
-                                    term,
-                                    "--",
-                                    "bash",
-                                    "-c",
-                                    f"{exec_cmd}; exec bash",
-                                ]
-                            else:
-                                args = [term, "-e", f'bash -c "{exec_cmd}; exec bash"']
-                        else:
-                            args = [term]
-                        subprocess.Popen(args)
+
+                terminal_errors = []
+
+                for term, kind in terminals:
+                    terminal_path = shutil.which(term)
+                    if not terminal_path:
+                        continue
+
+                    shell_command = (
+                        f"{exec_cmd}; result=$?; "
+                        'echo; echo "Simplebuild beendet (Exit-Code: $result)"; '
+                        "exec bash"
+                    )
+
+                    if kind == "debian":
+                        args = [
+                            terminal_path, "-e", "bash", "-lc",
+                            shell_command,
+                        ]
+                    elif kind in ("gnome", "mate", "kde"):
+                        args = [
+                            terminal_path, "--", "bash", "-lc",
+                            shell_command,
+                        ]
+                    elif kind == "xfce":
+                        args = [
+                            terminal_path, "--command",
+                            f"bash -lc {shlex.quote(shell_command)}",
+                        ]
+                    elif kind == "lx":
+                        args = [
+                            terminal_path, "-e",
+                            f"bash -lc {shlex.quote(shell_command)}",
+                        ]
+                    elif kind == "xterm":
+                        args = [
+                            terminal_path, "-e", "bash", "-lc",
+                            shell_command,
+                        ]
+                    elif kind == "tilix":
+                        args = [
+                            terminal_path, "-e",
+                            f"bash -lc {shlex.quote(shell_command)}",
+                        ]
+                    elif kind == "kitty":
+                        args = [terminal_path, "bash", "-lc", shell_command]
+                    elif kind == "alacritty":
+                        args = [
+                            terminal_path, "-e", "bash", "-lc",
+                            shell_command,
+                        ]
+                    elif kind == "wezterm":
+                        args = [
+                            terminal_path, "start", "--",
+                            "bash", "-lc", shell_command,
+                        ]
+                    elif kind == "foot":
+                        args = [terminal_path, "bash", "-lc", shell_command]
+                    else:
+                        args = [
+                            terminal_path, "-e", "bash", "-lc",
+                            shell_command,
+                        ]
+
+                    try:
+                        subprocess.Popen(args, start_new_session=True)
                         terminal_opened = True
                         break
+                    except OSError as exc:
+                        terminal_errors.append(f"{term}: {exc}")
 
-            if not terminal_opened:
-                raise FileNotFoundError(
-                    "Kein Terminal-Emulator gefunden!"
-                    if is_de
-                    else "No terminal emulator found!"
-                )
+                if not terminal_opened:
+                    details = "\n".join(terminal_errors)
+                    raise RuntimeError(
+                        "Kein Terminal-Emulator gefunden oder gestartet."
+                        + (f"\n{details}" if details else "")
+                    )
 
             if "safe_play" in globals():
                 safe_play("complete.oga")
@@ -8232,18 +8303,24 @@ class PatchManagerGUI(QWidget):
             if pbar:
                 pbar.setFormat("❌ Error!")
             if hasattr(self, "append_info"):
-                self.append_info(self.info_text, f"❌ Fehler: {str(e)}", "error")
+                self.append_info(
+                    self.info_text,
+                    f"❌ Fehler: {str(e)}",
+                    "error",
+                )
 
-        # 5. RESET NACH 3 SEKUNDEN
-        if pbar:
-            QTimer.singleShot(
-                3000,
-                (
-                    self.pbar_idle
-                    if hasattr(self, "pbar_idle")
-                    else lambda: pbar.setValue(0)
-                ),
-            )
+
+            # 5. RESET NACH 3 SEKUNDEN
+            if pbar:
+                QTimer.singleShot(
+                    3000,
+                    (
+                        self.pbar_idle
+                        if hasattr(self, "pbar_idle")
+                        else lambda: pbar.setValue(0)
+                    ),
+                )
+
 
     def select_patch_path(self):
         """Öffnet Verzeichnis-Dialog mit Regenbogen-Progress, Sound und Auto-Reset zu Idle."""
@@ -19435,70 +19512,90 @@ class PatchManagerGUI(QWidget):
 
 
     
+
 def auto_install_emoji_font():
-    """Installiert Noto Color Emoji plattformübergreifend."""
+    """Installiert Noto Color Emoji bei Bedarf unter Windows oder Linux."""
+
     def _run_install():
-        url = "https://github.com/speedy005/oscam_patch_manager_new/raw/master/Noto_Color_Emoji.zip"
         os_type = platform.system()
 
         try:
             print("[SYSTEM] Prüfe Emoji-Schriftart...")
+
+            if os_type == "Linux":
+                font_dir = os.path.expanduser("~/.local/share/fonts")
+                target_path = os.path.join(font_dir, "NotoColorEmoji.ttf")
+
+                # Ist die Schriftart bereits installiert, nichts tun.
+                if os.path.isfile(target_path) and os.path.getsize(target_path) > 0:
+                    print("[SYSTEM] Emoji-Schriftart bereits vorhanden.")
+                    return
+
+            elif os_type == "Windows":
+                font_dir = os.path.join(
+                    os.environ.get("LOCALAPPDATA", ""),
+                    "Microsoft", "Windows", "Fonts"
+                )
+                target_path = os.path.join(font_dir, "NotoColorEmoji.ttf")
+
+                if os.path.isfile(target_path) and os.path.getsize(target_path) > 0:
+                    print("[SYSTEM] Emoji-Schriftart bereits vorhanden.")
+                    return
+            else:
+                print("[SYSTEM] Automatische Emoji-Installation nicht unterstützt.")
+                return
+
             import requests
+            import zipfile
+            import io
+
+            url = (
+                "https://github.com/speedy005/"
+                "oscam_patch_manager_new/raw/master/Noto_Color_Emoji.zip"
+            )
 
             response = requests.get(url, timeout=20)
-            if response.status_code != 200:
-                return
+            response.raise_for_status()
 
             with zipfile.ZipFile(io.BytesIO(response.content)) as z:
                 ttf_name = next(
-                    (f for f in z.namelist() if f.endswith(".ttf")),
+                    (f for f in z.namelist() if f.lower().endswith(".ttf")),
                     None
                 )
+
                 if not ttf_name:
+                    print("[!] Keine TTF-Datei im Emoji-Archiv gefunden.")
                     return
+
                 font_data = z.read(ttf_name)
 
-            if os_type == "Windows":
-                font_dir = os.path.join(
-                    os.environ["LOCALAPPDATA"],
-                    "Microsoft", "Windows", "Fonts"
+            os.makedirs(font_dir, exist_ok=True)
+
+            with open(target_path, "wb") as f:
+                f.write(font_data)
+
+            if os_type == "Linux":
+                subprocess.run(
+                    ["fc-cache", "-f", font_dir],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False
                 )
-                os.makedirs(font_dir, exist_ok=True)
-                target_path = os.path.join(font_dir, "NotoColorEmoji.ttf")
+                print("[✓] Emoji-Schriftart installiert. Neustart empfohlen.")
 
-                if not os.path.exists(target_path):
-                    with open(target_path, "wb") as f:
-                        f.write(font_data)
-
-                    ctypes.windll.gdi32.AddFontResourceW(target_path)
-                    ctypes.windll.user32.SendMessageW(
-                        0xFFFF, 0x001D, 0, 0
-                    )
-                    print("[✓] Font installiert (Windows User-Level)")
-
-            elif os_type == "Linux":
-                font_dir = os.path.expanduser("~/.local/share/fonts")
-                os.makedirs(font_dir, exist_ok=True)
-                target_path = os.path.join(font_dir, "NotoColorEmoji.ttf")
-
-                if not os.path.exists(target_path):
-                    with open(target_path, "wb") as f:
-                        f.write(font_data)
-
-                    subprocess.run(
-                        ["fc-cache", "-f"],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
-                    )
-                    print("[✓] Font installiert (Linux Local-Level)")
+            elif os_type == "Windows":
+                ctypes.windll.gdi32.AddFontResourceW(target_path)
+                ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
+                print("[✓] Emoji-Schriftart installiert.")
 
         except Exception as e:
-            print(f"[!] Font-Installation Fehler: {e}")
+            print(f"[!] Emoji-Schriftart: {e}")
 
     threading.Thread(target=_run_install, daemon=True).start()
 
 
-auto_install_emoji_font()
+
+
 
 # =============================================================================
 # EXECUTION BOOTLOADER: Oscam Emu Patch Manager by speedy005

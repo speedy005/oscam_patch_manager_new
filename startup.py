@@ -156,12 +156,9 @@ def main():
             or "unknown"
         )
 
-    print(f"[SYSTEM] Display erkannt: {width}x{height} | User: {current_user}")
+   
 
-    try:
-        auto_install_emoji_font()
-    except Exception as exc:
-        print(f"[SYSTEM] Emoji-Schriftart konnte nicht eingerichtet werden: {exc}")
+    
 
     main_window = None
 
