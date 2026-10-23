@@ -328,7 +328,7 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtGui import QFont, QFontMetrics
         from PyQt6.QtGui import QColor, QFont, QTextCursor, QIcon
         from PyQt6.QtCore import Qt, QTimer, QDateTime, QSize, QUrl
-        from PyQt6.QtWidgets import QLabel, QTextEdit, QVBoxLayout
+        from PyQt6.QtWidgets import QLabel, QTextEdit, QVBoxLayout, QComboBox
         import subprocess, platform, shutil, os, re, sys
 
         self.is_loading = True  # Schutz vor Timer während Setup
@@ -362,6 +362,15 @@ class PatchManagerGUI(QWidget):
         self._blink_state = True
 
         super().__init__()
+        self.current_config = self.load_config_from_file()
+        self.s3_repository_options = {
+            "S3 Simplebuild (Original)": "https://github.com/gorgone/s3_releases.git",
+            "S3 Simplebuild speeddy005": "https://github.com/speedy005/speedy005-S3-Simplebuild.git",
+        }
+
+        self.selected_s3_repository = "S3 Simplebuild (Original)"
+        self.s3_repo_combo = None
+        self.s3_install_worker = None
         self.sound_manager = SystemSoundManager(self, volume=0.45)
         global _ACTIVE_SOUND_MANAGER
         _ACTIVE_SOUND_MANAGER = self.sound_manager
@@ -399,12 +408,73 @@ class PatchManagerGUI(QWidget):
         except Exception:
             pass
 
-        # 4. KONFIGURATION LADEN
-        try:
-            self.current_config = load_config()
-        except:
-            self.current_config = {}
-        self.cfg = self.current_config
+        
+        # S3-Repository-Auswahl und Worker initialisieren
+        self.s3_repository_options = {
+            "S3 Simplebuild (Original)": "https://github.com/gorgone/s3_releases.git",
+            "S3 Simplebuild speeddy005": "https://github.com/speedy005/speedy005-S3-Simplebuild.git",
+        }
+
+        self.selected_s3_repository = self.current_config.get(
+            "s3_repository_name",
+            "S3 Simplebuild (Original)"
+        )
+
+        
+        self.current_config = self.load_config_from_file()
+
+        self.s3_repository_options = {
+            "S3 Simplebuild (Original)": "https://github.com/gorgone/s3_releases.git",
+            "S3 Simplebuild speeddy005": "https://github.com/speedy005/speedy005-S3-Simplebuild.git",
+        }
+
+        self.selected_s3_repository = self.current_config.get(
+            "s3_repository_name",
+            "S3 Simplebuild (Original)"
+        )
+
+        if self.selected_s3_repository not in self.s3_repository_options:
+            self.selected_s3_repository = "S3 Simplebuild (Original)"
+
+        self.s3_install_worker = None
+
+        # Die ComboBox hier erstellen und NICHT wieder auf None setzen.
+        self.s3_repo_combo = QComboBox()
+
+        for name, url in self.s3_repository_options.items():
+            self.s3_repo_combo.addItem(name, url)
+
+        index = self.s3_repo_combo.findText(self.selected_s3_repository)
+        if index >= 0:
+            self.s3_repo_combo.setCurrentIndex(index)
+
+        self.s3_repo_combo.currentTextChanged.connect(
+            self.on_s3_repository_changed
+        )
+
+
+        # ComboBox erst nach der Initialisierung erstellen
+        self.s3_repo_combo = QComboBox()
+
+        for name, url in self.s3_repository_options.items():
+            self.s3_repo_combo.addItem(name, url)
+
+        index = self.s3_repo_combo.findText(
+            self.selected_s3_repository
+        )
+
+        if index >= 0:
+            self.s3_repo_combo.setCurrentIndex(index)
+
+        self.s3_repo_combo.currentTextChanged.connect(
+            self.on_s3_repository_changed
+        )
+
+        if self.selected_s3_repository not in self.s3_repository_options:
+            self.selected_s3_repository = "S3 Simplebuild (Original)"
+
+        self.s3_repo_combo = None
+        self.s3_install_worker = None
 
         ## --- Pfad für Standard S3 ---
         stored_s3 = self.current_config.get("s3_custom_path", "/opt/s3")
@@ -486,8 +556,7 @@ class PatchManagerGUI(QWidget):
         )
 
         self.init_ui()
-        for btn in self.all_buttons:
-            btn.setFixedHeight(self.BUTTON_HEIGHT)
+        self._fit_all_button_texts()
         # 6. TIMER VORBEREITEN (Nur für User-LEDs, nicht starten)
         self.blink_timer = QTimer(self)
         self.blink_timer.timeout.connect(self.animate_status_bar)
@@ -611,6 +680,11 @@ class PatchManagerGUI(QWidget):
         self.init_button_signals()
 
         self.is_loading = False  # Initialisierung abgeschlossen
+
+        # Beim Start direkt den gesamten verfügbaren Bildschirm nutzen.
+        # singleShot stellt sicher, dass Qt das Fenster erst nach dem Aufbau
+        # der Widgets und Layouts maximiert/vollflächig anzeigt.
+        QTimer.singleShot(0, self.showFullScreen)
 
     # =====================================================================
     # ANIMATIONS-LOGIK (Verhindert AttributeError)
@@ -1073,6 +1147,106 @@ class PatchManagerGUI(QWidget):
             finally:
                 if not finished["value"]:
                     release_lock()
+
+    def on_s3_repository_changed(self, repo_name):
+        try:
+            if repo_name not in self.s3_repository_options:
+                return
+
+            self.selected_s3_repository = repo_name
+
+            if not isinstance(getattr(self, "current_config", None), dict):
+                self.current_config = load_config()
+
+            self.current_config["s3_repository_name"] = repo_name
+
+            success = save_config(
+                {"s3_repository_name": repo_name},
+                gui_instance=self,
+                silent=True
+            )
+
+            if not success:
+                print("Fehler: S3-Repository konnte nicht gespeichert werden.")
+
+        except Exception as exc:
+            import traceback
+            print(f"Fehler bei der S3-Git-Auswahl: {exc}")
+            traceback.print_exc()
+
+
+    def start_s3_installation(self):
+        repo_name = self.s3_repo_combo.currentText()
+        repo_url = self.s3_repo_combo.currentData()
+
+        if not repo_url:
+            QMessageBox.warning(
+                self,
+                "S3-Installation",
+                "Bitte wählen Sie ein Git-Repository aus.",
+            )
+            return
+
+        if (
+            self.s3_install_worker is not None
+            and self.s3_install_worker.isRunning()
+        ):
+            QMessageBox.information(
+                self,
+                "S3-Installation",
+                "Eine S3-Installation läuft bereits.",
+            )
+            return
+
+        self.selected_s3_repository = repo_name
+        self.current_config["s3_repository_name"] = repo_name
+
+        try:
+            save_config(self.current_config)
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Konfiguration",
+                f"Auswahl konnte nicht gespeichert werden:\n{e}",
+            )
+
+        self.s3_install_worker = S3InstallWorker(
+            base_target_dir=self.S3_PATH,
+            repo_url=repo_url,
+            project_name=repo_name,
+        )
+
+        self.s3_install_worker.finished_signal.connect(
+            self.on_s3_install_finished
+        )
+
+        self.s3_install_worker.log_signal.connect(
+            self.append_s3_install_log
+        )
+
+        self.s3_install_worker.start()
+
+
+    def on_s3_install_finished(self, success, message):
+        if success:
+            QMessageBox.information(
+                self,
+                "S3-Installation erfolgreich",
+                message,
+            )
+        else:
+            QMessageBox.critical(
+                self,
+                "S3-Installationsfehler",
+                message,
+            )
+
+        self.update_ui_texts()
+
+
+    def append_s3_install_log(self, message):
+        print(f"[S3] {message}")
+
 
     
     def run_full_system_check(self, clear_log=True):
@@ -2339,113 +2513,65 @@ class PatchManagerGUI(QWidget):
         self.btn_s4 = QPushButton("🚀 Install S4")
         self.btn_ncam = QPushButton("🚀 Install NCam-speedy")
     
+    def _responsive_button_height(self):
+        """Berechnet eine einheitliche Buttonhöhe (30–50 px) anhand der Bildschirmhöhe."""
+        from PyQt6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        screen = self.screen() if hasattr(self, "screen") else None
+        if screen is None and app is not None:
+            screen = app.primaryScreen()
+        screen_height = screen.availableGeometry().height() if screen else 900
+        # 720 px -> 30 px, 1080 px -> 40 px, 1440 px -> 50 px.
+        return max(30, min(50, int(round(30 + (screen_height - 720) * 20 / 720))))
+
     def _fit_all_button_texts(self):
-        """
-        Passt ALLE Buttons an die aktuell berechnete Fensterbreite an.
-        Wird mehrfach beim Start und nach Resize ausgeführt.
-        """
-        buttons = []
+        """Zentriert und skaliert alle Buttons nach jeder Größen-/Textänderung."""
+        from PyQt6.QtWidgets import QPushButton, QToolButton, QSizePolicy
+        from PyQt6.QtGui import QFont, QFontMetrics
 
-        # ---------------------------------------------------------
-        # GRID / PATCH BUTTONS
-        # ---------------------------------------------------------
-        try:
-            grid_buttons = getattr(self, "buttons", {})
-            if isinstance(grid_buttons, dict):
-                for btn in grid_buttons.values():
-                    if btn is not None:
-                        buttons.append(btn)
-        except Exception:
-            pass
+        height = self._responsive_button_height()
+        buttons = list(self.findChildren(QPushButton)) + list(self.findChildren(QToolButton))
+        # Auch eventuell separat verwaltete Buttons berücksichtigen.
+        for collection_name in ("all_buttons", "buttons", "option_buttons"):
+            collection = getattr(self, collection_name, None)
+            values = collection.values() if isinstance(collection, dict) else (collection or [])
+            for value in values:
+                if isinstance(value, (tuple, list)):
+                    value = value[0] if value else None
+                if isinstance(value, (QPushButton, QToolButton)):
+                    buttons.append(value)
 
-        # ---------------------------------------------------------
-        # OPTION BUTTONS
-        # ---------------------------------------------------------
-        try:
-            option_buttons = getattr(self, "option_buttons", {})
-            if isinstance(option_buttons, dict):
-                for item in option_buttons.values():
-                    if isinstance(item, (tuple, list)):
-                        btn = item[0] if item else None
-                    else:
-                        btn = item
-                    if btn is not None:
-                        buttons.append(btn)
-        except Exception:
-            pass
-
-        # ---------------------------------------------------------
-        # SONDERBUTTONS
-        # ---------------------------------------------------------
-        for attr in (
-            "btn_s3",
-            "btn_s4",
-            "btn_ncam",
-            "btn_modifier",
-            "btn_patch_online",
-        ):
-            try:
-                btn = getattr(self, attr, None)
-                if btn is not None:
-                    buttons.append(btn)
-            except Exception:
-                pass
-
-        # ---------------------------------------------------------
-        # Doppelte Buttons entfernen & Kürzung anwenden
-        # ---------------------------------------------------------
         seen = set()
         for btn in buttons:
             try:
-                ident = id(btn)
-                if ident in seen:
+                if id(btn) in seen:
                     continue
-                seen.add(ident)
-                self._fit_button_text(btn)
+                seen.add(id(btn))
+                text = " ".join(btn.text().replace("\n", " ").split())
+                btn.setFixedHeight(height)
+                btn.setMinimumWidth(0)
+                btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                btn.setStyleSheet(btn.styleSheet() + "\nQPushButton, QToolButton { text-align: center; }")
+                if text:
+                    btn.setToolTip(btn.toolTip() or text)
+                    font = QFont(btn.font())
+                    font.setBold(True)
+                    available = max(45, btn.contentsRect().width() - 16)
+                    if btn.width() <= 1:
+                        available = max(45, btn.sizeHint().width() - 16)
+                    # So groß wie möglich, aber so klein wie nötig, damit der
+                    # komplette Text einzeilig in die vorhandene Buttonbreite passt.
+                    for point_size in range(min(14, max(8, font.pointSize())), 6, -1):
+                        font.setPointSize(point_size)
+                        if QFontMetrics(font).horizontalAdvance(text) <= available:
+                            break
+                    btn.setFont(font)
+                btn.updateGeometry()
             except RuntimeError:
-                pass
-            except Exception as e:
-                print(f"[_fit_all_button_texts] Fehler: {e}")
-
-    def _fit_button_text(self, btn):
-        """Hält Button-Texte innerhalb der verfügbaren Breite, ohne Layouts aufzuziehen."""
-        from PyQt6.QtWidgets import QPushButton
-        from PyQt6.QtGui import QFont, QFontMetrics
-
-        try:
-            if not isinstance(btn, QPushButton):
-                return
-            text = btn.text().strip()
-            if not text:
-                return
-
-            # Text niemals durch künstliche Mindestbreiten ins Grid drücken.
-            # Den vollständigen Originaltext im Tooltip zugänglich halten.
-            btn.setToolTip(btn.toolTip() or text)
-            font = QFont(btn.font())
-            font.setBold(True)
-            font.setWordSpacing(0)
-            font.setStretch(100)
-
-            available = max(70, btn.contentsRect().width() - 22)
-            if btn.width() <= 1:
-                available = max(70, btn.sizeHint().width() - 22)
-
-            # Kleinste gut lesbare Schrift wählen, die den Text einzeilig hält.
-            for point_size in (10, 9, 8, 7):
-                font.setPointSize(point_size)
-                if QFontMetrics(font).horizontalAdvance(text) <= available:
-                    break
-            btn.setFont(font)
-            btn.setMinimumWidth(0)
-            btn.setMinimumHeight(0)
-            btn.setSizePolicy(
-                btn.sizePolicy().Policy.Expanding,
-                btn.sizePolicy().Policy.Fixed,
-            )
-            btn.update()
-        except Exception as e:
-            print(f"[_fit_button_text] Visueller Fehler: {e}")
+                continue
+            except Exception as exc:
+                print(f"[_fit_all_button_texts] Button-Anpassung fehlgeschlagen: {exc}")
 
     def fix_all_tool_permissions(self, **kwargs):
         """Setzt rekursiv Schreibrechte mit ProgressBar, Sound und Sprachprüfung."""
@@ -2955,7 +3081,7 @@ class PatchManagerGUI(QWidget):
     def start_s4_install(self):
         """Startet die SimpleBuild 4 Installation über Worker, Pfad wählbar und OS-optimiert."""
         import os, platform
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox, QInputDialog
 
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
@@ -3069,84 +3195,109 @@ class PatchManagerGUI(QWidget):
 
     # ========================== S3 ==========================
     
+    
     def select_s3_path_manually(self):
-        """Dialog zur manuellen Auswahl des S3 Pfads."""
+        """Dialog zur manuellen Auswahl des S3-Pfads."""
         from PyQt6.QtWidgets import QFileDialog, QMessageBox
-        import os, platform
+        import os
+        import platform
+        import traceback
 
         lang = getattr(self, "LANG", "de").lower()[:2]
-        t = {
-            "de": {
-                "hint": "S3 Ordner wählen", 
-                "ok": "S3 Pfad gesetzt",
-                "err_title": "Fehler",
-                "err_msg": "Die ausführbare S3-Datei wurde in diesem Ordner nicht gefunden!"
-            },
-            "en": {
-                "hint": "Select S3 folder", 
-                "ok": "S3 path set",
-                "err_title": "Error",
-                "err_msg": "The executable S4 file was not found in this folder!"
-            },
-        }.get(lang, {
-            "hint": "Select S3 folder", 
-            "ok": "S3 path set",
-            "err_title": "Error",
-            "err_msg": "The executable S3 file was not found in this folder!"
-        })
+
+        if lang == "en":
+            hint = "Select S3 folder"
+            ok_text = "S3 path set"
+            err_title = "Error"
+            err_msg = "The S3 executable (s3 or s3.exe) was not found in this folder."
+        else:
+            hint = "S3-Ordner wählen"
+            ok_text = "S3-Pfad gesetzt"
+            err_title = "Fehler"
+            err_msg = "Die ausführbare S3-Datei wurde in diesem Ordner nicht gefunden!"
 
         is_win = platform.system() == "Windows"
-
-        # Startpfad ermitteln (Fallback auf plattformgerechten Standard)
         default_start = "C:\\s3" if is_win else "/opt/s3"
         start_path = getattr(self, "S3_PATH", default_start)
+
         if not os.path.exists(start_path):
             start_path = os.path.expanduser("~")
 
-        chosen_dir = QFileDialog.getExistingDirectory(self, t["hint"], start_path)
+        chosen_dir = QFileDialog.getExistingDirectory(
+            self, hint, start_path
+        )
 
         if not chosen_dir:
-            return  # Abbruch durch den Nutzer
+            return
 
-        # Pfad säubern und normalisieren
         chosen_dir = os.path.normpath(chosen_dir)
-        sub_folder = "s3"
 
-        # Wir suchen flexibel nach s3 oder s3.exe
-        possible_exes = ["s3", "s3.exe"]
-        exists = False
+        # Ausführbare Datei direkt oder im Unterordner s3 suchen
+        found_path = None
 
-        # Alle Kombinationen direkt oder im Unterordner 's3' prüfen
-        for exe in possible_exes:
-            path_direct = os.path.join(chosen_dir, exe)
-            path_sub = os.path.join(chosen_dir, sub_folder, exe)
-            
-            if os.path.exists(path_direct) or os.path.exists(path_sub):
-                # Wenn es im Unterordner liegt, passen wir den Pfad automatisch an
-                if os.path.exists(path_sub) and not chosen_dir.lower().endswith(sub_folder.lower()):
-                    chosen_dir = os.path.join(chosen_dir, sub_folder)
-                exists = True
+        for exe in ("s3.exe", "s3"):
+            direct = os.path.join(chosen_dir, exe)
+            sub = os.path.join(chosen_dir, "s3", exe)
+
+            if os.path.isfile(direct):
+                found_path = chosen_dir
                 break
 
-        if exists:
-            self.S3_PATH = os.path.normpath(chosen_dir)
-            
-            # Zentrales Speichern in der Config
-            if "save_config" in globals():
-                save_config({"s3_custom_path": self.S3_PATH}, gui_instance=self)
-                
-            # UI direkt aktualisieren, damit der Button sofort grün wird ("S3 OK")
+            if os.path.isfile(sub):
+                found_path = os.path.join(chosen_dir, "s3")
+                break
+
+        if found_path is None:
+            QMessageBox.warning(self, err_title, err_msg)
+            return
+
+        old_path = getattr(self, "S3_PATH", default_start)
+        self.S3_PATH = os.path.normpath(found_path)
+
+        try:
+            # Nur den Pfad speichern; keine unnötigen UI-Effekte auslösen.
+            success = save_config(
+                {"s3_custom_path": self.S3_PATH},
+                gui_instance=None,
+                silent=True
+            )
+
+            if not success:
+                self.S3_PATH = old_path
+                QMessageBox.critical(
+                    self,
+                    err_title,
+                    "Der S3-Pfad konnte nicht gespeichert werden."
+                )
+                return
+
+            # Die gespeicherte Konfiguration mit der GUI synchronisieren.
+            if not isinstance(getattr(self, "current_config", None), dict):
+                self.current_config = {}
+
+            self.current_config["s3_custom_path"] = self.S3_PATH
+
             if hasattr(self, "update_ui_texts"):
                 self.update_ui_texts()
-                
-            QMessageBox.information(self, "OK", f"{t['ok']}:\n{self.S3_PATH}")
-        else:
-            QMessageBox.warning(self, t["err_title"], t["err_msg"])
+
+            QMessageBox.information(
+                self, "OK", f"{ok_text}:\n{self.S3_PATH}"
+            )
+
+        except Exception as exc:
+            traceback.print_exc()
+
+            QMessageBox.critical(
+                self,
+                err_title,
+                f"Fehler beim Setzen des S3-Pfads:\n{exc}"
+            )
+
 
     def start_s3_install(self):
         """Startet die S3 Installation über Worker, Pfad wählbar und OS-optimiert."""
         import os, platform
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox, QInputDialog
 
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
@@ -3172,9 +3323,20 @@ class PatchManagerGUI(QWidget):
         if not chosen_dir:
             return  # Abbruch durch Nutzer
 
-        # --- WINDOWS & VM FIX: Pfad normalisieren ---
-        # Macht aus / und \ den jeweils richtigen Trenner für das OS
-        self.S3_PATH = os.path.normpath(chosen_dir)
+        # Nicht den Repository-Unterordner "support" als Installationsbasis
+        # verwenden. Wenn .../s3/support gewählt wurde, auf .../s3 gehen;
+        # andernfalls den Ordner oberhalb von support als Basis nehmen.
+        chosen_path = os.path.normpath(chosen_dir)
+        if os.path.basename(chosen_path).lower() == "support":
+            parent_path = os.path.dirname(chosen_path)
+            if os.path.basename(parent_path).lower() == "s3":
+                chosen_path = parent_path
+            else:
+                chosen_path = os.path.dirname(chosen_path)
+
+        # S3_PATH bezeichnet den gemeinsamen Basisordner; der Worker legt
+        # das Repository direkt in <Basisordner>/s3 ab.
+        self.S3_PATH = os.path.normpath(chosen_path)
 
         try:
             # Ordner erstellen (Dank deines Admin-Elevators klappt das auch auf C:\)
@@ -3206,7 +3368,35 @@ class PatchManagerGUI(QWidget):
 
         # 3. Worker starten
         # WICHTIG: Der S3InstallWorker muss intern os.path.join nutzen!
-        self.s3_worker = S3InstallWorker(self.S3_PATH)
+        # Repository auswählen
+        repositories = list(S3InstallWorker.REPOSITORIES.keys())
+
+        selected_repo, ok = QInputDialog.getItem(
+            self,
+            "S3 Installation",
+            "Welches S3-Repository möchtest du installieren?",
+            repositories,
+            0,
+            False,
+        )
+
+        if not ok or not selected_repo:
+            self.btn_s3.setEnabled(True)
+            self.btn_s3.setText("S3")
+            return
+
+        # Ausgewählte Repository-URL ermitteln
+        repo_url = S3InstallWorker.REPOSITORIES[selected_repo]
+
+        # Worker mit dem ausgewählten Repository starten
+        self.s3_worker = S3InstallWorker(
+            base_target_dir=self.S3_PATH,
+            repo_url=repo_url,
+            project_name=selected_repo,
+            sub_folder="s3",
+            parent=self,
+        )
+
         self.s3_worker.finished_signal.connect(self.on_s3_finished)
         self.s3_worker.start()
 
@@ -3448,81 +3638,213 @@ class PatchManagerGUI(QWidget):
 
             QTimer.singleShot(3000, restore_pbar)
 
+    
+    
     def start_s3_menu(self):
-        """Startet das S3-Menü unter Windows in WSL2 und unter Linux nativ."""
+        """Startet das gewählte S3-Menü unter Windows/WSL2 oder Linux."""
 
-        # --- Final Label ausblenden ---
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
         elif hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
-        
-        import os, shutil, platform, subprocess, urllib.request, tarfile
+
+        import os
+        import shutil
+        import platform
 
         s3_exec = None
         is_de = getattr(self, "LANG", "de") == "de"
         is_win = platform.system() == "Windows"
 
-        # 1. Basis-Pfad holen
-        default_start = "C:\\s3" if is_win else "/opt/s3"
-        s3_path = getattr(self, "S3_PATH", default_start)
+        # ---------------------------------------------------------
+        # WINDOWS: Variante auswählen und über WSL2 starten
+        # ---------------------------------------------------------
         if is_win:
+            from PyQt6.QtWidgets import QApplication, QMessageBox
+            from windows_msys2_setup import prepare_tool, launch_tool_menu
+
+            choice = QMessageBox(self)
+            choice.setWindowTitle("S3 Simplebuild auswählen")
+            choice.setText("Welches S3-Menü möchtest du starten?")
+            choice.setInformativeText(
+                "Gorgone verwendet den Ordner 's3'.\n"
+                "Speedy005 verwendet den Ordner 's3_speedy005_clean'."
+            )
+
+            gorgone_btn = choice.addButton(
+                "S3 Gorgone",
+                QMessageBox.ButtonRole.AcceptRole,
+            )
+            speedy_btn = choice.addButton(
+                "S3 Speedy005",
+                QMessageBox.ButtonRole.ActionRole,
+            )
+            choice.addButton(
+                "Abbrechen",
+                QMessageBox.ButtonRole.RejectRole,
+            )
+
+            choice.exec()
+            selected = choice.clickedButton()
+
+            if selected not in (gorgone_btn, speedy_btn):
+                return
+
             try:
-                from windows_msys2_setup import prepare_tool
-                from PyQt6.QtWidgets import QApplication, QMessageBox
                 def _setup_log(line):
                     if hasattr(self, "info_text") and self.info_text:
-                        self.info_text.append(str(line).replace("&", "&amp;").replace("<", "&lt;"))
+                        safe_line = (
+                            str(line)
+                            .replace("&", "&amp;")
+                            .replace("<", "&lt;")
+                            .replace(">", "&gt;")
+                        )
+                        self.info_text.append(safe_line)
                     QApplication.processEvents()
-                s3_path = str(prepare_tool("s3", s3_path, log=_setup_log))
+
+                # Fester Projektpfad: nicht aus S3_PATH ableiten,
+                # weil dieser Pfad aus der alten Konfiguration stammen kann.
+                project_dir = os.path.dirname(os.path.abspath(__file__))
+
+                if selected is gorgone_btn:
+                    tool_name = "s3"
+                    folder_name = "s3"
+                else:
+                    tool_name = "s3_speedy005"
+                    folder_name = "s3_speedy005"
+
+                variant_path = os.path.join(project_dir, folder_name)
+
+                _setup_log(f"S3-Variante: {tool_name}")
+                _setup_log(f"Zielordner: {variant_path}")
+
+                # Vorhandenes Ziel niemals automatisch umbenennen,
+                # löschen oder auf ein anderes Repository umstellen.
+                s3_path = str(
+                    prepare_tool(
+                        tool_name,
+                        variant_path,
+                        log=_setup_log,
+                    )
+                )
+
                 self.S3_PATH = s3_path
+
+                if not isinstance(
+                    getattr(self, "current_config", None), dict
+                ):
+                    self.current_config = {}
+
+                self.current_config["s3_custom_path"] = s3_path
+
                 if "save_config" in globals():
-                    save_config({"s3_custom_path": self.S3_PATH}, gui_instance=self, silent=True)
-                from windows_msys2_setup import launch_tool_menu
-                launch_tool_menu("s3", s3_path, log=_setup_log)
+                    save_config(
+                        {"s3_custom_path": s3_path},
+                        gui_instance=self,
+                        silent=True,
+                    )
+
+                launch_tool_menu(
+                    tool_name,
+                    s3_path,
+                    log=_setup_log,
+                )
                 return
+
             except Exception as exc:
-                QMessageBox.critical(self, "S3 / WSL2", f"WSL2-Einrichtung oder S3-Start fehlgeschlagen:\n{exc}")
+                QMessageBox.critical(
+                    self,
+                    "S3 / WSL2",
+                    "WSL2-Einrichtung oder S3-Start fehlgeschlagen:\n"
+                    f"{exc}",
+                )
                 return
+
+        # ---------------------------------------------------------
+        # LINUX: Bisherigen nativen Startablauf beibehalten
+        # ---------------------------------------------------------
+        default_start = "/opt/s3"
+        s3_path = getattr(self, "S3_PATH", default_start)
         sub_folder = "s3"
 
-        possible_names = ["s3", "s3.exe"] if is_win else ["s3"]
+        possible_names = ["s3"]
         possible_paths = []
 
         for name in possible_names:
             possible_paths.append(os.path.join(s3_path, name))
-            possible_paths.append(os.path.join(s3_path, sub_folder, name))
+            possible_paths.append(
+                os.path.join(s3_path, sub_folder, name)
+            )
 
-        if is_win:
-            possible_paths.extend(["C:\\s3\\s3", "C:\\s3\\s3.exe", "C:\\opt\\s3\\s3"])
-        else:
-            possible_paths.extend(["/opt/s3_neu/s3", "/opt/s3/s3", os.path.expanduser("~/s3/s3"), shutil.which("s3")])
+        possible_paths.extend([
+            "/opt/s3_neu/s3",
+            "/opt/s3/s3",
+            os.path.expanduser("~/s3/s3"),
+            shutil.which("s3"),
+        ])
 
-        # 2. Validieren
         for path in possible_paths:
             if path and os.path.exists(path) and not os.path.isdir(path):
-                if is_win or os.access(path, os.X_OK):
+                if os.access(path, os.X_OK):
                     s3_exec = os.path.normpath(path)
-                
-                    if sub_folder in path.lower() and not s3_path.lower().endswith(sub_folder.lower()):
-                       self.S3_PATH = os.path.normpath(os.path.join(s3_path, sub_folder))
-                       if "save_config" in globals():
-                            save_config({"s3_custom_path": self.S3_PATH}, gui_instance=self, silent=True)
+
+                    if (
+                        sub_folder in path.lower()
+                        and not s3_path.lower().endswith(sub_folder.lower())
+                    ):
+                        self.S3_PATH = os.path.normpath(
+                            os.path.join(s3_path, sub_folder)
+                        )
+                    else:
+                        self.S3_PATH = os.path.normpath(s3_path)
+
+                    success = save_config(
+                        {"s3_custom_path": self.S3_PATH},
+                        gui_instance=None,
+                        silent=True,
+                    )
+
+                    if not success:
+                        from PyQt6.QtWidgets import QMessageBox
+                        QMessageBox.warning(
+                            self,
+                            "Fehler",
+                            "Der S3-Pfad konnte nicht gespeichert werden.",
+                        )
+                        return
+
+                    if not isinstance(
+                        getattr(self, "current_config", None), dict
+                    ):
+                        self.current_config = {}
+
+                    self.current_config["s3_custom_path"] = self.S3_PATH
                     break
 
-        # 3. Ausführung
         if s3_exec:
             if hasattr(self, "append_info") and hasattr(self, "info_text"):
                 msg = f"🚀 S3 Menü: {s3_exec}"
                 self.append_info(self.info_text, msg, "info")
 
-            # Terminal starten
-            self.open_terminal(s3_path=s3_exec, use_sudo=not is_win)
+            self.open_terminal(
+                s3_path=s3_exec,
+                use_sudo=True,
+            )
         else:
-            err_msg = "❌ Fehler: s3 Startdatei nicht gefunden!" if is_de else "❌ Error: s3 executable not found!"
+            err_msg = (
+                "❌ Fehler: S3-Startdatei nicht gefunden!"
+                if is_de
+                else "❌ Error: S3 executable not found!"
+            )
+
             if hasattr(self, "info_text") and self.info_text:
-                self.info_text.append(f'<br><span style="color:red;"><b>{err_msg}</b></span>')
+                self.info_text.append(
+                    f'<br><span style="color:red;"><b>{err_msg}</b></span>'
+                )
+
             self.open_terminal()
+
+
 
     def start_s4_menu(self):
         """Startet SimpleBuild 4 unter Windows in WSL2 und unter Linux nativ."""
@@ -7986,6 +8308,8 @@ class PatchManagerGUI(QWidget):
         Passt Header, Logo, Schriftgrößen und Overlay an.
         """
         super().resizeEvent(event)
+        # Buttonhöhen und Beschriftungen bei jeder Fenstergrößenänderung neu berechnen.
+        QTimer.singleShot(0, self._fit_all_button_texts)
 
         # 1. Header-Steuerelemente responsiv anpassen
         if hasattr(self, "header_widget"):
@@ -9702,16 +10026,12 @@ class PatchManagerGUI(QWidget):
         if rect.width() <= 0 or rect.height() <= 0:
             return
 
-        # MAXIMALE LOGO-GRÖSSE HIER EINSTELLEN
-        MAX_LOGO_WIDTH = 550
-        MAX_LOGO_HEIGHT = 150
-
-        width = min(rect.width(), MAX_LOGO_WIDTH)
-        height = min(rect.height(), MAX_LOGO_HEIGHT)
-
+        # Die verfügbare Fläche des Labels bestimmt die Logo-Größe.
+        # Keine festen Pixel-Maxima: Das Banner wächst/schrumpft mit der
+        # Fenster- und Bildschirmgröße und behält sein Seitenverhältnis.
         self.update_logo(
-            width=width,
-            height=height,
+            width=rect.width(),
+            height=rect.height(),
             fill_gap=False,
         )
 
@@ -12259,7 +12579,7 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         self.UI_BUTTON_H = 50
         self.UI_BADGE_H = 50
-        self.UI_PROGRESS_H = 24
+        self.UI_PROGRESS_H = 25
         self.UI_STATUS_H = 50
         self.UI_RADIUS = 10
 
@@ -12407,8 +12727,9 @@ class PatchManagerGUI(QWidget):
         time_date_layout.addWidget(self.date_label, alignment=Qt.AlignmentFlag.AlignLeft)
 
 
+        
         # =========================================================
-        # BUTTON CARD (STEAM STYLE)
+        # BUTTON CARD + S3 REPOSITORY-AUSWAHL
         # =========================================================
 
         btn_card = QWidget()
@@ -12424,18 +12745,99 @@ class PatchManagerGUI(QWidget):
         for _install_btn in (self.btn_s3, self.btn_s4, self.btn_ncam):
             _install_btn.setMinimumSize(105, 50)
             _install_btn.setMaximumWidth(260)
-            _install_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+            _install_btn.setSizePolicy(
+                QSizePolicy.Policy.Preferred,
+                QSizePolicy.Policy.Fixed,
+            )
 
         s3_s4_h_layout.addWidget(self.btn_s3)
         s3_s4_h_layout.addWidget(self.btn_s4)
-
         btn_card_layout.addLayout(s3_s4_h_layout)
 
         btn_card_layout.addWidget(
             self.btn_ncam,
-            alignment=Qt.AlignmentFlag.AlignCenter
+            alignment=Qt.AlignmentFlag.AlignCenter,
         )
 
+        # ---------------------------------------------------------
+        # S3 GIT-REPOSITORY AUSWÄHLEN
+        # ---------------------------------------------------------
+        self.s3_repository_options = {
+            "S3 Simplebuild (Original)": "https://github.com/gorgone/s3_releases.git",
+            "S3 Simplebuild speeddy005": "https://github.com/speedy005/speedy005-S3-Simplebuild.git",
+        }
+
+        # Konfiguration laden, sofern noch nicht vorhanden.
+        if not isinstance(getattr(self, "current_config", None), dict):
+            self.current_config = {}
+
+        self.cfg = self.current_config
+
+        saved_repo_name = self.current_config.get(
+            "s3_repository_name",
+            "S3 Simplebuild (Original)",
+        )
+
+        if saved_repo_name == "S3 Simplebuild":
+            saved_repo_name = "S3 Simplebuild speeddy005"
+        if saved_repo_name not in self.s3_repository_options:
+            saved_repo_name = "S3 Simplebuild (Original)"
+
+        self.selected_s3_repository = saved_repo_name
+
+        self.s3_repo_label = QLabel("S3 Git-Quelle:")
+        self.s3_repo_label.setAlignment(
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+        )
+        self.s3_repo_label.setStyleSheet(
+            "color: #EAFF00; background: transparent; "
+            "font-weight: bold; border: none;"
+        )
+
+        self.s3_repo_combo = QComboBox()
+        self.s3_repo_combo.setObjectName("s3RepositoryCombo")
+        self.s3_repo_combo.addItems(
+            list(self.s3_repository_options.keys())
+        )
+        self.s3_repo_combo.setCurrentText(saved_repo_name)
+        self.s3_repo_combo.setMinimumWidth(230)
+        self.s3_repo_combo.setMinimumHeight(34)
+        self.s3_repo_combo.setToolTip(
+            "Repository auswählen, das bei der S3-Installation verwendet wird."
+        )
+        self.s3_repo_combo.setStyleSheet("""
+            QComboBox {
+                color: #EAFF00;
+                background-color: #252525;
+                border: 1px solid #666;
+                border-radius: 6px;
+                padding: 5px 8px;
+                font-weight: bold;
+            }
+            QComboBox:hover {
+                border: 1px solid #EAFF00;
+            }
+            QComboBox QAbstractItemView {
+                color: #EAFF00;
+                background-color: #252525;
+                selection-background-color: #444;
+                selection-color: white;
+            }
+        """)
+
+        s3_repo_row = QHBoxLayout()
+        s3_repo_row.setContentsMargins(0, 0, 0, 0)
+        s3_repo_row.setSpacing(6)
+        s3_repo_row.addWidget(self.s3_repo_label)
+        s3_repo_row.addWidget(self.s3_repo_combo, 1)
+
+        # Die Git-Quelle wird erst nach Auswahl des Installationspfads abgefragt.
+        # Deshalb wird die ComboBox nicht unter den drei Hauptbuttons angezeigt.
+
+        # Nur verbinden, nicht zusätzlich den S3-Button verdrahten.
+        self.s3_repo_combo.currentTextChanged.connect(
+            self.on_s3_repository_changed
+        )
 
         # =========================================================
         # LEFT BUILD (ORDER WICHTIG!)
@@ -12443,6 +12845,7 @@ class PatchManagerGUI(QWidget):
 
         left_header_layout.addWidget(time_date_container)
         left_header_layout.addWidget(btn_card)
+
 
 
         # =========================================================
@@ -12549,7 +12952,7 @@ class PatchManagerGUI(QWidget):
         patch_button_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.header_btn_s3_ncam = QPushButton(self.TEXT.get("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad"))
-        self.header_btn_s3_ncam.setMinimumSize(200, 40)
+        self.header_btn_s3_ncam.setMinimumSize(200, 50)
         self.header_btn_s3_ncam.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_s3_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s3_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
@@ -12561,7 +12964,7 @@ class PatchManagerGUI(QWidget):
         path_button_layout.addWidget(self.header_btn_s3_ncam)
 
         self.header_btn_s4 = QPushButton(self.TEXT.get("patch_folder_s4", "S4-Pfad"))
-        self.header_btn_s4.setMinimumSize(200, 40)
+        self.header_btn_s4.setMinimumSize(200, 50)
         self.header_btn_s4.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
@@ -12574,7 +12977,7 @@ class PatchManagerGUI(QWidget):
 
         # Die beiden Patch-Kopieraktionen ebenfalls untereinander.
         self.header_btn_patch_ncam = QPushButton(self.TEXT.get("patch_copy_s3_ncam", "Patch → S3-NCam"))
-        self.header_btn_patch_ncam.setMinimumSize(200, 40)
+        self.header_btn_patch_ncam.setMinimumSize(200, 50)
         self.header_btn_patch_ncam.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_patch_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
@@ -12590,7 +12993,7 @@ class PatchManagerGUI(QWidget):
         patch_button_layout.addWidget(self.header_btn_patch_ncam)
 
         self.header_btn_patch_s4 = QPushButton(self.TEXT.get("patch_copy_s4", "Patch → S4"))
-        self.header_btn_patch_s4.setMinimumSize(200, 40)
+        self.header_btn_patch_s4.setMinimumSize(200, 50)
         self.header_btn_patch_s4.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_patch_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
@@ -12991,7 +13394,7 @@ class PatchManagerGUI(QWidget):
             # Tool Container
             t_widget = QWidget()
             # FIX 2: Feste Breite für Container verhindert Layout-Verschiebungen in der Zeile
-            t_widget.setMinimumWidth(120)
+            t_widget.setMinimumWidth(80)
             t_lay = QHBoxLayout(t_widget)
             t_lay.setContentsMargins(0, 0, 0, 0)
             t_lay.setSpacing(6)
@@ -13094,7 +13497,7 @@ class PatchManagerGUI(QWidget):
         controls_group = QFrame()
         # FIX: Wir setzen eine feste Mindesthöhe für den gesamten Block,
         # damit er beim Start nicht zusammenfällt.
-        controls_group.setMinimumHeight(150)
+        controls_group.setMinimumHeight(100)
 
         controls_group.setStyleSheet(
             f"""
@@ -13220,7 +13623,7 @@ class PatchManagerGUI(QWidget):
 
         # --- 2. Farbe/Style (Kompakt) ---
         self.color_label = make_label(self.get_t("color_label", "Farbe:"))
-        self.color_label.setFixedWidth(150)
+        self.color_label.setFixedWidth(120)
         self.color_label.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
@@ -13230,7 +13633,7 @@ class PatchManagerGUI(QWidget):
         saved_color = self.cfg.get("theme_color", "Classics")
         index = self.color_box.findText(saved_color)
         self.color_box.setCurrentIndex(index if index >= 0 else 0)
-        self.color_box.setFixedSize(150, CONTROL_HEIGHT)
+        self.color_box.setFixedSize(120, CONTROL_HEIGHT)
         self.color_box.setStyleSheet(control_style)
         self.color_box.currentIndexChanged.connect(self.change_colors)
 
@@ -13861,9 +14264,31 @@ class PatchManagerGUI(QWidget):
                     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                         self.current_config = json.load(f)
                     self.cfg = self.current_config
-                except:
+                except Exception as e:
+                    print(f"Fehler beim Laden der Konfiguration: {e}")
                     self.current_config = {}
                     self.cfg = self.current_config
+            else:
+                self.current_config = {}
+                self.cfg = self.current_config
+
+        # S3-Git-Repositories
+        self.s3_repository_options = {
+            "S3 Simplebuild (Original)": "https://github.com/gorgone/s3_releases.git",
+            "S3 Simplebuild speeddy005": "https://github.com/speedy005/speedy005-S3-Simplebuild.git",
+        }
+
+        # Gespeicherte Auswahl wiederherstellen
+        self.selected_s3_repository = self.current_config.get(
+            "s3_repository_name",
+            "S3 Simplebuild (Original)"
+        )
+
+        if self.selected_s3_repository not in self.s3_repository_options:
+            self.selected_s3_repository = "S3 Simplebuild (Original)"
+
+        self.s3_repo_combo = None
+        self.s3_install_worker = None
 
         cfg = getattr(self, "current_config", {})
         saved_theme = cfg.get("theme_mode", "standard")

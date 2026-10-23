@@ -194,29 +194,46 @@ def _windows_msys2_log_adapter(worker):
     return _log
 
 
-def _windows_prepare_or_reuse(tool, base_target_dir, log=None):
-    """Installiert Windows-Abhängigkeiten und verwendet vorhandene Quellen, falls möglich.
+def _windows_prepare_or_reuse(tool, base_target_dir, log=None, repo_url=None):
+    """Bereitet das ausgewählte Repository im richtigen Projektordner vor.
 
-    Erwartete Struktur:
-      <Basisordner>/s3/s3
-      <Basisordner>/s3_ncam_bonecrew/s3
-      <Basisordner>/simplebuild4/simplebuild (oder s4)
+    Wenn der Benutzer den gemeinsamen Basisordner auswählt, wird das Repository
+    in <Basisordner>/<Projektordner> geklont. Wenn bereits der Projektordner
+    selbst ausgewählt wurde, wird genau dieser Ordner verwendet.
 
-    Wenn der Benutzer direkt den jeweiligen Tool-Ordner auswählt, wird dieser
-    ebenfalls erkannt. Vorhandene Dateien werden nicht erneut geklont/überschrieben.
+    Für S3 Simplebuild ergibt sich z. B.:
+        <Basisordner>/s3/
+            support/       (Support-Dateien aus dem Repository)
+            s3             (Startskript, sofern im Repository vorhanden)
+            weitere Dateien und Ordner aus dem Repository
     """
     from pathlib import Path
     from windows_msys2_setup import prepare_tool
 
     log = log or (lambda _message: None)
     base = Path(base_target_dir).expanduser().resolve()
+    # Der Installationsdialog soll den Basisordner bestimmen, nicht den
+    # Repository-Unterordner "support". Falls support gewählt wurde, auf
+    # den S3-Projektordner bzw. dessen Basis zurückgehen.
+    if base.name.lower() == "support":
+        if base.parent.name.lower() == "s3":
+            base = base.parent
+        else:
+            base = base.parent
     folder_names = {
         "s3": "s3",
+        "s3_speedy005": "s3_speedy005",
         "ncam": "s3_ncam_bonecrew",
         "s4": "simplebuild4",
     }
     if tool not in folder_names:
         raise ValueError(f"Unbekanntes Tool: {tool}")
+
+    project_name = folder_names[tool]
+    # Ein direkt ausgewählter Projektordner darf nicht nochmals verschachtelt
+    # werden. Andernfalls wird unter dem gewählten Basisordner ein Projektordner
+    # angelegt (insbesondere <Basisordner>/s3 für S3).
+    target = base if base.name.lower() == project_name.lower() else base / project_name
 
     def is_ready(path):
         if not path.is_dir():
@@ -224,113 +241,217 @@ def _windows_prepare_or_reuse(tool, base_target_dir, log=None):
         if tool == "s4":
             return any((path / name).is_file() for name in
                        ("simplebuild", "simplebuild.exe", "s4", "s4.exe", "simplebuild.sh"))
-        # S3 und NCam/Bonecrew verwenden den Startpunkt "s3".
         return any((path / name).is_file() for name in ("s3", "s3.exe", "simplebuild"))
 
-    # Der Pfad kann entweder der gemeinsame Basisordner oder bereits der
-    # Projektordner selbst sein. prepare_tool erwartet den Basisordner.
-    candidates = [base, base / folder_names[tool]]
-    existing = next((candidate for candidate in candidates if is_ready(candidate)), None)
-    setup_base = base
-    if existing is not None and existing == base and base.name.lower() == folder_names[tool].lower():
-        setup_base = base.parent
-        log(f"Vorhandener Projektordner erkannt: {existing}")
-    elif existing is not None:
-        log(f"Vorhandener Projektordner erkannt: {existing}")
+    if is_ready(target):
+        log(f"Vorhandener Projektordner erkannt: {target}")
     else:
-        log("Kein vorhandener Startpunkt erkannt; Einrichtung prüft, ob das Repository fehlt.")
+        log(f"Repository-Zielordner: {target}")
+        log("Das Repository wird im Projektordner abgelegt; Unterordner wie 'support' bleiben Unterordner.")
 
-    # Wichtig: prepare_tool wird auch bei vorhandenen Quellen aufgerufen, damit
-    # nicht nur MSYS2 selbst, sondern auch die tool-spezifischen Compiler- und
-    # Build-Pakete installiert/validiert werden. Das Setup-Modul muss vorhandene
-    # Repositories wiederverwenden und darf sie nicht erneut klonen/überschreiben.
-    result = prepare_tool(tool, str(setup_base), log=log)
+    # prepare_tool/ensure_repository erwartet den konkreten Zielordner des
+    # Repositorys, nicht dessen übergeordneten Basisordner.
+    result = prepare_tool(tool, str(target), log=log, repo_url=repo_url)
 
-    # Bei vorhandenen Quellen den erkannten Pfad als maßgeblichen Projektpfad
-    # zurückgeben, sofern er nach dem Setup weiterhin existiert.
-    if existing is not None and existing.is_dir():
-        log(f"Vorhandener Quellcode bleibt erhalten: {existing}")
-        return existing
+    if target.is_dir():
+        log(f"Projektpfad: {target}")
+        return target
     return result
 
 
-class S3InstallWorker(QThread):
-    finished_signal = pyqtSignal(bool, str)
 
-    def __init__(self, base_target_dir):
-        super().__init__()
-        self.base_target_dir = os.path.normpath(base_target_dir)
+class S3InstallWorker(QThread):
+    """Installiert S3 aus einem auswählbaren Git-Repository."""
+
+    finished_signal = pyqtSignal(bool, str)
+    log_signal = pyqtSignal(str)
+
+    # Repository-Name -> Git-URL. Jede Quelle wird in einen eigenen
+    # Projektordner installiert; die Git-Struktur bleibt direkt im Zielordner.
+    REPOSITORIES = {
+        "S3 Simplebuild (Original)": "https://github.com/gorgone/s3_releases.git",
+        "S3 Simplebuild speeddy005": "https://github.com/speedy005/speedy005-S3-Simplebuild.git",
+    }
+    TARGET_FOLDERS = {
+        "S3 Simplebuild (Original)": "s3",
+        "S3 Simplebuild speeddy005": "s3_speedy005",
+    }
+    WINDOWS_TOOLS = {
+        "S3 Simplebuild (Original)": "s3",
+        "S3 Simplebuild speeddy005": "s3_speedy005",
+    }
+
+    def __init__(
+        self,
+        base_target_dir,
+        repo_url=None,
+        project_name=None,
+        sub_folder="s3",
+        parent=None,
+    ):
+        super().__init__(parent)
+
+        self.base_target_dir = os.path.normpath(
+            os.path.expanduser(base_target_dir)
+        )
+
+        self.repo_url = (
+            repo_url or self.REPOSITORIES["S3 Standard (Original)"]
+        )
+
+        self.project_name = project_name or self._get_project_name()
+        self.sub_folder = sub_folder
+
+    def _get_project_name(self):
+        for name, url in self.REPOSITORIES.items():
+            if url == self.repo_url:
+                return name
+        return "S3"
+
+    def _log(self, message):
+        message = str(message)
+        print(f"[S3] {message}")
+        self.log_signal.emit(message)
 
     def run(self):
-        # Windows verwendet das separate Bootstrap-Modul; Linux bleibt beim
-        # bisherigen Installationsablauf in dieser Worker-Klasse.
-        if platform.system() == "Windows":
-            try:
-                installed_path = _windows_prepare_or_reuse(
-                    "s3", self.base_target_dir, log=_windows_msys2_log_adapter(self)
-                )
-                self.finished_signal.emit(
-                    True, f"S3 Standard erfolgreich installiert!\nPfad: {installed_path}"
-                )
-            except Exception as e:
-                error_msg = str(e)
-                if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
-                    error_msg += "\n\nTipp: Wählen Sie einen anderen Installationsort oder prüfen Sie die Windows-Berechtigungen."
-                self.finished_signal.emit(False, f"S3 Standard Fehler:\n{error_msg}")
-            return
-
         temp_clone = None
-        proj_name = "S3 Standard"
-        sub_folder = "s3"
-        repo_url = "https://github.com/gorgone/s3_releases"
-        
-        try:
-            final_destination = os.path.join(self.base_target_dir, sub_folder)
-            temp_clone = tempfile.mkdtemp(prefix="s3_standard_clone_")
 
-            # 1. Git Clone
-            is_win = platform.system() == "Windows"
-            subprocess.check_call(
-                ["git", "clone", "--depth", "1", repo_url, temp_clone],
-                shell=False
+        try:
+            self._log(f"Projekt: {self.project_name}")
+            self._log(f"Repository: {self.repo_url}")
+            self._log(f"Zielbasis: {self.base_target_dir}")
+
+            # Unter Windows zunächst das Bootstrap-Modul verwenden.
+            if platform.system() == "Windows":
+                selected_tool = self.WINDOWS_TOOLS.get(self.project_name, "s3")
+                installed_path = _windows_prepare_or_reuse(
+                    selected_tool,
+                    self.base_target_dir,
+                    log=_windows_msys2_log_adapter(self),
+                    repo_url=self.repo_url,
+                )
+
+                self.finished_signal.emit(
+                    True,
+                    f"{self.project_name} erfolgreich installiert!\n"
+                    f"Repository: {self.repo_url}\n"
+                    f"Pfad: {installed_path}",
+                )
+                return
+
+            # Linux und weitere Unix-Systeme
+            # Die Auswahl kann entweder der gemeinsame Basisordner oder
+            # direkt der Projektordner sein. In beiden Fällen soll die
+            # Repository-Struktur direkt in <Basisordner>/s3 liegen.
+            target_folder = self.TARGET_FOLDERS.get(self.project_name, self.sub_folder)
+            if os.path.basename(os.path.normpath(self.base_target_dir)).lower() == target_folder.lower():
+                final_destination = self.base_target_dir
+            else:
+                final_destination = os.path.join(self.base_target_dir, target_folder)
+
+            os.makedirs(self.base_target_dir, exist_ok=True)
+
+            temp_clone = tempfile.mkdtemp(
+                prefix="s3_install_clone_"
             )
 
-            # 2. .git Ordner bereinigen (Windows Fix)
+            self._log("Git-Repository wird geklont ...")
+
+            result = subprocess.run(
+                [
+                    "git",
+                    "clone",
+                    "--depth",
+                    "1",
+                    self.repo_url,
+                    temp_clone,
+                ],
+                shell=False,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                details = (result.stderr or result.stdout or "").strip()
+                raise RuntimeError(
+                    f"Git Clone fehlgeschlagen:\n{details}"
+                )
+
+            self._log("Repository erfolgreich geklont.")
+
+            # Git-Metadaten aus der Installation entfernen.
             git_dir = os.path.join(temp_clone, ".git")
-            if os.path.exists(git_dir):
-                if is_win:
-                    subprocess.run(['attrib', '-R', os.path.join(git_dir, '*'), '/S', '/D'], 
-                                   shell=False, capture_output=True)
-                shutil.rmtree(git_dir, ignore_errors=True)
 
-            # 3. Zielordner erstellen und kopieren
+            if os.path.isdir(git_dir):
+                shutil.rmtree(git_dir)
+
+            # Zielverzeichnis anlegen und Projektdateien kopieren.
             os.makedirs(final_destination, exist_ok=True)
+
             for item in os.listdir(temp_clone):
-                s = os.path.join(temp_clone, item)
-                d = os.path.join(final_destination, item)
-                if os.path.isdir(s):
-                    shutil.copytree(s, d, dirs_exist_ok=True)
+                source = os.path.join(temp_clone, item)
+                destination = os.path.join(final_destination, item)
+
+                if os.path.isdir(source):
+                    shutil.copytree(
+                        source,
+                        destination,
+                        dirs_exist_ok=True,
+                    )
                 else:
-                    shutil.copy2(s, d)
+                    shutil.copy2(source, destination)
 
-            # 4. Linux Rechte setzen
+            self._log("Dateien wurden kopiert.")
+
+            # Ausführungsrechte setzen.
             if platform.system() == "Linux":
-                try:
-                    subprocess.call(["chmod", "-R", "755", final_destination])
-                except:
-                    pass
+                result = subprocess.run(
+                    [
+                        "chmod",
+                        "-R",
+                        "755",
+                        final_destination,
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
 
-            self.finished_signal.emit(True, f"{proj_name} erfolgreich in '{sub_folder}' installiert!")
+                if result.returncode != 0:
+                    self._log(
+                        "Warnung: Dateirechte konnten nicht vollständig "
+                        "gesetzt werden."
+                    )
+
+            self.finished_signal.emit(
+                True,
+                f"{self.project_name} erfolgreich installiert!\n"
+                f"Repository: {self.repo_url}\n"
+                f"Pfad: {final_destination}",
+            )
 
         except Exception as e:
             error_msg = str(e)
-            if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
-                error_msg += "\n\nTipp: Starten Sie das Programm als Admin oder wählen Sie einen anderen Installationsort."
-            self.finished_signal.emit(False, f"{proj_name} Fehler: {error_msg}")
+
+            if (
+                "Permission denied" in error_msg
+                or "[Errno 13]" in error_msg
+                or "WinError 5" in error_msg
+            ):
+                error_msg += (
+                    "\n\nTipp: Wählen Sie einen anderen "
+                    "Installationsordner oder prüfen Sie die "
+                    "Dateiberechtigungen."
+                )
+
+            self.finished_signal.emit(
+                False,
+                f"{self.project_name} Fehler:\n{error_msg}",
+            )
 
         finally:
             if temp_clone and os.path.exists(temp_clone):
                 shutil.rmtree(temp_clone, ignore_errors=True)
+
 
 import os
 import shutil

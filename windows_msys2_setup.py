@@ -1,26 +1,29 @@
+
 # -*- coding: utf-8 -*-
-"""
-Cross-platform Simplebuild launcher.
+"""Cross-platform Simplebuild launcher and repository preparation helpers.
 
 Windows:
-- Prüft WSL2 und Ubuntu.
-- Klont nur, wenn das Zielverzeichnis fehlt oder leer ist.
-- Verwendet vorhandene Repository-Kopien weiter.
-- Aktualisiert Git-Referenzen, ohne lokale Änderungen zu überschreiben.
-- Bei fehlgeschlagenem Fetch kann ein vorhandenes Repository lokal
-  weiterverwendet werden.
+- Prüft WSL2 und Ubuntu und fragt vor einer Installationsanforderung nach.
+- Klont ausschließlich in fehlende oder leere Zielverzeichnisse.
+- Verwendet passende vorhandene Git-Repositories weiter.
+- Aktualisiert Git-Referenzen per fetch, ohne lokale Dateien zurückzusetzen.
+- Ändert keine vorhandenen origin-URLs automatisch.
+- Bricht bei unpassenden oder nicht eindeutig zuordenbaren Repositories ab.
 - Startet Simplebuild in einem separaten WSL-Konsolenfenster.
 
 Linux:
-- Verwendet die vorhandenen Quellen und startet Simplebuild in einem
-  nativen Terminal.
+- Verwendet vorhandene Quellen und startet Simplebuild in einem nativen
+  Terminal, sofern ein unterstützter Terminal-Emulator verfügbar ist.
+
+Getrennte S3-Ziele:
+- Gorgone S3:    <base_dir>/s3_gorgone
+- Speedy005 S3:  <base_dir>/s3_speedy005
 
 Startbefehle:
 - S3:   ./s3 menu
 - S4:   ./s4
 - NCam: ./s3 menu
 
-Hinweis:
 Dieses Modul installiert keine zusätzlichen Ubuntu-Buildpakete.
 """
 
@@ -33,20 +36,75 @@ import shlex
 import shutil
 import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 
+
+# ---------------------------------------------------------------------------
+# Repository-Konfiguration und Rückwärtskompatibilität
+# ---------------------------------------------------------------------------
 
 REPOSITORIES = {
+    # Bestehender Aufruf bleibt Gorgone S3.
     "s3": "https://github.com/gorgone/s3_releases.git",
+    "s3_gorgone": "https://github.com/gorgone/s3_releases.git",
+
+    # Speedy005 S3 erhält ein eigenes Repository und Zielverzeichnis.
+    "s3_simplebuild": (
+        "https://github.com/speedy005/"
+        "speedy005-S3-Simplebuild.git"
+    ),
+    "s3_speedy005": (
+        "https://github.com/speedy005/"
+        "speedy005-S3-Simplebuild.git"
+    ),
+
     "s4": "https://git.streamboard.tv/common/simplebuild4.git",
-    "ncam": "https://github.com/speedy005/s3_ncam_bonecrew_test.git",
+    "ncam": (
+        "https://github.com/speedy005/"
+        "s3_ncam_bonecrew_test.git"
+    ),
+}
+
+TOOL_DIRECTORIES = {
+    "s3": "s3_gorgone",
+    "s3_gorgone": "s3_gorgone",
+    "s3_simplebuild": "s3_speedy005",
+    "s3_speedy005": "s3_speedy005",
+    "s4": "s4",
+    "ncam": "ncam",
+}
+
+TOOL_ALIASES = {
+    "s3": "s3_gorgone",
+    "s3_gorgone": "s3_gorgone",
+    "s3_simplebuild": "s3_speedy005",
+    "s3_speedy005": "s3_speedy005",
+    "s4": "s4",
+    "ncam": "ncam",
 }
 
 WSL_DISTRO = "Ubuntu"
 
 
+# ---------------------------------------------------------------------------
+# Allgemeine Hilfsfunktionen
+# ---------------------------------------------------------------------------
+
 def _log_func(log=None):
-    """Gibt eine Log-Funktion zurück."""
     return log or print
+
+
+def _normalise_tool(tool: str) -> str:
+    """Normalisiert Toolnamen und erhält die bisherigen Aliasnamen."""
+    name = str(tool).strip().lower()
+
+    if name not in TOOL_ALIASES:
+        allowed = ", ".join(TOOL_ALIASES)
+        raise ValueError(
+            f"Unbekanntes Tool {name!r}. Erlaubt: {allowed}"
+        )
+
+    return TOOL_ALIASES[name]
 
 
 def _run(
@@ -60,6 +118,7 @@ def _run(
 ):
     """Führt einen Prozess aus und protokolliert seine Ausgabe."""
     command = [str(item) for item in command]
+
     log("Starte: " + subprocess.list2cmdline(command))
 
     result = subprocess.run(
@@ -74,6 +133,7 @@ def _run(
     )
 
     output = (result.stdout or "").strip() if capture else ""
+
     if output:
         log(output)
 
@@ -87,8 +147,48 @@ def _run(
     return result
 
 
+def _clean_wsl_output(value) -> str:
+    return (
+        (value or "")
+        .replace("\x00", "")
+        .replace("\ufeff", "")
+        .replace("\r", "")
+        .strip()
+    )
+
+
+def _normalise_repo_url(url: str) -> str:
+    """Vergleicht HTTPS-, SSH- und Git-URLs ohne .git-Suffix."""
+    value = (url or "").strip()
+
+    if not value:
+        return ""
+
+    if value.startswith("git@") and ":" in value:
+        host_path = value.split("@", 1)[1]
+        host, path = host_path.split(":", 1)
+    else:
+        parsed = urlparse(value)
+        host = parsed.hostname or parsed.netloc
+        path = parsed.path
+
+    return (
+        host.lower().rstrip("/")
+        + "/"
+        + path.strip("/").removesuffix(".git").lower()
+    )
+
+
+def bash_quote(value) -> str:
+    """Maskiert einen Wert für die Verwendung in einem Bash-Befehl."""
+    return shlex.quote(str(value))
+
+
+# ---------------------------------------------------------------------------
+# WSL2 und Ubuntu
+# ---------------------------------------------------------------------------
+
 def _find_wsl() -> str:
-    """Findet wsl.exe unter Windows."""
     if platform.system() != "Windows":
         raise RuntimeError("WSL wird nur unter Windows benötigt.")
 
@@ -112,7 +212,6 @@ def _find_wsl() -> str:
 
 
 def _wsl(arguments, *, log, check=True, capture=True):
-    """Führt einen Befehl über wsl.exe aus."""
     return _run(
         [_find_wsl(), *arguments],
         log=log,
@@ -121,28 +220,12 @@ def _wsl(arguments, *, log, check=True, capture=True):
     )
 
 
-def _clean_wsl_output(value) -> str:
-    """Entfernt typische Steuerzeichen aus der WSL-Ausgabe."""
-    return (
-        (value or "")
-        .replace("\x00", "")
-        .replace("\ufeff", "")
-        .replace("\r", "")
-        .strip()
-    )
-
-
 def _ask_install_wsl(log, reason: str) -> bool:
-    """
-    Fragt unter Windows nach, ob WSL/Ubuntu installiert werden soll.
-    Verwendet einen GUI-Dialog; bei nicht verfügbarer GUI erfolgt
-    eine Rückfrage in der Konsole.
-    """
     question = (
         f"{reason}\n\n"
         "Soll jetzt die Installation von WSL2 und Ubuntu angefordert werden?\n\n"
-        "Hinweis: Windows kann Administratorrechte oder einen Neustart "
-        "verlangen. Die Ubuntu-Ersteinrichtung muss gegebenenfalls danach "
+        "Windows kann Administratorrechte oder einen Neustart verlangen. "
+        "Die Ubuntu-Ersteinrichtung muss gegebenenfalls anschließend "
         "manuell abgeschlossen werden."
     )
 
@@ -152,10 +235,12 @@ def _ask_install_wsl(log, reason: str) -> bool:
 
         root = tk.Tk()
         root.withdraw()
+
         try:
             root.attributes("-topmost", True)
         except Exception:
             pass
+
         try:
             answer = messagebox.askyesno(
                 "WSL2 und Ubuntu installieren?",
@@ -170,19 +255,48 @@ def _ask_install_wsl(log, reason: str) -> bool:
 
     except Exception as exc:
         log(
-            "GUI-Abfrage für WSL konnte nicht geöffnet werden; "
-            f"wechsle zur Konsolenabfrage. Details: {exc}"
+            "GUI-Abfrage für WSL nicht verfügbar; "
+            f"Konsolenabfrage: {exc}"
         )
         print(question)
+
         try:
             answer = input("Jetzt installieren? [j/N]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             return False
+
         return answer in {"j", "ja", "y", "yes"}
 
 
+def _request_wsl_install(log, reason: str) -> None:
+    """Fordert die Installation nur nach ausdrücklicher Zustimmung an."""
+    if not _ask_install_wsl(log, reason):
+        raise RuntimeError(
+            "Installation abgebrochen. WSL2 und Ubuntu wurden "
+            "nicht installiert."
+        )
+
+    result = _run(
+        [_find_wsl(), "--install", "-d", WSL_DISTRO],
+        log=log,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            "WSL2/Ubuntu konnte nicht zur Installation angefordert werden. "
+            "Prüfe Administratorrechte und führe gegebenenfalls "
+            "'wsl --install -d Ubuntu' manuell aus."
+        )
+
+    raise RuntimeError(
+        "Die Installation von WSL2/Ubuntu wurde angefordert. "
+        "Schließe die Einrichtung ab und starte das Tool erneut."
+    )
+
+
 def ensure_wsl(log=None) -> None:
-    """Prüft Ubuntu/WSL2 und fragt vor einer erforderlichen Installation nach."""
+    """Prüft WSL, Ubuntu und die WSL2-Version."""
     if platform.system() != "Windows":
         return
 
@@ -195,34 +309,10 @@ def ensure_wsl(log=None) -> None:
         check=False,
     )
 
-    # Ein fehlgeschlagener Status kann bedeuten, dass WSL noch nicht
-    # eingerichtet ist. Vor der Installationsanforderung immer nachfragen.
     if status.returncode != 0:
-        reason = (
-            "WSL ist noch nicht eingerichtet oder konnte nicht gestartet "
-            "werden."
-        )
-        if not _ask_install_wsl(log, reason):
-            raise RuntimeError(
-                "Installation abgebrochen. WSL2 und Ubuntu wurden "
-                "nicht durch dieses Programm installiert."
-            )
-
-        install = _run(
-            [wsl_exe, "--install", "-d", WSL_DISTRO],
-            log=log,
-            check=False,
-        )
-        if install.returncode != 0:
-            raise RuntimeError(
-                "Die Installation von WSL2/Ubuntu konnte nicht erfolgreich "
-                "angefordert werden. Führe PowerShell gegebenenfalls als "
-                "Administrator aus und starte 'wsl --install -d Ubuntu'."
-            )
-        raise RuntimeError(
-            "Die Installation von WSL2 und Ubuntu wurde angefordert. "
-            "Schließe die Windows-/Ubuntu-Einrichtung ab und starte das "
-            "Tool anschließend erneut. Ein Neustart kann erforderlich sein."
+        _request_wsl_install(
+            log,
+            "WSL ist noch nicht eingerichtet oder konnte nicht gestartet werden.",
         )
 
     result = _wsl(
@@ -233,8 +323,8 @@ def ensure_wsl(log=None) -> None:
 
     if result.returncode != 0:
         raise RuntimeError(
-            "Die installierten WSL-Distributionen konnten nicht abgerufen "
-            "werden. Prüfe 'wsl --list --verbose' in PowerShell."
+            "WSL-Distributionen konnten nicht gelesen werden. "
+            "Prüfe 'wsl --list --verbose'."
         )
 
     distros = [
@@ -244,31 +334,9 @@ def ensure_wsl(log=None) -> None:
     ]
 
     if not any(item.lower() == WSL_DISTRO.lower() for item in distros):
-        reason = (
-            "WSL ist vorhanden, aber die Ubuntu-Distribution wurde nicht "
-            "gefunden."
-        )
-        if not _ask_install_wsl(log, reason):
-            raise RuntimeError(
-                "Installation abgebrochen. Ubuntu wurde nicht installiert."
-            )
-
-        install = _run(
-            [wsl_exe, "--install", "-d", WSL_DISTRO],
-            log=log,
-            check=False,
-        )
-        if install.returncode != 0:
-            raise RuntimeError(
-                "Ubuntu konnte nicht zur Installation angefordert werden. "
-                "Führe PowerShell gegebenenfalls als Administrator aus und "
-                "starte 'wsl --install -d Ubuntu'."
-            )
-        raise RuntimeError(
-            "Ubuntu wurde zur Installation angefordert. Öffne Ubuntu nach "
-            "der Installation, richte deinen Linux-Benutzer ein und starte "
-            "das Tool anschließend erneut. Ein Neustart kann erforderlich "
-            "sein."
+        _request_wsl_install(
+            log,
+            "WSL ist vorhanden, aber Ubuntu wurde nicht gefunden.",
         )
 
     result = _wsl(
@@ -279,8 +347,7 @@ def ensure_wsl(log=None) -> None:
 
     if result.returncode != 0:
         raise RuntimeError(
-            "Der WSL-Status von Ubuntu konnte nicht ermittelt werden. "
-            "Prüfe 'wsl --list --verbose' in PowerShell."
+            "Der WSL-Status von Ubuntu konnte nicht ermittelt werden."
         )
 
     ubuntu_line = next(
@@ -297,14 +364,18 @@ def ensure_wsl(log=None) -> None:
     if not ubuntu_line:
         raise RuntimeError(
             "Ubuntu konnte in der WSL-Liste nicht erkannt werden. "
-            "Prüfe 'wsl --list --verbose' in PowerShell."
+            "Prüfe 'wsl --list --verbose'."
         )
 
-    # Die letzte Spalte der Ausgabe von `wsl --list --verbose` ist die Version.
     columns = ubuntu_line.lstrip("*").split()
-    wsl_version = columns[-1] if columns else ""
 
-    if wsl_version != "2":
+    if not columns or columns[-1] not in {"1", "2"}:
+        raise RuntimeError(
+            "Die WSL-Version von Ubuntu konnte nicht zuverlässig "
+            f"ermittelt werden: {ubuntu_line!r}"
+        )
+
+    if columns[-1] != "2":
         log("Ubuntu wird auf WSL2 umgestellt.")
         _wsl(
             ["--set-version", WSL_DISTRO, "2"],
@@ -313,11 +384,8 @@ def ensure_wsl(log=None) -> None:
 
     ready = _wsl(
         [
-            "-d",
-            WSL_DISTRO,
-            "--exec",
-            "bash",
-            "-lc",
+            "-d", WSL_DISTRO,
+            "--exec", "bash", "-lc",
             "printf WSL_READY",
         ],
         log=log,
@@ -330,166 +398,234 @@ def ensure_wsl(log=None) -> None:
     ):
         raise RuntimeError(
             "Ubuntu ist noch nicht vollständig eingerichtet. "
-            "Öffne Ubuntu über das Startmenü, schließe die Einrichtung ab "
-            "und starte das Tool erneut."
+            "Öffne Ubuntu, schließe die Einrichtung ab und starte erneut."
         )
 
     log("WSL2 und Ubuntu sind verfügbar.")
 
 
+# ---------------------------------------------------------------------------
+# Zielordner und Startskripte
+# ---------------------------------------------------------------------------
+
+def get_tool_destination(base_dir, tool: str) -> Path:
+    """Liefert den festen, toolabhängigen Zielordner."""
+    canonical = _normalise_tool(tool)
+    base = Path(base_dir).expanduser().resolve()
+    return base / TOOL_DIRECTORIES[canonical]
+
+
 def _script_candidates(tool: str):
-    """Liefert die erwarteten Namen der Startskripte."""
-    if tool == "s4":
-        return ("s4",)
-    return ("s3",)
+    canonical = _normalise_tool(tool)
+    return ("s4",) if canonical == "s4" else ("s3",)
 
 
 def _find_script(root: Path, tool: str):
-    """Sucht das Startskript im Repository und bekannten Unterordnern."""
+    """Sucht das Startskript in üblichen Repository-Unterordnern."""
+    root = Path(root)
     folders = ("", "simplebuild4", "s3_ncam_bonecrew", "s3")
 
     for folder in folders:
         base = root / folder if folder else root
+
         for name in _script_candidates(tool):
             candidate = base / name
+
             if candidate.is_file():
                 return candidate
 
     return None
 
 
-def ensure_repository(tool: str, destination, log=None) -> Path:
-    """
-    Verwendet vorhandene Quellen oder klont ein neues Repository.
+# ---------------------------------------------------------------------------
+# Git-Prüfungen und Repository-Vorbereitung
+# ---------------------------------------------------------------------------
 
-    Bestehende Git-Repositories werden geprüft und nur gefetcht.
-    Lokale Änderungen werden nicht zurückgesetzt oder automatisch gemergt.
-    Ein fehlgeschlagener Fetch verhindert die Nutzung vorhandener Dateien
-    nicht. Quellordner ohne Git-Metadaten werden nur dann wiederverwendet,
-    wenn darin ein bekanntes Startskript gefunden wird.
+def ensure_repository(
+    tool: str,
+    destination,
+    log=None,
+    repo_url=None,
+) -> Path:
+    """Prüft ein Repository und klont nur in ein fehlendes/leeres Ziel.
+
+    Sicherheit:
+    - Keine Checkout-, Reset-, Pull- oder Clean-Operationen.
+    - Keine automatische Änderung einer vorhandenen origin-URL.
+    - Ein vorhandenes Repository mit fremder oder fehlender origin-URL
+      wird nicht automatisch umkonfiguriert.
+    - Fetch aktualisiert Referenzen, nicht die ausgecheckten Arbeitsdateien.
+    - Nicht leere, unbekannte Ordner werden nicht verändert.
     """
     log = _log_func(log)
-    tool = str(tool).lower().strip()
+    canonical = _normalise_tool(tool)
 
-    if tool not in REPOSITORIES:
-        raise ValueError(
-            f"Unbekanntes Tool {tool!r}. Erlaubt: "
-            f"{', '.join(REPOSITORIES)}"
-        )
+    selected_url = (repo_url or REPOSITORIES[canonical]).strip()
+
+    if not selected_url:
+        raise ValueError("Die Repository-URL darf nicht leer sein.")
 
     dest = Path(destination).expanduser().resolve()
-    dest.parent.mkdir(parents=True, exist_ok=True)
-
     git = shutil.which("git") or shutil.which("git.exe")
+
     if not git:
         raise RuntimeError(
-            "Git wurde nicht gefunden. Installiere Git "
-            "oder ergänze Git im PATH."
+            "Git wurde nicht gefunden. Installiere Git oder ergänze "
+            "Git im PATH."
         )
 
-    # Vorhandenes Git-Repository.
+    if dest.exists() and not dest.is_dir():
+        raise RuntimeError(
+            f"Das Repository-Ziel ist keine Verzeichnisstruktur: {dest}"
+        )
+
+    # Vorhandenes Git-Repository: Identität prüfen, Dateien erhalten.
     if (dest / ".git").exists():
         log(f"Vorhandenes Git-Repository: {dest}")
 
-        try:
-            _run(
-                [
-                    git, "-C", str(dest),
-                    "rev-parse", "--is-inside-work-tree",
-                ],
-                log=log,
-            )
-        except RuntimeError as exc:
+        _run(
+            [git, "-C", str(dest), "rev-parse", "--is-inside-work-tree"],
+            log=log,
+        )
+
+        remote = _run(
+            [git, "-C", str(dest), "remote", "get-url", "origin"],
+            log=log,
+            check=False,
+        )
+
+        current_url = (
+            (remote.stdout or "").strip()
+            if remote.returncode == 0
+            else ""
+        )
+
+        if not current_url:
             raise RuntimeError(
-                f"Das Git-Verzeichnis ist ungültig:\n{dest}\n{exc}"
-            ) from exc
+                "Das vorhandene Git-Repository besitzt keine origin-URL.\n"
+                f"Ordner: {dest}\n"
+                f"Erwartetes Repository: {selected_url}\n\n"
+                "Aus Sicherheitsgründen wird origin nicht automatisch "
+                "hinzugefügt. Prüfe das Repository und konfiguriere "
+                "origin bei Bedarf manuell."
+            )
 
-        # Origin nur korrigieren, wenn die Änderung möglich ist.
+        if (
+            _normalise_repo_url(current_url)
+            != _normalise_repo_url(selected_url)
+        ):
+            raise RuntimeError(
+                "Das Zielverzeichnis enthält ein anderes Git-Repository.\n"
+                f"Ordner: {dest}\n"
+                f"Vorhandenes Repository: {current_url}\n"
+                f"Ausgewähltes Repository: {selected_url}\n\n"
+                "Wähle einen anderen Zielordner oder sichere und "
+                "verschiebe den vorhandenen Ordner."
+            )
+
+        # Fetch verändert keine ausgecheckten Arbeitsdateien.
         try:
             _run(
-                [
-                    git, "-C", str(dest),
-                    "remote", "set-url", "origin", REPOSITORIES[tool],
-                ],
-                log=log,
-            )
-        except RuntimeError as exc:
-            log(
-                "WARNUNG: Die origin-URL konnte nicht gesetzt werden. "
-                "Es wird versucht, das vorhandene Repository zu verwenden."
-            )
-            log(str(exc))
-
-        # Nur Referenzen abrufen. Kein pull/reset/checkout.
-        try:
-            _run(
-                [
-                    git, "-C", str(dest),
-                    "fetch", "origin", "--prune",
-                ],
+                [git, "-C", str(dest), "fetch", "origin", "--prune"],
                 log=log,
             )
             log(
-                "Git-Fetch erfolgreich. Die ausgecheckten Dateien wurden "
-                "nicht automatisch aktualisiert."
+                "Git-Fetch erfolgreich. Lokale Arbeitsdateien und "
+                "der aktuelle Checkout wurden nicht zurückgesetzt."
             )
         except RuntimeError as exc:
             log(
                 "WARNUNG: Git-Fetch fehlgeschlagen. "
-                "Die vorhandenen lokalen Dateien bleiben erhalten."
+                "Das vorhandene Repository bleibt erhalten."
             )
             log(str(exc))
-            log("Es wird mit dem vorhandenen lokalen Stand weitergearbeitet.")
 
         return dest
 
-    # Vorhandenes Verzeichnis ohne Git-Metadaten.
+    # Vorhandene Quellen ohne Git-Metadaten nicht überschreiben.
     if dest.exists() and any(dest.iterdir()):
-        if _find_script(dest, tool) is not None:
+        if _find_script(dest, canonical) is not None:
             log(
-                "Verwende vorhandenes Quellverzeichnis ohne "
-                f"Git-Metadaten: {dest}"
+                "Verwende vorhandenes Quellverzeichnis ohne Git-Metadaten: "
+                f"{dest}"
+            )
+            log(
+                "WARNUNG: Ohne .git lässt sich die Repository-Identität "
+                "nicht zuverlässig überprüfen."
             )
             return dest
 
         raise RuntimeError(
-            "Das Zielverzeichnis ist nicht leer und kein "
-            f"Git-Repository:\n{dest}\n"
-            "Bitte sichere den Inhalt oder wähle einen anderen Ordner."
+            "Das Zielverzeichnis ist nicht leer und enthält kein "
+            "erkennbares passendes Git-Repository:\n"
+            f"{dest}\n"
+            "Sichere den Inhalt oder wähle einen anderen Zielordner."
         )
 
-    # Nur bei fehlendem oder leerem Zielverzeichnis klonen.
-    log(f"Klone {tool} nach {dest}")
+    # Erst nach der Prüfung fehlende Verzeichnisse erzeugen.
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    log(f"Klone {selected_url} nach {dest}")
+
     _run(
-        [git, "clone", REPOSITORIES[tool], str(dest)],
+        [git, "clone", "--depth", "1", selected_url, str(dest)],
         log=log,
     )
-    log(f"{tool} wurde erfolgreich geklont.")
+
+    log(f"Repository wurde erfolgreich geklont: {dest}")
     return dest
 
 
-def prepare_tool(tool: str, destination, log=None) -> Path:
-    """Prüft WSL unter Windows und bereitet das ausgewählte Tool vor."""
-    log = _log_func(log)
-    tool = str(tool).lower().strip()
+def prepare_tool(
+    tool: str,
+    destination=None,
+    log=None,
+    repo_url=None,
+    *,
+    base_dir=None,
+) -> Path:
+    """Prüft gegebenenfalls WSL und bereitet das ausgewählte Tool vor.
 
-    if tool not in REPOSITORIES:
-        raise ValueError(
-            f"Unbekanntes Tool {tool!r}. Erlaubt: "
-            f"{', '.join(REPOSITORIES)}"
-        )
+    Rückwärtskompatibel:
+        prepare_tool("s3", "/pfad/zum/ziel")
+        prepare_tool("s4", "/pfad/zum/ziel")
+
+    Neue Verwendung mit automatisch getrennten Zielordnern:
+        prepare_tool("s3_gorgone", base_dir="/pfad/zu/tools")
+        prepare_tool("s3_speedy005", base_dir="/pfad/zu/tools")
+    """
+    log = _log_func(log)
+    canonical = _normalise_tool(tool)
+
+    if destination is None:
+        if base_dir is None:
+            raise ValueError(
+                "Gib destination oder base_dir an, um den Zielordner "
+                "festzulegen."
+            )
+        destination = get_tool_destination(base_dir, canonical)
 
     if platform.system() == "Windows":
         ensure_wsl(log=log)
 
-    path = ensure_repository(tool, destination, log=log)
-    log(f"{tool} ist bereit: {path}")
+    path = ensure_repository(
+        canonical,
+        destination,
+        log=log,
+        repo_url=repo_url,
+    )
+
+    log(f"{canonical} ist bereit: {path}")
     return path
 
 
+# ---------------------------------------------------------------------------
+# Windows-Pfade nach WSL konvertieren
+# ---------------------------------------------------------------------------
+
 def _wsl_path(path: Path, log) -> str:
-    """Konvertiert einen Windows-Pfad sicher in einen WSL-Pfad."""
-    windows_path = str(path.expanduser().resolve())
+    windows_path = str(Path(path).expanduser().resolve())
+
     encoded_path = base64.b64encode(
         windows_path.encode("utf-8")
     ).decode("ascii")
@@ -499,7 +635,8 @@ def _wsl_path(path: Path, log) -> str:
             _find_wsl(),
             "-d", WSL_DISTRO,
             "--exec", "bash", "-lc",
-            'decoded=$(printf "%s" "$1" | base64 -d) && wslpath -a "$decoded"',
+            'decoded=$(printf "%s" "$1" | base64 -d) '
+            '&& wslpath -a "$decoded"',
             "wslpath",
             encoded_path,
         ],
@@ -521,43 +658,50 @@ def _wsl_path(path: Path, log) -> str:
     return converted
 
 
-def bash_quote(value) -> str:
-    """Sicheres Quoting für Bash."""
-    return shlex.quote(str(value))
-
+# ---------------------------------------------------------------------------
+# Gemeinsame Startlogik
+# ---------------------------------------------------------------------------
 
 def _start_command(tool: str) -> str:
-    """Liefert den Startbefehl für das ausgewählte Tool."""
-    if tool == "s4":
-        return "./s4"
-    return "./s3 menu"
-
-
+    canonical = _normalise_tool(tool)
+    return "./s4" if canonical == "s4" else "./s3 menu"
 
 
 def _launch_native_linux(tool: str, source: Path, log) -> None:
-    """Startet Simplebuild nativ unter Linux in einem neuen Terminal."""
-    script = _find_script(source, tool)
+    """Startet das Tool in einem neuen nativen Linux-Terminal."""
+    canonical = _normalise_tool(tool)
+    script = _find_script(source, canonical)
 
     if script is None:
         raise FileNotFoundError(
-            f"Kein Startskript für {tool} in {source} gefunden."
+            f"Kein Startskript für {canonical} in {source} gefunden."
         )
-
-    start_command = _start_command(tool)
 
     command = (
         f"cd {bash_quote(str(script.parent))} || exit 1; "
         f"chmod +x {bash_quote(script.name)} || exit 1; "
-        f"{start_command}; "
-        "result=$?; "
+        f"{_start_command(canonical)}; result=$?; "
         'echo; echo "Simplebuild beendet (Exit-Code: $result)."; '
         "exec bash"
     )
 
     terminals = [
-        ("x-terminal-emulator", ["-e", "bash", "-lc", command]),
-        ("gnome-terminal", ["--", "bash", "-lc", command]),
+        (
+            "x-terminal-emulator",
+            ["-e", "bash", "-lc", command],
+        ),
+        (
+            "gnome-terminal",
+            ["--", "bash", "-lc", command],
+        ),
+        (
+            "konsole",
+            ["-e", "bash", "-lc", command],
+        ),
+        (
+            "xfce4-terminal",
+            ["--command", f"bash -lc {shlex.quote(command)}"],
+        ),
     ]
 
     errors = []
@@ -566,7 +710,6 @@ def _launch_native_linux(tool: str, source: Path, log) -> None:
         path = shutil.which(executable)
 
         if not path:
-            log(f"Nicht im PATH gefunden: {executable}")
             continue
 
         try:
@@ -575,58 +718,47 @@ def _launch_native_linux(tool: str, source: Path, log) -> None:
                 start_new_session=True,
                 close_fds=True,
             )
-
+            log(f"Terminal gestartet: {path} (PID {process.pid})")
             log(
-                f"Terminal-Aufruf gesendet: {path} "
-                f"(PID {process.pid})"
+                f"Tool: {canonical}; "
+                f"Startbefehl: {_start_command(canonical)}"
             )
-            log(f"Tool: {tool}; Startbefehl: {start_command}")
             return
 
         except OSError as exc:
-            message = f"{executable}: {exc}"
-            errors.append(message)
-            log(f"Terminalstart fehlgeschlagen: {message}")
+            errors.append(f"{executable}: {exc}")
+            log(f"Terminalstart fehlgeschlagen: {executable}: {exc}")
+
+    details = (
+        "\n".join(errors)
+        if errors
+        else "Kein unterstützter Terminal-Emulator im PATH gefunden."
+    )
 
     raise RuntimeError(
-        "Kein Terminal konnte gestartet werden.\n"
-        + (
-            "\n".join(errors)
-            if errors
-            else "Kein unterstützter Terminal-Emulator im PATH gefunden."
-        )
+        "Kein Terminal konnte gestartet werden.\n" + details
     )
 
 
-
-
 def launch_tool_menu(tool: str, source: Path, log=None) -> None:
-    """Startet das ausgewählte Tool in einem separaten Terminal."""
+    """Startet das ausgewählte Tool unter Linux oder Windows/WSL2."""
     log = _log_func(log)
-    tool = str(tool).lower().strip()
+    canonical = _normalise_tool(tool)
     source = Path(source).expanduser().resolve()
 
-    if tool not in REPOSITORIES:
-        raise ValueError(
-            f"Unbekanntes Tool {tool!r}. Erlaubt: "
-            f"{', '.join(REPOSITORIES)}"
-        )
+    script = _find_script(source, canonical)
 
-    script = _find_script(source, tool)
     if script is None:
         raise FileNotFoundError(
-            f"Startskript für {tool} wurde in {source} nicht gefunden."
+            f"Startskript für {canonical} wurde in {source} nicht gefunden."
         )
 
-    start_command = _start_command(tool)
-
     if platform.system() != "Windows":
-        _launch_native_linux(tool, source, log)
+        _launch_native_linux(canonical, source, log)
         return
 
     ensure_wsl(log=log)
 
-    # Das Startskript kann in einem Unterordner liegen.
     wsl_script_dir = _wsl_path(script.parent, log)
     script_name = script.name
 
@@ -634,11 +766,9 @@ def launch_tool_menu(tool: str, source: Path, log=None) -> None:
         f"cd {bash_quote(wsl_script_dir)} || exec bash; "
         f"if [ ! -f {bash_quote('./' + script_name)} ]; then "
         f"echo {bash_quote('Startdatei nicht gefunden: ' + script_name)}; "
-        "pwd; ls -la; exec bash; "
-        "fi; "
+        "pwd; ls -la; exec bash; fi; "
         f"chmod +x {bash_quote(script_name)}; "
-        f"{start_command}; "
-        "result=$?; "
+        f"{_start_command(canonical)}; result=$?; "
         "echo; "
         'echo "Simplebuild beendet (Exit-Code: $result)."; '
         "exec bash"
@@ -647,25 +777,74 @@ def launch_tool_menu(tool: str, source: Path, log=None) -> None:
     command = [
         _find_wsl(),
         "-d", WSL_DISTRO,
-        "--", "bash", "-lc", linux_command,
+        "--",
+        "bash", "-lc", linux_command,
     ]
 
     log(f"WSL-Quellpfad: {wsl_script_dir}")
-    log(f"WSL-Tool: {tool}")
-    log(f"Startbefehl: {start_command}")
+    log(f"WSL-Tool: {canonical}")
+    log(f"Startbefehl: {_start_command(canonical)}")
     log("Starte Simplebuild in einem neuen WSL-Konsolenfenster.")
 
-    creationflags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-    process = subprocess.Popen(command, creationflags=creationflags)
+    process = subprocess.Popen(
+        command,
+        creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+    )
+
     log(f"WSL-Prozess gestartet, PID={process.pid}")
 
+
+def run_tool(
+    tool: str,
+    base_dir,
+    *,
+    destination=None,
+    repo_url=None,
+    log=None,
+) -> Path:
+    """Gemeinsamer Einstieg: Auswahl, Vorbereitung und Start.
+
+    Beispiel:
+        run_tool("s3_gorgone", r"C:\\Simplebuild")
+        run_tool("s3_speedy005", r"C:\\Simplebuild")
+        run_tool("s4", r"C:\\Simplebuild")
+        run_tool("ncam", r"C:\\Simplebuild")
+
+    Rückgabe:
+        Der vorbereitete Quellordner.
+    """
+    log = _log_func(log)
+    canonical = _normalise_tool(tool)
+
+    target = (
+        Path(destination).expanduser().resolve()
+        if destination is not None
+        else get_tool_destination(base_dir, canonical)
+    )
+
+    source = prepare_tool(
+        canonical,
+        target,
+        log=log,
+        repo_url=repo_url,
+    )
+
+    launch_tool_menu(canonical, source, log=log)
+    return source
+
+
+# ---------------------------------------------------------------------------
+# Rückwärtskompatible Einstiegspunkte
+# ---------------------------------------------------------------------------
 
 def launch_simplebuild(tool_path, menu_arg="menu", log=None) -> None:
     """Kompatibler Einstiegspunkt für ältere Aufrufer."""
     path = Path(tool_path).expanduser().resolve()
 
     if menu_arg != "menu":
-        raise ValueError("Der unterstützte Menüparameter ist 'menu'.")
+        raise ValueError(
+            "Der unterstützte Menüparameter ist 'menu'."
+        )
 
     source = path if path.is_dir() else path.parent
     lower = str(source).lower()
@@ -674,14 +853,22 @@ def launch_simplebuild(tool_path, menu_arg="menu", log=None) -> None:
         tool = "s4"
     elif "ncam" in lower or "bonecrew" in lower:
         tool = "ncam"
+    elif "speedy005" in lower or "s3_simplebuild" in lower:
+        tool = "s3_speedy005"
     else:
-        tool = "s3"
+        # Bestehendes Standardverhalten: S3 bedeutet Gorgone S3.
+        tool = "s3_gorgone"
 
     launch_tool_menu(tool, source, log=log)
 
 
+def run_simplebuild(tool: str, base_dir, log=None) -> Path:
+    """Zusätzlicher Alias für den gemeinsamen Einstiegspunkt."""
+    return run_tool(tool, base_dir, log=log)
+
+
 if __name__ == "__main__":
     print(
-        "Dieses Modul wird von der Oberfläche importiert.\n"
-        "Rufe prepare_tool() und launch_tool_menu() aus der GUI auf."
+        "Dieses Modul wird normalerweise von der Oberfläche importiert.\n"
+        "Verwende run_tool(), prepare_tool() und launch_tool_menu()."
     )

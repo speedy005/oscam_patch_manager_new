@@ -227,6 +227,7 @@ def load_config(gui_instance=None):
         "s3_custom_path": default_s3,
         "ncam_custom_path": default_ncam,
         "s4_custom_path": default_s4,
+        "s3_repository_name": "S3 Standard (Original)",
         "patch_modifier": "speedy005",
         "EMUREPO": CORRECT_URL,
         "theme_mode": "standard",
