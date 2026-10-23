@@ -8827,7 +8827,14 @@ class PatchManagerGUI(QWidget):
         }
 
         excluded_names = {name.casefold() for name in excluded_dirs}
+        def is_excluded_dir(dirname):
+            name = dirname.casefold()
 
+            return (
+                name in excluded_names
+                or "s3" in name
+                or "s4" in name
+            )
         def norm(path):
             return os.path.normcase(os.path.abspath(str(path)))
 
@@ -8970,7 +8977,8 @@ class PatchManagerGUI(QWidget):
                     for dirname in dirs:
                         candidate = root_path / dirname
 
-                        if dirname.casefold() in excluded_names:
+                        # s3-/s4-Ordner und geschützte Standardordner ausschließen.
+                        if is_excluded_dir(dirname):
                             continue
 
                         if any(
