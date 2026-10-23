@@ -290,6 +290,16 @@ TEXTS = {
         "s3_install_button": "Install S3",
         "s3_tooltip": "Left-click: Install/Update\nRight-click: Select path manually",
         "restarting_check": "Restarting system check...",
+        #s3 simplebuild
+        "s3_choice_title": "Select S3 Simplebuild",
+        "s3_choice_text": "Which S3 menu would you like to launch?",
+        "s3_choice_info": (
+            "Gorgone uses the 's3' folder.\n"
+            "Speedy005 uses the 's3_speedy005' folder."
+        ),
+        "s3_choice_gorgone": "S3 Gorgone",
+        "s3_choice_speedy005": "S3 Speedy005",
+        "button_cancel": "Cancel",
         # s4 install check
         "s4_install_button": "Install S3",
         "s3_tooltip": "Left-click: Install/Update\nRight-click: Select path manually",
@@ -489,6 +499,16 @@ TEXTS = {
         "select_revision": "Revision auswählen",
         "repository_load_failed": "Repository konnte nicht geladen werden.",
         "revision_load_failed": "Revisionen konnten nicht geladen werden.",
+        # s3 auswahl
+        "s3_choice_title": "S3 Simplebuild auswählen",
+        "s3_choice_text": "Welches S3-Menü möchtest du starten?",
+        "s3_choice_info": (
+            "Gorgone verwendet den Ordner 's3'.\n"
+            "Speedy005 verwendet den Ordner 's3_speedy005'."
+        ),
+        "s3_choice_gorgone": "S3 Gorgone",
+        "s3_choice_speedy005": "S3 Speedy005",
+        "button_cancel": "Abbrechen",
         # OSCam-Emu Git Patch
         "patch_emu_git_done": "🎉 OScam-Emu Git erfolgreich gepatcht!",
         "patch_emu_git_start": "🚀 Starte OScam-Emu Patch-Prozess...",

@@ -3659,28 +3659,43 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         # WINDOWS: Variante auswählen und über WSL2 starten
         # ---------------------------------------------------------
+        
         if is_win:
             from PyQt6.QtWidgets import QApplication, QMessageBox
             from windows_msys2_setup import prepare_tool, launch_tool_menu
 
+            # Aktuelle Sprache sicher aus TEXTS laden
+            lang = str(getattr(self, "LANG", "de")).lower()[:2]
+            T = TEXTS.get(lang, TEXTS.get("de", {}))
+
             choice = QMessageBox(self)
-            choice.setWindowTitle("S3 Simplebuild auswählen")
-            choice.setText("Welches S3-Menü möchtest du starten?")
+            choice.setWindowTitle(
+                T.get("s3_choice_title", "S3 Simplebuild auswählen")
+            )
+            choice.setText(
+                T.get(
+                    "s3_choice_text",
+                    "Welches S3-Menü möchtest du starten?",
+                )
+            )
             choice.setInformativeText(
-                "Gorgone verwendet den Ordner 's3'.\n"
-                "Speedy005 verwendet den Ordner 's3_speedy005_clean'."
+                T.get(
+                    "s3_choice_info",
+                    "Gorgone verwendet den Ordner 's3'.\n"
+                    "Speedy005 verwendet den Ordner 's3_speedy005'.",
+                )
             )
 
             gorgone_btn = choice.addButton(
-                "S3 Gorgone",
+                T.get("s3_choice_gorgone", "S3 Gorgone"),
                 QMessageBox.ButtonRole.AcceptRole,
             )
             speedy_btn = choice.addButton(
-                "S3 Speedy005",
+                T.get("s3_choice_speedy005", "S3 Speedy005"),
                 QMessageBox.ButtonRole.ActionRole,
             )
             choice.addButton(
-                "Abbrechen",
+                T.get("button_cancel", "Abbrechen"),
                 QMessageBox.ButtonRole.RejectRole,
             )
 
@@ -3689,6 +3704,7 @@ class PatchManagerGUI(QWidget):
 
             if selected not in (gorgone_btn, speedy_btn):
                 return
+
 
             try:
                 def _setup_log(line):
