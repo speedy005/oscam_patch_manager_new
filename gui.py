@@ -8793,11 +8793,19 @@ class PatchManagerGUI(QWidget):
         return excluded_dirs
 
     
+  
     def create_gi_backup(self):
-        """Erstellt backup/backup_git.zip und schließt geschützte Ordner aus."""
+        """Erstellt ein geprüftes Backup mit Linux-Dateirechten.
+
+        Schließt geschützte Ordner und Symlinks aus.
+        Das bestehende Backup bleibt bis zum erfolgreichen Abschluss erhalten.
+        """
 
         import os
         import json
+        import stat
+        import shutil
+        import tempfile
         import zipfile
 
         from pathlib import Path
@@ -8806,7 +8814,6 @@ class PatchManagerGUI(QWidget):
         project_dir = Path(__file__).resolve().parent.resolve()
         backup_dir = project_dir / "backup"
         backup_zip = backup_dir / "backup_git.zip"
-        temp_zip = backup_dir / "backup_git.tmp.zip"
         config_file = project_dir / "config.json"
 
         excluded_dirs = {
@@ -8819,6 +8826,8 @@ class PatchManagerGUI(QWidget):
             "venv",
         }
 
+        excluded_names = {name.casefold() for name in excluded_dirs}
+
         def norm(path):
             return os.path.normcase(os.path.abspath(str(path)))
 
@@ -8830,15 +8839,53 @@ class PatchManagerGUI(QWidget):
             except (ValueError, OSError):
                 return False
 
+        def add_to_archive(archive, source, arcname):
+            """Schreibt Dateien mit Unix-Modus und ohne Symlink-Verfolgung."""
+            source = Path(source)
+
+            if source.is_symlink():
+                return False
+
+            file_stat = source.stat(follow_symlinks=False)
+
+            if not (stat.S_ISREG(file_stat.st_mode)
+                    or stat.S_ISDIR(file_stat.st_mode)):
+                return False
+
+            if stat.S_ISDIR(file_stat.st_mode):
+                arcname = arcname.rstrip("/") + "/"
+
+            info = zipfile.ZipInfo.from_file(
+                source,
+                arcname=arcname,
+            )
+            info.create_system = 3  # Unix
+            info.external_attr = (file_stat.st_mode & 0xFFFF) << 16
+
+            if stat.S_ISDIR(file_stat.st_mode):
+                info.external_attr |= 0x10
+                archive.writestr(info, b"")
+            else:
+                info.compress_type = zipfile.ZIP_DEFLATED
+                with source.open("rb") as src:
+                    with archive.open(info, "w") as dst:
+                        shutil.copyfileobj(src, dst)
+
+            return True
+
+        temp_zip = None
+
         try:
             # --------------------------------------------------
-            # 1. Konfiguration lesen
+            # 1. Konfiguration prüfen
             # --------------------------------------------------
             with config_file.open("r", encoding="utf-8") as file:
                 config = json.load(file)
 
             if not isinstance(config, dict):
-                raise ValueError("config.json enthält kein JSON-Objekt.")
+                raise ValueError(
+                    "config.json enthält kein JSON-Objekt."
+                )
 
             custom_paths = []
 
@@ -8851,10 +8898,13 @@ class PatchManagerGUI(QWidget):
 
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError(
-                        f"Der Konfigurationswert '{key}' fehlt oder ist ungültig."
+                        f"Der Konfigurationswert '{key}' fehlt "
+                        "oder ist ungültig."
                     )
 
-                custom_path = Path(value.strip()).expanduser()
+                custom_path = Path(
+                    value.strip()
+                ).expanduser()
 
                 if not custom_path.is_absolute():
                     custom_path = project_dir / custom_path
@@ -8863,13 +8913,14 @@ class PatchManagerGUI(QWidget):
 
                 if not is_inside(custom_path, project_dir):
                     raise ValueError(
-                        f"Der konfigurierte Pfad liegt außerhalb des Projekts: "
-                        f"{custom_path}"
+                        "Der konfigurierte Pfad liegt außerhalb "
+                        f"des Projekts: {custom_path}"
                     )
 
                 if norm(custom_path) == norm(project_dir):
                     raise ValueError(
-                        f"'{key}' verweist auf das gesamte Projektverzeichnis."
+                        f"'{key}' verweist auf das gesamte "
+                        "Projektverzeichnis."
                     )
 
                 if norm(custom_path) not in {
@@ -8879,20 +8930,29 @@ class PatchManagerGUI(QWidget):
 
             if len(custom_paths) != 3:
                 raise ValueError(
-                    "Die drei konfigurierten Ordner müssen eindeutig sein."
+                    "Die drei konfigurierten Ordner müssen "
+                    "eindeutig sein."
                 )
 
             # --------------------------------------------------
-            # 2. Temporäres Backup erstellen
+            # 2. Eindeutiges temporäres Archiv erstellen
             # --------------------------------------------------
             backup_dir.mkdir(parents=True, exist_ok=True)
 
-            if temp_zip.exists():
-                temp_zip.unlink()
+            fd, temp_name = tempfile.mkstemp(
+                prefix="backup_git.",
+                suffix=".tmp.zip",
+                dir=backup_dir,
+            )
+            os.close(fd)
+            temp_zip = Path(temp_name)
 
             file_count = 0
+            dir_count = 0
 
-            # topdown=True erlaubt es, Ordner vor dem Betreten auszuschließen.
+            # --------------------------------------------------
+            # 3. Projektdateien archivieren
+            # --------------------------------------------------
             with zipfile.ZipFile(
                 temp_zip,
                 mode="w",
@@ -8905,19 +8965,14 @@ class PatchManagerGUI(QWidget):
                     followlinks=False,
                 ):
                     root_path = Path(root)
-
                     filtered_dirs = []
 
                     for dirname in dirs:
                         candidate = root_path / dirname
 
-                        # Standardordner ausschließen.
-                        if dirname.casefold() in {
-                            name.casefold() for name in excluded_dirs
-                        }:
+                        if dirname.casefold() in excluded_names:
                             continue
 
-                        # Konfigurierte Ordner gezielt ausschließen.
                         if any(
                             norm(candidate) == norm(custom_path)
                             or is_inside(candidate, custom_path)
@@ -8925,104 +8980,143 @@ class PatchManagerGUI(QWidget):
                         ):
                             continue
 
-                        # Keine symbolischen Verzeichnislinks verfolgen.
                         if candidate.is_symlink():
                             continue
 
                         filtered_dirs.append(dirname)
 
+                    # Verzeichnisliste vor dem Abstieg einschränken.
                     dirs[:] = filtered_dirs
+
+                    # Verzeichnismetadaten einschließlich Modus sichern.
+                    for dirname in filtered_dirs:
+                        candidate = root_path / dirname
+
+                        relative_path = candidate.relative_to(
+                            project_dir
+                        ).as_posix()
+
+                        if add_to_archive(
+                            archive, candidate, relative_path
+                        ):
+                            dir_count += 1
 
                     for filename in files:
                         source_file = root_path / filename
 
-                        # Keine symbolischen Dateilinks archivieren.
+                        # Symlinks und spezielle Dateitypen überspringen.
                         if source_file.is_symlink():
                             continue
 
                         if not is_inside(source_file, project_dir):
                             continue
 
-                        # Zusätzliche Prüfung: Dateien in geschützten
-                        # Ordnern dürfen nicht in das Archiv gelangen.
                         if any(
                             is_inside(source_file, custom_path)
                             for custom_path in custom_paths
                         ):
                             continue
 
+                        relative_path = source_file.relative_to(
+                            project_dir
+                        )
+                        relative_parts = relative_path.parts
+
                         if any(
-                            part.casefold() in {
-                                name.casefold() for name in excluded_dirs
-                            }
-                            for part in source_file.relative_to(
-                                project_dir
-                            ).parts
+                            part.casefold() in excluded_names
+                            for part in relative_parts
                         ):
                             continue
 
-                        # Backup-Dateien nicht selbst archivieren.
-                        if norm(source_file) in {
-                            norm(backup_zip),
-                            norm(temp_zip),
-                        }:
+                        # Backup-Dateien niemals selbst archivieren.
+                        if (
+                            norm(source_file) == norm(backup_zip)
+                            or source_file == temp_zip
+                        ):
                             continue
 
-                        relative_path = source_file.relative_to(project_dir)
-
-                        archive.write(
+                        if add_to_archive(
+                            archive,
                             source_file,
-                            arcname=relative_path.as_posix(),
-                        )
-                        file_count += 1
+                            relative_path.as_posix(),
+                        ):
+                            file_count += 1
 
             # --------------------------------------------------
-            # 3. ZIP prüfen und erst dann endgültig ersetzen
+            # 4. Archiv und Dateirechte überprüfen
             # --------------------------------------------------
             with zipfile.ZipFile(temp_zip, "r") as archive:
                 bad_file = archive.testzip()
 
                 if bad_file is not None:
                     raise RuntimeError(
-                        f"Die ZIP-Prüfung ist fehlgeschlagen: {bad_file}"
+                        f"ZIP-Prüfung fehlgeschlagen: {bad_file}"
                     )
 
+                for info in archive.infolist():
+                    # Alle Einträge müssen Unix-Modi enthalten.
+                    if info.create_system != 3:
+                        raise RuntimeError(
+                            "Unix-Dateimetadaten fehlen: "
+                            f"{info.filename}"
+                        )
+
+                    mode = (info.external_attr >> 16) & 0xFFFF
+
+                    if not mode:
+                        raise RuntimeError(
+                            "Dateirechte fehlen: "
+                            f"{info.filename}"
+                        )
+
+            # --------------------------------------------------
+            # 5. Erst jetzt das bisherige Backup ersetzen
+            # --------------------------------------------------
             os.replace(temp_zip, backup_zip)
+            temp_zip = None
 
             QMessageBox.information(
                 self,
                 "Backup erfolgreich",
-                f"Das Backup wurde erstellt:\n{backup_zip}\n\n"
-                f"Enthaltene Dateien: {file_count}",
+                f"Das Backup wurde erstellt und geprüft:\n"
+                f"{backup_zip}\n\n"
+                f"Dateien: {file_count}\n"
+                f"Verzeichnisse: {dir_count}\n"
+                "Linux-Dateirechte: gespeichert\n"
+                "Symlinks: übersprungen",
             )
 
             if hasattr(self, "log_message"):
                 self.log_message(
-                    f"Backup erstellt: {backup_zip} ({file_count} Dateien)"
+                    f"Backup erstellt: {backup_zip} "
+                    f"({file_count} Dateien, {dir_count} Verzeichnisse)"
                 )
 
             return True
 
         except Exception as exc:
-            try:
-                if temp_zip.exists():
-                    temp_zip.unlink()
-            except OSError:
-                pass
+            # Nur das neue temporäre Archiv entfernen.
+            # Das bisherige Backup wird nicht absichtlich verändert.
+            if temp_zip is not None:
+                try:
+                    temp_zip.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
             QMessageBox.critical(
                 self,
                 "Backup fehlgeschlagen",
                 "Das Backup konnte nicht sicher erstellt werden:\n"
                 f"{exc}\n\n"
-                "Ein bereits vorhandenes Backup wurde nicht absichtlich "
-                "durch ein unvollständiges Archiv ersetzt.",
+                "Das bisherige Backup wurde nicht absichtlich "
+                "ersetzt.",
             )
 
             if hasattr(self, "log_message"):
                 self.log_message(f"Backup-Fehler: {exc}")
 
             return False
+
 
 
     
@@ -9197,9 +9291,17 @@ class PatchManagerGUI(QWidget):
                 return True
 
             # Geschützte Standardordner überall im relativen Pfad.
+            # Geschützte Standardordner und alle Ordner mit s3 oder s4
+            # im Namen schützen – sowohl beim Backup als auch beim Update.
+            protected_dir_names = {
+                name.casefold() for name in protected_dirs
+            }
+
             if any(
-                part.casefold() in {name.casefold() for name in protected_dirs}
-                for part in relative.parts
+                part.casefold() in protected_dir_names
+                or "s3" in part.casefold()
+                or "s4" in part.casefold()
+                for part in relative.parts[:-1]
             ):
                 return True
 
@@ -9322,7 +9424,11 @@ class PatchManagerGUI(QWidget):
 
                     for dirname in dirs:
                         candidate = root_path / dirname
+                        # Alle Ordner ausschließen, deren Name s3 oder s4 enthält.
+                        dirname_lower = dirname.casefold()
 
+                        if "s3" in dirname_lower or "s4" in dirname_lower:
+                            continue
                         # Standardordner ausschließen.
                         if dirname.casefold() in {
                             name.casefold() for name in protected_dirs
