@@ -1,7 +1,3 @@
-Hier ist die komplette, zusammengeführte `README.md` auf Deutsch und Englisch. Alle persönlichen Windows-/WSL-Pfade sind entfernt. Pfade wie `/mnt/c/Users/...` werden nicht als feste Vorgabe verwendet, sondern nur bei Bedarf als ausdrücklich gekennzeichnete Beispiele. Die Anleitung berücksichtigt außerdem die bisherigen Probleme mit WSL2, CRLF-Zeilenenden, fehlenden Ubuntu-Paketen und Build-Abhängigkeiten.
-
-Schreiben
-
 # ⚡ OSCam Emu Patch Manager
 
 **Build it. Check it. Ship it.**\
@@ -1278,4 +1274,4 @@ Back up important files before modifying an existing installation. A successful 
 **Made for a smoother OSCam-Emu patch workflow.** ⚡\
 **Built with Python 3 · PyQt6 · Git · GitHub**
 
-Hinweis: Die README beschreibt die vorgesehenen Funktionen und typischen Installationswege. Ob sämtliche Funktionen, Startskripte und Ausschlusslisten in deiner aktuellen Version exakt so umgesetzt sind, muss anhand des tatsächlichen Repository-Inhalts geprüft werden.
+
