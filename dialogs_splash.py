@@ -127,7 +127,7 @@ def _find_sounds_dir():
 
 
 def _config_path():
-    return Path(__file__).resolve().parent / "github_config.json"
+    return Path(__file__).resolve().parent / "github_upload_config.json"
 
 
 if "TEXTS" not in globals():
