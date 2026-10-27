@@ -59,7 +59,15 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
 
         # --- OS-SCHUTZ: Pfade vor dem Mergen plattformunabhängig säubern ---
         is_win = platform.system() == "Windows"
-        path_keys = ["work_dir", "s3_patch_path", "s3_custom_path", "ncam_custom_path", "s4_custom_path"]
+        path_keys = [
+            "work_dir",
+            "s3_custom_path",
+            "ncam_custom_path",
+            "s3_patch_path",
+            "ncam_patch_path",
+            "s4_patch_path",
+            "s4_custom_path",
+        ]
         
         for key in list(cfg_updates.keys()):
             if key in path_keys and isinstance(cfg_updates[key], str):
@@ -223,6 +231,7 @@ def load_config(gui_instance=None):
         "language": "de",
         "s3_patch_path": os.path.normpath(base_patch_dir),
         "ncam_patch_path": os.path.normpath(base_patch_dir),
+        "work_dir": os.getcwd(),
         "s4_patch_path": os.path.normpath(base_patch_dir),
         "s3_custom_path": default_s3,
         "ncam_custom_path": default_ncam,
@@ -253,27 +262,47 @@ def load_config(gui_instance=None):
         if not isinstance(cfg, dict):
             cfg = default_cfg.copy()
 
-        # --- Fehlende Keys ergänzen & Pfade normalisieren ---
+                # --- Fehlende Keys ergänzen & Pfade normalisieren ---
         needs_save = False
-        path_keys = ["s3_custom_path", "ncam_custom_path", "s3_patch_path", "ncam_patch_path", "s4_patch_path", "s4_custom_path"]
-        
+
+        path_keys = [
+            "work_dir",
+            "s3_custom_path",
+            "ncam_custom_path",
+            "s3_patch_path",
+            "ncam_patch_path",
+            "s4_patch_path",
+            "s4_custom_path",
+        ]
+
+        # Fehlende Standardwerte ergänzen
         for key, value in default_cfg.items():
             if key not in cfg:
                 cfg[key] = value
                 needs_save = True
-            
-            # WICHTIG: Bestehende Pfade an das aktuelle OS anpassen
-            if key in path_keys and isinstance(cfg[key], str):
-                old_path = cfg[key]
-                
-                # Linux-Fix für Windows-Laufwerksbuchstaben
-                if not is_win and len(old_path) > 1 and old_path[1] == ":":
-                    old_path = old_path[2:]
-                
-                cleaned_path = os.path.normpath(old_path)
-                if cfg[key] != cleaned_path:
-                    cfg[key] = cleaned_path
-                    needs_save = True
+
+        # Pfade unabhängig davon normalisieren, ob der Key neu ist
+        for key in path_keys:
+            path_value = cfg.get(key)
+
+            if not isinstance(path_value, str) or not path_value.strip():
+                continue
+
+            is_windows_drive_path = (
+                len(path_value) >= 3
+                and path_value[1] == ":"
+                and path_value[2] in ("\\", "/")
+            )
+
+            # Windows-Pfade unter Linux unverändert erhalten
+            if not is_win and is_windows_drive_path:
+                cleaned_path = path_value
+            else:
+                cleaned_path = os.path.normpath(path_value)
+
+            if path_value != cleaned_path:
+                cfg[key] = cleaned_path
+                needs_save = True
 
         # --- Korrektur der EMUREPO URL ---
         current_repo = str(cfg.get("EMUREPO", "")).strip()

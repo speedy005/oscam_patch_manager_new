@@ -208,152 +208,76 @@ class SystemCheckWorker(QObject):
             app_ver = APP_VERSION
 
             header = f"""
-            <style>
-                body {{
-                    background: transparent;
-                }}
-
-                span {{
-                    background: transparent;
-                }}
-            </style>
-
             <div style="
-                text-align:center;
+                text-align:left;
                 width:100%;
                 font-family:sans-serif;
+                background:transparent;
             ">
-
                 <div style="
-                    line-height:1.2;
-                    margin-bottom:16px;
+                    margin-bottom:12px;
+                    font-family:'Arial Black',sans-serif;
+                    font-size:18pt;
+                    font-weight:bold;
                 ">
-                    <span style="
-                        font-family:'Arial Black',sans-serif;
-                        font-size:18pt;
-                        font-weight:bold;
-                        color:#39FF14;
-                        text-shadow:
-                            0 0 6px #39FF14,
-                            0 0 12px #00FFFF;
-                    ">
-                        {copyright_text.split("-", 1)[0].strip()}
+                    <span style="color:#39FF14;">
+                        © 2026 speedy005
                     </span>
-
-                    <span style="
-                        color:#FFFFFF;
-                        font-size:18pt;
-                    ">
-                        -
-                    </span>
-
-                    <span style="
-                        font-family:'Arial Black',sans-serif;
-                        font-size:18pt;
-                        font-weight:bold;
-                        color:#FF0039;
-                        text-shadow:
-                            0 0 6px #FF00FF,
-                            0 0 12px #FF1493;
-                    ">
-                        {copyright_text.split("-", 1)[1].strip()}
-                    </span>
-                </div>
-
-                <div style="margin-bottom:8px;">
-                    <span style="
-                        color:{C_GREEN};
-                        font-size:32pt;
-                    ">●</span>
-
-                    <span style="
-                        color:{C_RED};
-                        font-family:'Arial Black',sans-serif;
-                        font-size:28pt;
-                        font-weight:900;
-                    ">
-                        LIVE
-                    </span>
-
-                    <span style="
-                        color:#FFFFFF;
-                        font-size:22pt;
-                    ">
-                        |
-                    </span>
-
-                    <span style="
-                        color:{C_BLUE};
-                        font-family:'Arial Black',sans-serif;
-                        font-size:28pt;
-                        font-weight:900;
-                    ">
-                        System Monitor
-                    </span>
-                </div>
-
-                <div style="margin-bottom:12px;">
-                    <span style="
-                        font-family:'Noto Color Emoji',
-                        'Segoe UI Emoji',
-                        'Apple Color Emoji',
-                        sans-serif;
-                        font-size:32pt;
-                    ">🚀</span>
-
-                    <span style="
-                        color:{C_ORANGE};
-                        font-family:'Arial Black',sans-serif;
-                        font-size:32pt;
-                        font-weight:900;
-                    ">
-                        OSCam Emu Patch Generator
+                    <span style="color:#FF0039;">
+                        - Alle Rechte vorbehalten.
                     </span>
                 </div>
 
                 <div style="
-                    font-family:Arial,sans-serif;
+                    margin-bottom:8px;
+                    font-size:28pt;
+                    font-weight:bold;
+                ">
+                    <span style="color:{C_GREEN};">●</span>
+                    <span style="color:{C_RED};">LIVE</span>
+                    <span style="color:#FFFFFF;"> | </span>
+                    <span style="color:{C_BLUE};">System Monitor</span>
+                </div>
+
+                <div style="
+                    margin-bottom:12px;
+                    font-size:32pt;
+                    font-weight:bold;
+                    color:{C_ORANGE};
+                ">
+                    🚀 OSCam Emu Patch Generator
+                </div>
+
+                <div style="
+                    margin-bottom:8px;
                     font-size:16pt;
                     font-weight:bold;
-                    margin-top:6px;
                 ">
                     <span style="color:#FF0033;">
-                        {greeting.split(",", 1)[0]}
+                        {greeting.split(",", 1)[0]},
                     </span>
-
                     <span style="color:#00ADFF;">
-                        ,{greeting.split(",", 1)[1]}
+                        {greeting.split(",", 1)[1].strip()}
                     </span>
                 </div>
 
-            </div>
-
-            <div style="
-                text-align:center;
-                font-family:'Arial Black',sans-serif;
-                font-size:22pt;
-                font-weight:bold;
-                margin-top:8px;
-            ">
-                <span style="color:{C_RED};">
-                    {self.tr("Autor", "Author")}:
-                </span>
-
-                <span style="color:{C_YELLOW};">
-                    speedy005
-                </span>
-
-                <span style="color:#FFFFFF;">
-                    |
-                </span>
-
-                <span style="color:{C_ORANGE};">
-                    Version:
-                </span>
-
-                <span style="color:{C_BLUE};">
-                    {app_ver}
-                </span>
+                <div style="
+                    font-family:'Arial Black',sans-serif;
+                    font-size:22pt;
+                    font-weight:bold;
+                    margin-top:8px;
+                    margin-bottom:16px;
+                ">
+                    <span style="color:{C_RED};">
+                        {self.tr("Autor", "Author")}:
+                    </span>
+                    <span style="color:{C_YELLOW};">
+                        speedy005
+                    </span>
+                    <span style="color:#FFFFFF;"> | </span>
+                    <span style="color:{C_ORANGE};">Version:</span>
+                    <span style="color:{C_BLUE};">{app_ver}</span>
+                </div>
             </div>
             """
 
