@@ -12,6 +12,84 @@ import struct
 import tempfile
 import wave
 import shlex
+from PyQt6.QtCore import QThread, pyqtSignal
+
+
+class _PatchCreateBridge(QObject):
+    """Thread-safe bridge for create_patch logging/progress callbacks."""
+    log_message = pyqtSignal(object, str, str)
+    progress_value = pyqtSignal(int)
+    progress_text = pyqtSignal(str)
+
+    def __init__(self, gui):
+        super().__init__(gui)
+        self._gui = gui
+        # create_patch reads these settings; it must not receive the QWidget itself.
+        # LANG is read dynamically so a language switch is not stuck on an old value.
+        for name in ("EMUREPO", "selected_emu_repo_url", "selected_emu_repo_branch",
+                     "selected_emu_commit", "selected_emu_commit_repo_url",
+                     "selected_streamboard_commit", "selected_streamboard_repo_url"):
+            try:
+                setattr(self, name, getattr(gui, name, None))
+            except Exception:
+                pass
+        self.info_text = None
+        self.progress_bar = None
+
+    @property
+    def LANG(self):
+        return getattr(self._gui, "LANG", "de")
+
+    def append_info(self, _widget, message, level="info"):
+        self.log_message.emit(None, str(message), str(level))
+
+
+class _PatchCreateWorker(QThread):
+    done = pyqtSignal(object)
+    failed = pyqtSignal(str)
+
+    def __init__(self, gui, create_patch_func):
+        super().__init__(gui)
+        self.gui = gui
+        self.create_patch_func = create_patch_func
+        self.bridge = _PatchCreateBridge(gui)
+        self.bridge.log_message.connect(self._append_log)
+        self.bridge.progress_value.connect(self._set_progress)
+        self.bridge.progress_text.connect(self._set_progress_text)
+
+    def _append_log(self, _unused, message, level):
+        try:
+            self.gui.append_info(getattr(self.gui, "info_text", None), message, level)
+        except Exception:
+            try:
+                self.gui.info_text.append(message)
+            except Exception:
+                pass
+
+    def _set_progress(self, value):
+        try:
+            self.gui.progress_bar.setValue(value)
+        except Exception:
+            pass
+
+    def _set_progress_text(self, value):
+        try:
+            self.gui.progress_bar.setFormat(value)
+        except Exception:
+            pass
+
+    def run(self):
+        try:
+            # All GUI updates from create_patch are redirected through Qt signals.
+            def progress(value=None, text=None):
+                if value is not None:
+                    self.bridge.progress_value.emit(max(0, min(100, int(value))))
+                if text is not None:
+                    self.bridge.progress_text.emit(str(text))
+            result = self.create_patch_func(self.bridge, None, progress)
+            self.done.emit(result)
+        except Exception as exc:
+            self.failed.emit(str(exc))
 
 
 class ResponsiveGridReflow(QObject):
@@ -4613,7 +4691,11 @@ class PatchManagerGUI(QWidget):
             # Aktuelle Laufzeit-Workflows verwenden ebenfalls die Auswahl.
             globals()["STREAMREPO_URL"] = STREAM_REPO_CHOICES[selected]
             self.oscam_source_button.setText("Oscam Git URL")
-            message = f"OSCam-Quelle eingestellt: {selected}\n{STREAM_REPO_CHOICES[selected]}"
+            message = (
+                        f"OSCam-Quelle eingestellt: {selected}\n{STREAM_REPO_CHOICES[selected]}"
+                        if is_de
+                        else f"OSCam source configured: {selected}\n{STREAM_REPO_CHOICES[selected]}"
+                    )
             if hasattr(self, "append_info"):
                 self.append_info(self.info_text, message, "success")
             elif hasattr(self, "info_text"):
@@ -4621,8 +4703,12 @@ class PatchManagerGUI(QWidget):
         except Exception as exc:
             QMessageBox.critical(
                 self,
-                "OSCam-Quelle",
-                f"Einstellung konnte nicht gespeichert werden:\n{exc}",
+                "OSCam-Quelle" if is_de else "OSCam source",
+                (
+                    f"Einstellung konnte nicht gespeichert werden:\n{exc}"
+                    if is_de
+                    else f"Could not save setting:\n{exc}"
+                ),
             )
 
     def export_log(self):
@@ -4689,10 +4775,16 @@ class PatchManagerGUI(QWidget):
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(text)
 
-                # Erfolgsmeldung im Log-Fenster
+                                # Erfolgsmeldung im Log-Fenster
                 if hasattr(self, "append_info"):
                     self.append_info(
-                        self.info_text, f"✅ Log gespeichert: {file_path}", "success"
+                        self.info_text,
+                        (
+                            f"✅ Log gespeichert: {file_path}"
+                            if is_de
+                            else f"✅ Log saved: {file_path}"
+                        ),
+                        "success",
                     )
 
                 # --- 4. ORIGINAL SOUND BEIM ERFOLG ---
@@ -4715,7 +4807,11 @@ class PatchManagerGUI(QWidget):
 
             except Exception as e:
                 if hasattr(self, "append_info"):
-                    self.append_info(self.info_text, f"❌ Fehler: {e}", "error")
+                    self.append_info(
+                    self.info_text,
+                    f"❌ {'Fehler' if is_de else 'Error'}: {e}",
+                    "error"
+                )
         else:
             # Abgebrochen
             if pbar:
@@ -5819,6 +5915,23 @@ class PatchManagerGUI(QWidget):
     )
     from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer
     from PyQt6.QtGui import QFont, QColor
+
+    def hide_language_overlay(self):
+        """Blendet das Sprachwechsel-Overlay aus, falls eines existiert."""
+        overlay = getattr(self, "loading_overlay", None)
+        if overlay is not None:
+            try:
+                overlay.hide()
+                overlay.lower()
+            except RuntimeError:
+                pass
+
+        label = getattr(self, "loading_label", None)
+        if label is not None:
+            try:
+                label.hide()
+            except RuntimeError:
+                pass
 
     def show_language_animation(self, lang_code, callback=None):
         from PyQt6.QtWidgets import (
@@ -7372,13 +7485,40 @@ class PatchManagerGUI(QWidget):
             # --- Up-to-date ---
             set_status_ui()
 
-            # Status zusätzlich im großen Infoscreen anzeigen
+            # Status und aktuell ausgewählte OSCam-Git-URL im großen Infoscreen anzeigen.
+            # Nicht die Origin-URL von TEMP_REPO verwenden: Diese kann von der
+            # in der GUI ausgewählten OSCam-Quelle abweichen.
+            git_url = "unbekannt"
+
+            try:
+                selected_url = get_selected_stream_repo_url()
+                if selected_url:
+                    git_url = str(selected_url).strip() or "unbekannt"
+            except Exception:
+                pass
+
+            # Fallback: URL des lokalen Streamboard-Repositories, falls die
+            # GUI-Konfiguration keine ausgewählte Quelle liefern konnte.
+            if git_url == "unbekannt":
+                try:
+                    result = git_command(
+                        ["remote", "get-url", "origin"],
+                        cwd=TEMP_REPO,
+                        allowed_returncodes=(0, 1),
+                    )
+                    git_url = (result.stdout or "").strip() or "unbekannt"
+                except Exception:
+                    pass
+
+            import html
+
             self.append_info(
                 self.info_text,
                 (
-                    f'<span style="font-size:24px; font-weight:bold; color:#00FF00;">'
-                    f'✅ [{timestamp}] {msg} </span>'
-                    f'<span style="font-size:24px; font-weight:bold; color:#FF0000;">(r{old_rev})</span>'
+                    f'<span style="font-size:30px; font-weight:bold; color:#FF0000;">'
+                    f'🔗 Git-URL: </span>'
+                    f'<span style="font-size:30px; font-weight:bold; color:#00BFFF;">'
+                    f'{html.escape(git_url)}</span>'
                 ),
                 "html",
             )
@@ -8390,12 +8530,16 @@ class PatchManagerGUI(QWidget):
             pass
 
         if hasattr(self,"info_text"):
-            self.info_text.append(f"<b>✅ OSCam-Emu Git:</b> {new_url}")
             self.info_text.append(
-                "<b>ℹ️ OSCam-Emu Revision:</b> Auswahl zurückgesetzt – "
-                "beim nächsten Create Patch wird der aktuelle Branch-Stand "
-                "dieses Repositories verwendet."
+                f"<b>✅ OSCam-Emu Git: {new_url}</b>"
             )
+            
+            self.info_text.append(
+                "<b>ℹ️ OSCam-Emu Revision:</b> "
+                "<b>Auswahl zurückgesetzt – beim nächsten Create Patch "
+                "wird der aktuelle Branch-Stand dieses Repositories verwendet.</b>"
+            )
+
             self.info_text.ensureCursorVisible()
         return True
     def change_modifier_name(self):
@@ -8751,7 +8895,7 @@ class PatchManagerGUI(QWidget):
                 self.status_info_label.setFixedWidth(145 if compact else 220)
                 self.status_info_label.setStyleSheet(
                     "color: #FF0000; font-size: %dpx; font-weight: bold; border: none; background: transparent;"
-                    % (16 if compact else 22)
+                    % (20 if compact else 25)
                 )
             if hasattr(self, "btn_matrix"):
                 self.btn_matrix.setFixedWidth(180 if compact else 300)
@@ -8772,7 +8916,7 @@ class PatchManagerGUI(QWidget):
             if hasattr(self, "commit_spin"):
                 self.commit_spin.setFixedWidth(65 if compact else 75)
             if hasattr(self, "btn_check_tools"):
-                self.btn_check_tools.setFixedWidth(165 if compact else 220)
+                self.btn_check_tools.setFixedWidth(165 if compact else 360)
         except RuntimeError:
             # Widgets können während des Schließens bereits zerstört sein.
             pass
@@ -16625,31 +16769,107 @@ class PatchManagerGUI(QWidget):
             # BUTTON CALLBACKS
             # =========================================================
 
+            def _start_patch_create():
+                # Keep a strong reference so Qt does not collect the worker.
+                current = getattr(self, "_patch_create_worker", None)
+                if current is not None and current.isRunning():
+                    is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+                    self.append_info(
+                        self.info_text,
+                        "Patch-Erstellung läuft bereits."
+                        if is_de else "Patch creation is already running.",
+                        "warning"
+                    )
+                    return current
+                self.progress_bar.setValue(0)
+                worker = _PatchCreateWorker(self, create_patch)
+                worker.failed.connect(
+                    lambda message: self.append_info(
+                        self.info_text,
+                        (
+                            f"Patch-Erstellung fehlgeschlagen: {message}"
+                            if str(getattr(self, "LANG", "de")).lower().startswith("de")
+                            else f"Patch creation failed: {message}"
+                        ),
+                        "error"
+                    )
+                )
+                def _patch_create_done(_result):
+                    lang = str(getattr(self, "LANG", "de")).lower()[:2]
+                    T = TEXTS.get(lang, TEXTS.get("de", {}))
+
+                    self.append_info(
+                        self.info_text,
+                        T.get(
+                            "patch_creation_finished",
+                            "Patch-Erstellung beendet."
+                            if lang == "de"
+                            else "Patch creation finished."
+                        ),
+                        "success"
+                    )
+
+                    try:
+                        import re
+
+                        with open(
+                            PATCH_FILE,
+                            "r",
+                            encoding="utf-8",
+                            errors="replace"
+                        ) as patch_file:
+                            for line in patch_file:
+                                match = re.match(
+                                    r"^\s*patch version:\s*(.*?)\s*$",
+                                    line,
+                                    re.IGNORECASE
+                                )
+                                if match:
+                                    self.append_info(
+                                        self.info_text,
+                                        (
+                                f"Patch-Revision: {match.group(1)}"
+                                if lang == "de"
+                                else f"Patch revision: {match.group(1)}"
+                            ),
+                                        "success"
+                                    )
+                                    break
+                            else:
+                                self.append_info(
+                                    self.info_text,
+                                    (
+                                    "Keine Patch-Version im Header gefunden."
+                                    if lang == "de"
+                                    else "No patch version found in the header."
+                                ),
+                                    "warning"
+                                )
+
+                    except OSError as exc:
+                        self.append_info(
+                            self.info_text,
+                            (
+                            f"Patch-Revision konnte nicht gelesen werden: {exc}"
+                            if lang == "de"
+                            else f"Could not read patch revision: {exc}"
+                        ),
+                            "warning"
+                        )
+
+                worker.done.connect(_patch_create_done)
+                worker.finished.connect(worker.deleteLater)
+                self._patch_create_worker = worker
+                worker.start()
+                return worker
+
             def callback_patch_create():
-
-                print(
-                    "[GRID CALLBACK] patch_create START",
-                    flush=True
-                )
-
-                return create_patch(
-                    self,
-                    self.info_text,
-                    self.progress_bar.setValue
-                )
+                print("[GRID CALLBACK] patch_create START", flush=True)
+                return _start_patch_create()
 
             def callback_patch_renew():
-
-                print(
-                    "[GRID CALLBACK] patch_renew START",
-                    flush=True
-                )
-
-                return create_patch(
-                    self,
-                    self.info_text,
-                    self.progress_bar.setValue
-                )
+                print("[GRID CALLBACK] patch_renew START", flush=True)
+                return _start_patch_create()
 
             def callback_patch_check():
 
@@ -18747,78 +18967,134 @@ class PatchManagerGUI(QWidget):
             success = pyqtSignal(str)
             error = pyqtSignal(str)
 
+            
             def run(self):
-                try:
-                    repo_url = (
-                        "https://git.streamboard.tv/"
-                        "common/oscam.git"
-                    )
+                sources = [
+                    (
+                        "Streamboard",
+                        "https://git.streamboard.tv/common/oscam.git"
+                    ),
+                    (
+                        "GitHub-Fallback",
+                        "https://github.com/speedy005/oscam-git"
+                    ),
+                ]
 
-                    result = subprocess.run(
-                        [
-                            "git",
-                            "ls-remote",
-                            repo_url,
-                            "refs/heads/master"
-                        ],
-                        capture_output=True,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace",
-                        timeout=20
-                    )
+                errors = []
 
-                    if result.returncode != 0:
+                for source_name, repo_url in sources:
+                    try:
+                        print(
+                            f"[COMMIT] Prüfe Quelle: {repo_url}",
+                            flush=True
+                        )
+
+                        result = subprocess.run(
+                            [
+                                "git",
+                                "ls-remote",
+                                repo_url,
+                                "refs/heads/master"
+                            ],
+                            capture_output=True,
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
+                            timeout=10
+                        )
+
+                        if result.returncode != 0:
+                            error_text = (
+                                result.stderr.strip()
+                                or "git ls-remote fehlgeschlagen."
+                            )
+
+                            errors.append(
+                                f"{source_name}: {error_text}"
+                            )
+
+                            print(
+                                f"[COMMIT] Quelle fehlgeschlagen: "
+                                f"{source_name}: {error_text}",
+                                flush=True
+                            )
+                            continue
+
+                        output = result.stdout.strip()
+                        parts = output.split()
+
+                        if not parts:
+                            errors.append(
+                                f"{source_name}: Kein Commit-Hash erhalten."
+                            )
+                            continue
+
+                        commit_hash = parts[0].strip().lower()
+
+                        if (
+                            len(commit_hash) != 40
+                            or any(
+                                c not in "0123456789abcdef"
+                                for c in commit_hash
+                            )
+                        ):
+                            errors.append(
+                                f"{source_name}: Ungültiger Commit-Hash."
+                            )
+                            continue
+
+                        print(
+                            f"[COMMIT] Erfolgreiche Quelle: {source_name}",
+                            flush=True
+                        )
+                        print(
+                            f"[COMMIT] Remote-HEAD: {commit_hash}",
+                            flush=True
+                        )
+
+                        if source_name != "Streamboard":
+                            print(
+                                "[COMMIT] Streamboard nicht erreichbar. "
+                                "Ersatzquelle wurde verwendet.",
+                                flush=True
+                            )
+
+                        self.success.emit(commit_hash)
+                        return
+
+                    except subprocess.TimeoutExpired:
                         error_text = (
-                            result.stderr.strip()
-                            or "git ls-remote fehlgeschlagen."
+                            f"{source_name}: Zeitlimit von 10 Sekunden "
+                            "überschritten."
                         )
 
-                        self.error.emit(error_text)
-                        return
+                        errors.append(error_text)
 
-                    output = result.stdout.strip()
+                        print(
+                            f"[COMMIT] TIMEOUT: {repo_url}",
+                            flush=True
+                        )
 
-                    if not output:
+                    except FileNotFoundError:
                         self.error.emit(
-                            "Keine Antwort von Streamboard."
+                            "Git wurde nicht gefunden. "
+                            "Bitte prüfen, ob Git installiert ist."
                         )
                         return
 
-                    # Erwartet:
-                    # HASH<TAB>refs/heads/master
-                    parts = output.split()
+                    except Exception as e:
+                        errors.append(f"{source_name}: {e}")
 
-                    if not parts:
-                        self.error.emit(
-                            "Kein Commit-Hash erhalten."
+                        print(
+                            f"[COMMIT] Fehler bei {source_name}: {e}",
+                            flush=True
                         )
-                        return
 
-                    commit_hash = parts[0].strip().lower()
+                self.error.emit(
+                    "Keine OSCam-Quelle konnte abgefragt werden:\n"
+                    + "\n".join(errors)
+                )
 
-                    # SHA-1 muss 40 Zeichen haben
-                    if len(commit_hash) != 40:
-                        self.error.emit(
-                            f"Ungültiger Commit-Hash: {commit_hash}"
-                        )
-                        return
-
-                    self.success.emit(commit_hash)
-
-                except subprocess.TimeoutExpired:
-                    self.error.emit(
-                        "Zeitüberschreitung bei der Verbindung."
-                    )
-
-                except FileNotFoundError:
-                    self.error.emit(
-                        "Git wurde nicht gefunden. "
-                        "Bitte prüfen, ob Git installiert ist."
-                    )
-
-                except Exception as e:
-                    self.error.emit(str(e))
 
         # ---------------------------------------------------------
         # Progress starten

@@ -1157,12 +1157,12 @@ def clean_patch_folder(
         try:
             if not os.path.lexists(path):
                 log(
-                    f"ℹ️ Nicht vorhanden: {name}",
+                    f"ℹ️ {name} nicht vorhanden" if is_de else f"ℹ️ {name} not found",
                     "info"
                 )
             else:
                 log(
-                    f"🗑️ Lösche: {name}",
+                    f"🗑️ Lösche: {name}" if is_de else f"🗑️ Deleting: {name}",
                     "info"
                 )
 
@@ -1176,7 +1176,7 @@ def clean_patch_folder(
                         )
                     else:
                         raise RuntimeError(
-                            "Der Pfad ist kein Ordner."
+                            ("Der Pfad ist kein Ordner." if is_de else "The path is not a folder.")
                         )
 
                 else:
@@ -1185,7 +1185,7 @@ def clean_patch_folder(
                         and not os.path.islink(path)
                     ):
                         raise RuntimeError(
-                            "Dateipfad verweist auf einen Ordner."
+                            ("Dateipfad verweist auf einen Ordner." if is_de else "File path points to a folder.")
                         )
 
                     try:
@@ -1200,13 +1200,13 @@ def clean_patch_folder(
 
                 if os.path.lexists(path):
                     raise RuntimeError(
-                        "Löschen fehlgeschlagen."
+                        ("Löschen fehlgeschlagen." if is_de else "Deletion failed.")
                     )
 
                 deleted_count += 1
 
                 log(
-                    f"✓ Gelöscht: {name}",
+                    f"✓ Gelöscht: {name}" if is_de else f"✓ Deleted: {name}",
                     "success"
                 )
 
@@ -1214,8 +1214,11 @@ def clean_patch_folder(
             failed_count += 1
 
             log(
-                f"❌ Konnte nicht gelöscht werden: "
-                f"{name} — {error}",
+                (
+                    f"❌ Konnte nicht gelöscht werden: {name} — {error}"
+                    if is_de
+                    else f"❌ Could not delete: {name} — {error}"
+                ),
                 "error"
             )
 
@@ -1854,96 +1857,56 @@ def create_patch(
         repo_url,
         description
     ):
-        """Ermittelt den exakten refs/heads/master-Commit direkt vom Server."""
-        log(f"[GIT] Ermittle exakten {description} master-HEAD vom Server...")
-
+        """Resolve master HEAD with short timeout and automatic mirror fallback."""
+        nonlocal stream_url
+        log("[GIT] " + tr(
+            "stream_master_head",
+            "Ermittle exakten {description} master-HEAD (Timeout je Quelle: 35 s)...",
+            "Resolving exact {description} master HEAD (timeout per source: 35 s)..."
+        ).format(description=description))
         git_executable = find_git_executable()
         if not git_executable:
             raise RuntimeError(tr("git_missing", "Git wurde nicht gefunden.", "Git was not found."))
 
-        result = subprocess.run(
-            [git_executable, "ls-remote", "--exit-code", str(repo_url).strip(), "refs/heads/master"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=1200
-        )
-        stdout=(result.stdout or "").strip()
-        stderr=(result.stderr or "").strip()
-        if result.returncode != 0:
-            raise RuntimeError(stderr or stdout or f"Remote-Master von {description} konnte nicht ermittelt werden.")
-
-        remote_head=""
-        for line in stdout.splitlines():
-            parts=line.strip().split()
-            if len(parts)>=2 and parts[1]=="refs/heads/master":
-                remote_head=parts[0]
-                break
-        if not remote_head:
-            raise RuntimeError(f"{description}: git ls-remote lieferte keinen refs/heads/master-Commit.")
-        if len(remote_head) not in (40,64) or not re.fullmatch(r"[0-9a-fA-F]+", remote_head):
-            raise RuntimeError(f"{description}: ungültige Remote-Master-ID: {remote_head}")
-        remote_head=remote_head.lower()
-        log(f"[GIT] {description} refs/heads/master:")
-        log(f"      {remote_head}")
-        return remote_head
-
-    def get_emu_repository_config():
-        """Liest die im GitHub-Konfigurationsdialog gewählte Emu-URL und den Branch."""
-        repo_url = ""
-        branch = "master"
-
+        candidates = [str(repo_url).strip()]
         try:
-            cfg = load_github_config()
-            repo_url = str(cfg.get("emu_repo_url", "") or "").strip()
-            branch = str(cfg.get("emu_branch", "master") or "master").strip() or "master"
+            from paths import STREAM_REPO_CHOICES
+            candidates.extend(
+                str(url).strip() for url in STREAM_REPO_CHOICES.values()
+                if str(url).strip() and str(url).strip() not in candidates
+            )
         except Exception:
             pass
-
-        # Eine im Tool gerade ausgewählte Repo-URL hat IMMER Vorrang
-        # vor einer älteren gespeicherten Konfiguration.
-        if gui_instance is not None:
+        errors = []
+        for candidate in candidates:
             try:
-                value = str(getattr(gui_instance, "selected_emu_repo_url", "") or "").strip()
-                if value:
-                    repo_url = value
-            except Exception:
-                pass
-            try:
-                value = str(getattr(gui_instance, "EMUREPO", "") or "").strip()
-                if value:
-                    repo_url = value
-            except Exception:
-                pass
-            try:
-                value = str(getattr(gui_instance, "selected_emu_repo_branch", "") or "").strip()
-                if value:
-                    branch = value
-            except Exception:
-                pass
-
-        selected_global = str(globals().get("SELECTED_EMU_REPO_URL", "") or "").strip()
-        if selected_global:
-            repo_url = selected_global
-
-        if not repo_url:
-            repo_url = str(globals().get("EMUREPO_URL", "") or "").strip()
-
-        if not repo_url:
-            raise RuntimeError(
-                tr(
-                    "emu_repo_url_missing",
-                    "Keine OSCam-Emu Repository-URL gesetzt. Bitte im GitHub-Konfigurationsdialog eintragen.",
-                    "No OSCam-Emu repository URL configured. Set it in the GitHub configuration dialog."
+                result = subprocess.run(
+                    [git_executable, "ls-remote", "--exit-code", candidate, "refs/heads/master"],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                    encoding="utf-8", errors="replace", timeout=35, shell=False
                 )
-            )
-
-        return repo_url, branch
-
-    def get_emu_repository_url():
-        return get_emu_repository_config()[0]
+                stdout = (result.stdout or "").strip()
+                stderr = (result.stderr or "").strip()
+                if result.returncode != 0:
+                    raise RuntimeError(stderr or stdout or f"git ls-remote Exitcode {result.returncode}")
+                for line in stdout.splitlines():
+                    parts = line.strip().split()
+                    if len(parts) >= 2 and parts[1] == "refs/heads/master" and parts[0]:
+                        if candidate != stream_url:
+                            stream_url = candidate
+                            log(f"[GIT] Automatischer Wechsel zur alternativen Streamboard-Quelle: {candidate}")
+                        return parts[0]
+                raise RuntimeError("Kein refs/heads/master zurückgegeben")
+            except Exception as exc:
+                errors.append(f"{candidate}: {exc}")
+                log("[GIT] " + tr(
+                    "stream_source_retry",
+                    "Quelle nicht erreichbar, nächste Quelle wird versucht: {candidate} ({error})",
+                    "Source unreachable, trying next source: {candidate} ({error})"
+                ).format(candidate=candidate, error=exc))
+        raise RuntimeError(
+            f"Keine Streamboard-Quelle lieferte einen master-HEAD. " + " | ".join(errors)
+        )
 
     # ============================================================
     # Remote URL synchronisieren
@@ -1997,7 +1960,11 @@ def create_patch(
         if current_origin == repo_url:
 
             log(
-                "[GIT] OSCam-Emu origin bereits korrekt:"
+                tr(
+                    "log_emu_origin_correct",
+                    "[GIT] OSCam-Emu origin bereits korrekt:",
+                    "[GIT] OSCam-Emu origin is already correct:"
+                )
             )
 
             log(
@@ -2074,7 +2041,11 @@ def create_patch(
         if not existing_url:
 
             log(
-                "[GIT] Füge Streamboard-Remote hinzu:"
+                tr(
+                    "log_add_streamboard_remote",
+                    "[GIT] Füge Streamboard-Remote hinzu:",
+                    "[GIT] Adding Streamboard remote:"
+                )
             )
 
             log(
@@ -2120,8 +2091,13 @@ def create_patch(
         # --------------------------------------------------------
 
         log(
-            "[GIT] Hole exakt den benötigten Streamboard Commit "
-            "ins OSCam-Emu Repository..."
+            tr(
+                "log_fetch_streamboard_commit",
+                "[GIT] Hole exakt den benötigten Streamboard Commit "
+                "ins OSCam-Emu Repository...",
+                "[GIT] Fetching the exact required Streamboard commit "
+                "into the OSCam-Emu repository..."
+            )
         )
 
         # WICHTIG: Nicht nur HEAD holen. Bei einer manuell
@@ -2280,7 +2256,11 @@ def create_patch(
         """
 
         log(
-            "[PATCH] Prüfe Patch mit git apply --check..."
+            tr(
+                "log_check_patch_apply",
+                "[PATCH] Prüfe Patch mit git apply --check...",
+                "[PATCH] Checking patch with git apply --check..."
+            )
         )
 
         validation_worktree = None
@@ -2330,7 +2310,11 @@ def create_patch(
             if base_commit:
                 log(
                     "[PATCH] git apply --check: OK "
-                    f"(Basis {base_commit})"
+                    + tr(
+                        "log_patch_apply_check_base",
+                        f"(Basis {base_commit})",
+                        f"(base {base_commit})"
+                    )
                 )
             else:
                 log(
@@ -2504,7 +2488,11 @@ def create_patch(
                 shutil.rmtree(expected_worktree, ignore_errors=True)
 
             log(
-                "[PATCH] Zielzustand nach Patch: OK"
+                tr(
+                    "log_patch_target_state_ok",
+                    "[PATCH] Zielzustand nach Patch: OK",
+                    "[PATCH] Target state after patch: OK"
+                )
             )
 
         finally:
@@ -2628,15 +2616,27 @@ def create_patch(
 
         if not os.path.isdir(stream_dir):
             log(
-                f"[GIT] Streamboard-Verzeichnis: {stream_dir}"
+                tr(
+                    "log_streamboard_directory",
+                    f"[GIT] Streamboard-Verzeichnis: {stream_dir}",
+                    f"[GIT] Streamboard directory: {stream_dir}"
+                )
             )
 
         log(
-            f"[GIT] OSCam-Emu-Verzeichnis: {emu_dir}"
+            tr(
+                "log_emu_directory",
+                f"[GIT] OSCam-Emu-Verzeichnis: {emu_dir}",
+                f"[GIT] OSCam-Emu directory: {emu_dir}"
+            )
         )
 
         log(
-            f"[PATCH] Patch-Datei: {patch_file}"
+            tr(
+                "log_patch_file",
+                f"[PATCH] Patch-Datei: {patch_file}",
+                f"[PATCH] Patch file: {patch_file}"
+            )
         )
 
 
@@ -2654,7 +2654,36 @@ def create_patch(
         # EMU URL aus GUI holen
         # ========================================================
 
-        emu_repo_url, emu_repo_branch = get_emu_repository_config()
+        # Die Konfigurationsfunktion war in manchen Modulvarianten nur
+        # innerhalb eines anderen Funktionsblocks definiert. Deshalb hier
+        # bewusst robust und lokal auflösen, damit create_patch() nicht mit
+        # NameError abbricht. Die aktuelle GUI-Auswahl hat Vorrang.
+        emu_repo_url = ""
+        emu_repo_branch = "master"
+        if gui_instance is not None:
+            emu_repo_url = str(
+                getattr(gui_instance, "selected_emu_repo_url", "") or
+                getattr(gui_instance, "EMUREPO", "") or ""
+            ).strip()
+            emu_repo_branch = str(
+                getattr(gui_instance, "selected_emu_repo_branch", "") or "master"
+            ).strip() or "master"
+        if not emu_repo_url:
+            try:
+                cfg = load_github_config()
+                emu_repo_url = str(cfg.get("emu_repo_url", "") or "").strip()
+                emu_repo_branch = str(cfg.get("emu_branch", emu_repo_branch) or emu_repo_branch).strip() or emu_repo_branch
+            except Exception:
+                pass
+        if not emu_repo_url:
+            emu_repo_url = str(
+                globals().get("SELECTED_EMU_REPO_URL", "") or
+                globals().get("EMUREPO_URL", "") or ""
+            ).strip()
+        if not emu_repo_url:
+            raise RuntimeError(
+                "Keine OSCam-Emu Repository-URL gesetzt. Bitte im GitHub-Konfigurationsdialog eintragen."
+            )
 
         # Die im GUI gewählte OSCam-Emu-Repo ist immer die verbindliche
         # Quelle für Create Patch. Eine ältere gespeicherte Config darf
@@ -2679,9 +2708,19 @@ def create_patch(
             except Exception:
                 pass
 
-        log("[GIT] Ausgewählte OSCam-Emu Repository-URL:")
+        log(tr(
+            "log_selected_emu_repo_url",
+            "[GIT] Ausgewählte OSCam-Emu Repository-URL:",
+            "[GIT] Selected OSCam-Emu repository URL:"
+        ))
         log(f"       {emu_repo_url}")
-        log(f"[GIT] Ausgewählter OSCam-Emu Branch: {emu_repo_branch}")
+        log(
+            "[GIT] " + tr(
+                "selected_emu_branch",
+                "Ausgewählter OSCam-Emu Branch: {branch}",
+                "Selected OSCam-Emu branch: {branch}"
+            ).format(branch=emu_repo_branch)
+        )
 
         # ========================================================
         # Streamboard Repository URL
@@ -2698,16 +2737,72 @@ def create_patch(
         # Streamboard Repository
         # ========================================================
 
-        log("[GIT] Streamboard Repository:")
+        log(tr(
+            "log_streamboard_repository",
+            "[GIT] Streamboard Repository:",
+            "[GIT] Streamboard repository:"
+        ))
         log(f"       {stream_dir}")
 
         # Repository klonen, wenn es fehlt oder der Ordner leer ist.
-        ensure_git_repository(
-            stream_dir,
-            stream_url,
-            description="Streamboard",
-            clone_timeout=1200
-        )
+        # Keep network waits bounded. If the configured Streamboard mirror is
+        # unreachable, try the other configured OSCam source URLs automatically.
+        stream_candidates = [stream_url]
+        try:
+            from paths import STREAM_REPO_CHOICES
+
+            # Den schnelleren GitHub-Mirror beim Klonen zuerst versuchen.
+            preferred_url = STREAM_REPO_CHOICES.get(
+                "speedy Oscan",
+                "https://github.com/speedy005/oscam-git",
+            )
+            stream_candidates = [preferred_url, stream_url]
+            stream_candidates.extend(
+                str(url).strip() for url in STREAM_REPO_CHOICES.values()
+                if str(url).strip()
+            )
+        except Exception:
+            pass
+
+        # Leere URLs und doppelte Einträge entfernen, Reihenfolge beibehalten.
+        stream_candidates = list(dict.fromkeys(
+            url.strip() for url in stream_candidates if url.strip()
+        ))
+        last_stream_error = None
+        for candidate_url in dict.fromkeys(stream_candidates):
+            try:
+                log("[GIT] " + tr(
+                    "stream_source_check",
+                    "Prüfe Streamboard-Quelle: {url}",
+                    "Checking Streamboard source: {url}"
+                ).format(url=candidate_url))
+                ensure_git_repository(
+                    stream_dir,
+                    candidate_url,
+                    description="Streamboard",
+                    clone_timeout=3
+                )
+                stream_url = candidate_url
+                if candidate_url != stream_candidates[0]:
+                    log("[GIT] " + tr(
+                        "stream_source_alternative",
+                        "Alternative Streamboard-Quelle wird verwendet: {url}",
+                        "Using alternative Streamboard source: {url}"
+                    ).format(url=stream_url))
+                last_stream_error = None
+                break
+            except Exception as exc:
+                last_stream_error = exc
+                log("[GIT] " + tr(
+                    "stream_source_failed",
+                    "Streamboard-Quelle fehlgeschlagen: {url} ({error})",
+                    "Streamboard source failed: {url} ({error})"
+                ).format(url=candidate_url, error=exc))
+        if last_stream_error is not None:
+            raise RuntimeError(
+                "Keine konfigurierte Streamboard-Quelle erreichbar. "
+                f"Letzter Fehler: {last_stream_error}"
+            )
 
         validate_git_repository(
             stream_dir,
@@ -2800,7 +2895,7 @@ def create_patch(
                     ],
                     cwd=stream_dir,
                     check=True,
-                    timeout=1200
+                    timeout=120
                 )
 
                 local_stream_commit = run_git(
@@ -2856,18 +2951,19 @@ def create_patch(
 
             # Keine manuelle Auswahl: den echten Streamboard Remote-HEAD
             # direkt vom Server ermitteln.
-            update_repository(
-                stream_dir,
-                "Streamboard"
-            )
-
+            # Avoid an unbounded full fetch before testing mirrors. Resolve the
+            # exact remote SHA first; the code below fetches that exact commit.
             stream_commit = get_remote_head(
                 stream_url,
                 "Streamboard"
             )
 
             log(
-                "[STREAMBOARD] Exakter Remote-HEAD:"
+                tr(
+                "log_streamboard_remote_head",
+                "[STREAMBOARD] Exakter Remote-HEAD:",
+                "[STREAMBOARD] Exact remote HEAD:"
+            )
             )
 
             log(
@@ -2888,8 +2984,11 @@ def create_patch(
             if local_stream_commit != stream_commit:
 
                 log(
-                    "[GIT] Exakter Streamboard Remote-HEAD "
-                    "ist lokal noch nicht vorhanden."
+                    "[GIT] " + tr(
+                        "stream_head_missing",
+                        "Exakter Streamboard Remote-HEAD ist lokal noch nicht vorhanden.",
+                        "Exact Streamboard remote HEAD is not available locally yet."
+                    )
                 )
 
                 run_git(
@@ -2900,7 +2999,7 @@ def create_patch(
                     ],
                     cwd=stream_dir,
                     check=True,
-                    timeout=1200
+                    timeout=120
                 )
 
                 local_stream_commit = run_git(
@@ -2937,7 +3036,11 @@ def create_patch(
         # ========================================================
 
         log(
-            "[GIT] OSCam-Emu Repository:"
+            tr(
+                "log_emu_repository",
+                "[GIT] OSCam-Emu Repository:",
+                "[GIT] OSCam-Emu repository:"
+            )
         )
 
         log(
@@ -2948,20 +3051,24 @@ def create_patch(
         # Repository erzeugen, falls nicht vorhanden
         # --------------------------------------------------------
 
-        if not os.path.isdir(
-            emu_dir
-        ):
+        if not os.path.isdir(emu_dir):
+            log(tr(
+                "log_emu_repo_missing",
+                "[GIT] OSCam-Emu Repository fehlt – klone...",
+                "[GIT] OSCam-Emu repository missing — cloning..."
+            ))
+        else:
+            log("[GIT] Prüfe vorhandenes OSCam-Emu-Verzeichnis...")
 
-            log(
-                "[GIT] OSCam-Emu Repository fehlt – klone..."
-            )
-
-            ensure_git_repository(
-                emu_dir,
-                emu_repo_url,
-                description="OSCam-Emu",
-                clone_timeout=1200
-            )
+        # Immer prüfen: Ein existierender Ordner ist nicht automatisch ein
+        # Git-Repository. ensure_git_repository meldet nicht-leere ungültige
+        # Ordner sicher, ohne Nutzerdaten automatisch zu löschen.
+        ensure_git_repository(
+            emu_dir,
+            emu_repo_url,
+            description="OSCam-Emu",
+            clone_timeout=120
+        )
 
         validate_git_repository(
             emu_dir,
@@ -3121,8 +3228,13 @@ def create_patch(
             # Repositories/Branches verwenden. Damit ist Create Patch
             # niemals von einer alten lokalen Revision abhängig.
             log(
-                "[OSCAM-EMU] Keine feste Revision ausgewählt – "
-                "verwende den aktuellen Stand des aktiven Repositories."
+                tr(
+                    "log_no_fixed_revision",
+                    "[OSCAM-EMU] Keine feste Revision ausgewählt – "
+                    "verwende den aktuellen Stand des aktiven Repositories.",
+                    "[OSCAM-EMU] No fixed revision selected — "
+                    "using the current state of the active repository."
+                )
             )
             emu_commit = update_emu_repository(
                 emu_dir,
@@ -3209,9 +3321,14 @@ def create_patch(
         # ========================================================
 
         log(
-            "[GIT] Importiere exakt den ermittelten "
-            "Streamboard Remote-HEAD "
-            "in das OSCam-Emu Repository..."
+            tr(
+                "log_import_streamboard_head",
+                "[GIT] Importiere exakt den ermittelten "
+                "Streamboard Remote-HEAD "
+                "in das OSCam-Emu Repository...",
+                "[GIT] Importing the exact resolved Streamboard remote HEAD "
+                "into the OSCam-Emu repository..."
+            )
         )
 
         import_streamboard_commit(
@@ -3310,19 +3427,35 @@ def create_patch(
         # ========================================================
 
         log(
-            "[PATCH] Erzeuge Roh-Patch:"
+            tr(
+                "log_create_raw_patch",
+                "[PATCH] Erzeuge Roh-Patch:",
+                "[PATCH] Creating raw patch:"
+            )
         )
 
         log(
-            f"        Basis : {stream_commit}"
+            tr(
+                "log_patch_base",
+                f"        Basis : {stream_commit}",
+                f"        Base  : {stream_commit}"
+            )
         )
 
         log(
-            f"        Ziel   : {emu_commit}"
+            tr(
+                "log_patch_target",
+                f"        Ziel   : {emu_commit}",
+                f"        Target : {emu_commit}"
+            )
         )
 
         log(
-            "        Modus  : git diff --binary --full-index"
+            tr(
+                "log_patch_mode",
+                "        Modus  : git diff --binary --full-index",
+                "        Mode   : git diff --binary --full-index"
+            )
         )
 
         target_worktree_for_patch = None
@@ -3339,7 +3472,11 @@ def create_patch(
             )
 
             log(
-                "[PATCH] Temporärer exakter Ziel-Worktree vorbereitet:"
+                tr(
+                    "log_target_worktree_prepared",
+                    "[PATCH] Temporärer exakter Ziel-Worktree vorbereitet:",
+                    "[PATCH] Temporary exact target worktree prepared:"
+                )
             )
             log(
                 f"        {target_worktree_for_patch}"
@@ -3439,7 +3576,11 @@ def create_patch(
             )
 
         log(
-            "[PATCH] Roh-Patch erzeugt:"
+            tr(
+                "log_raw_patch_created",
+                "[PATCH] Roh-Patch erzeugt:",
+                "[PATCH] Raw patch created:"
+            )
         )
 
         log(
@@ -3564,8 +3705,18 @@ def create_patch(
         ) as patch_output:
             patch_output.write(final_patch)
 
-        log("[PATCH] Header eingefügt.")
-        log("[PATCH] Patch-Header:")
+        log(tr(
+            "log_patch_header_inserted",
+            "[PATCH] Header eingefügt.",
+            "[PATCH] Header inserted."
+        ))
+        log(
+            tr(
+                "log_patch_header",
+                "[PATCH] Patch-Header:",
+                "[PATCH] Patch header:"
+            )
+        )
         for line in header_lines:
             log(line)
 
@@ -3595,8 +3746,11 @@ def create_patch(
         # ========================================================
 
         log(
-            "[PATCH] Prüfe angewendeten Patch "
-            "gegen OSCam-Emu Zielzustand..."
+            tr(
+                "log_check_applied_patch",
+                "[PATCH] Prüfe angewendeten Patch gegen OSCam-Emu Zielzustand...",
+                "[PATCH] Checking applied patch against the OSCam-Emu target state..."
+            )
         )
 
         validate_applied_patch(
@@ -3629,40 +3783,35 @@ def create_patch(
 
         log("")
         log("========================================")
-        log("PATCH ERFOLGREICH ERZEUGT")
+        log(
+            tr(
+                "patch_created_success",
+                "PATCH ERFOLGREICH ERZEUGT",
+                "PATCH CREATED SUCCESSFULLY"
+            )
+        )
         log("========================================")
         log(f"Streamboard Remote-HEAD: {stream_commit}")
         log(f"OSCam-Emu Commit:        {emu_commit}")
 
-        # Revisions-Buttons aktualisieren
+        # Revisions-Buttons auf der eigentlichen GUI aktualisieren
         if gui_instance is not None:
             try:
-                gui_instance.display_streamboard_commit = stream_commit
-                gui_instance.display_emu_commit = emu_commit
-                gui_instance.update_revision_button_labels()
+                actual_gui = getattr(
+                    gui_instance,
+                    "_gui",
+                    gui_instance
+                )
+
+                actual_gui.display_streamboard_commit = stream_commit
+                actual_gui.display_emu_commit = emu_commit
+                actual_gui.update_revision_button_labels()
+
             except Exception as exc:
                 log(
                     "[GUI] Revisions-Anzeige konnte nicht "
                     f"aktualisiert werden: {exc}"
                 )
-
-        log(f"OSCam-Emu URL:           {emu_repo_url}")
-        log(f"Patch: {patch_file}")
-        log(
-            "Größe: "
-            + f"{final_size:,}".replace(",", ".")
-            + " Bytes"
-        )
-        log("========================================")
-
-        set_progress(
-            100,
-            tr(
-                "patch_success",
-                "Patch erfolgreich erstellt – %p%",
-                "Patch successfully created – %p%",
-            ),
-        )
 
         
         # ========================================================
