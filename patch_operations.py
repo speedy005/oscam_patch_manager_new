@@ -2775,18 +2775,18 @@ def create_patch(
         # Repository klonen, wenn es fehlt oder der Ordner leer ist.
         # Keep network waits bounded. If the configured Streamboard mirror is
         # unreachable, try the other configured OSCam source URLs automatically.
-        stream_candidates = [stream_url]
+        # Erst die ausgewählte Quelle versuchen. Nur wenn sie beim
+        # Klonen fehlschlägt oder nicht erreichbar ist, auf den
+        # expliziten speedy005 OSCam-Git-Mirror ausweichen.
+        stream_candidates = [
+            stream_url,
+            "https://github.com/speedy005/oscam-git.git",
+        ]
         try:
             from paths import STREAM_REPO_CHOICES
-
-            # Den schnelleren GitHub-Mirror beim Klonen zuerst versuchen.
-            preferred_url = STREAM_REPO_CHOICES.get(
-                "speedy Oscan",
-                "https://github.com/speedy005/oscam-git",
-            )
-            stream_candidates = [preferred_url, stream_url]
             stream_candidates.extend(
-                str(url).strip() for url in STREAM_REPO_CHOICES.values()
+                str(url).strip()
+                for url in STREAM_REPO_CHOICES.values()
                 if str(url).strip()
             )
         except Exception:
@@ -2808,7 +2808,7 @@ def create_patch(
                     stream_dir,
                     candidate_url,
                     description="Streamboard",
-                    clone_timeout=3
+                    clone_timeout=120
                 )
                 stream_url = candidate_url
                 if candidate_url != stream_candidates[0]:
@@ -5948,29 +5948,53 @@ def patch_oscam_emu_git(
             "🌐 Klone aktuelles Streamboard-Repository..."
         )
 
-        try:
+        # Erst die gewählte Streamboard-Quelle versuchen,
+        # bei Fehler oder Timeout den GitHub-Fallback verwenden.
+        stream_candidates = list(dict.fromkeys([
+            str(stream_url).strip(),
+            "https://github.com/speedy005/oscam-git.git",
+        ]))
 
-            run_git(
-                [
-                    "clone",
-                    "-c",
-                    "http.sslVerify=false",
-                    stream_url,
-                    "."
-                ],
-                cwd=temp_dir,
-                timeout=1200
-            )
+        last_clone_error = None
 
-        except Exception as exc:
+        for candidate_url in stream_candidates:
+            log(f"🌐 Versuche Streamboard-Quelle: {candidate_url}")
 
+            try:
+                run_git(
+                    [
+                        "clone",
+                        "-c",
+                        "http.sslVerify=false",
+                        candidate_url,
+                        "."
+                    ],
+                    cwd=temp_dir,
+                    timeout=15
+                )
+                stream_url = candidate_url
+                last_clone_error = None
+                break
+
+            except Exception as exc:
+                last_clone_error = exc
+                log(
+                    f"⚠️ Streamboard-Quelle fehlgeschlagen: "
+                    f"{candidate_url} ({exc})"
+                )
+
+                if candidate_url != stream_candidates[-1]:
+                    if os.path.exists(temp_dir):
+                        safe_remove_directory(temp_dir)
+                    os.makedirs(temp_dir, exist_ok=True)
+
+        if last_clone_error is not None:
             raise RuntimeError(
-                "Streamboard-Repository konnte "
-                "nicht geklont werden!\n\n"
-                f"URL:\n{stream_url}\n\n"
-                f"Arbeitsverzeichnis:\n{temp_dir}\n\n"
-                f"Fehler:\n{exc}"
-            ) from exc
+                "Keine Streamboard-Quelle konnte geklont werden.\\n\\n"
+                f"Zuletzt versuchte URL:\\n{stream_candidates[-1]}\\n\\n"
+                f"Arbeitsverzeichnis:\\n{temp_dir}\\n\\n"
+                f"Fehler:\\n{last_clone_error}"
+            ) from last_clone_error
 
         log(
             "✓ Streamboard erfolgreich geklont.",
