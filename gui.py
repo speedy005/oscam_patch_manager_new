@@ -769,12 +769,6 @@ class PatchManagerGUI(QWidget):
             else "Initializing Generator..."
         )
 
-        # Styling: Rot (#FF0000), Schriftstärke 900 (Extra Bold)
-        self.info_text.setHtml(
-            f"<div style='margin: 20px; font-family: sans-serif; text-align: center;'>"
-            f"<b style='color:#FF0000; font-size:22pt; font-weight:900;'>{init_msg}</b>"
-            f"</div>"
-        )
         # Ganz am Ende der __init__ einfügen:
 
         # 1. Wert aus Config holen
@@ -1095,6 +1089,14 @@ class PatchManagerGUI(QWidget):
 
                 def final_blink():
                     try:
+                        # Abschlusstext unmittelbar vor der Animation anhand
+                        # der aktuell gewählten Sprache aktualisieren.
+                        current_is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+                        current_text = (
+                            "🛠️ Was bauen wir heute?"
+                            if current_is_de
+                            else "🛠️ What are we building today?"
+                        )
                         final_geom = pbar.geometry() if pbar is not None else QRect(20, 20, 400, 40)
                         final_label = getattr(self, "final_label", None)
 
@@ -1108,33 +1110,23 @@ class PatchManagerGUI(QWidget):
                             )
                             self.final_label = final_label
 
+                        # Nur den Text aktualisieren. Das eigentliche Blinken
+                        # übernimmt on_update_check_finished(), damit Revision
+                        # und Abschlusslabel dieselbe Zeitsteuerung verwenden.
+                        final_label.setText(current_text)
                         final_label.setAlignment(
                             Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
                         )
                         final_label.setGeometry(final_geom)
-                        final_label.setStyleSheet(
-                            "QLabel { border: 2px solid cyan; background-color: black; "
-                            "color: cyan; font-weight: bold; font-size: 24px; "
-                            "font-family: Arial, Segoe UI, sans-serif; border-radius: 6px; }"
-                        )
-                        final_label.show()
-                        final_label.raise_()
 
-                        blink_colors = ["transparent", "cyan", "transparent", "cyan", "transparent", "cyan"]
-                        for delay, color in zip((0, 300, 600, 900, 1200, 1500), blink_colors):
-                            QTimer.singleShot(
-                                delay,
-                                lambda c=color: final_label.setStyleSheet(
-                                    "QLabel { border: 2px solid cyan; background-color: black; "
-                                    f"color: {c}; font-weight: bold; font-size: 24px; "
-                                    "font-family: Arial, Segoe UI, sans-serif; border-radius: 6px; }"
-                                ),
-                            )
+                        # Abschlussmeldung bis zum Ende des Systemchecks verbergen.
+                        final_label.hide()
 
                         if pbar is not None:
+                            # 100 % bleibt der letzte Fortschrittswert
+                            # nach Abschluss des Sprachwechsels.
                             pbar.setValue(100)
-                            pbar.setFormat("✅ OK")
-                            QTimer.singleShot(5000, lambda: pbar.setFormat("%p%"))
+                            pbar.setFormat("%p%")
 
                         try:
                             if hasattr(self, "hide_language_overlay"):
@@ -1146,6 +1138,32 @@ class PatchManagerGUI(QWidget):
                     finally:
                         finished["value"] = True
                         release_lock()
+
+                        btn = getattr(self, "buttons", {}).get("patch_create")
+                        print(
+                            "[LANG-DIAG]",
+                            "lock=", getattr(self, "_block_language_change", None),
+                            "button_exists=", btn is not None,
+                            "button_enabled=", btn.isEnabled() if btn else None,
+                            "button_visible=", btn.isVisible() if btn else None,
+                            "overlay_visible=", self.loading_overlay.isVisible()
+                                if getattr(self, "loading_overlay", None) else None,
+                            flush=True,
+                        )
+
+                        # Den Systemcheck nach dem Sprachwechsel starten.
+                        # Die Abschlussmeldung bleibt bis zum Check-Ende verborgen.
+                        try:
+                            if not getattr(self, "_checking_active", False):
+                                QTimer.singleShot(
+                                    0,
+                                    lambda: self.run_full_system_check(clear_log=True),
+                                )
+                        except Exception as refresh_exc:
+                            log_error(
+                                "System-Monitor konnte nach Sprachwechsel nicht aktualisiert werden",
+                                refresh_exc,
+                            )
 
                 QTimer.singleShot(500, final_blink)
 
@@ -1203,16 +1221,6 @@ class PatchManagerGUI(QWidget):
                     safe_play_func("service-logout.oga")
                 except Exception as exc:
                     log_error("Sprachwechsel-Sound fehlgeschlagen", exc)
-
-            # Schreibrechte prüfen/reparieren, falls die Methode vorhanden ist
-            perm_text = "Schreibrechte werden geprüft..." if is_de else "Checking write permissions..."
-            update_pbar(25, f"🔐 {perm_text}")
-            fix_permissions = getattr(self, "fix_all_tool_permissions", None)
-            if callable(fix_permissions):
-                try:
-                    fix_permissions()
-                except Exception as exc:
-                    log_error("Rechteprüfung fehlgeschlagen", exc)
 
             load_text = "Texte werden geladen..." if is_de else "Loading texts..."
             update_pbar(30, f"⏳ {load_text}")
@@ -1312,13 +1320,55 @@ class PatchManagerGUI(QWidget):
             anim_text = "Animation & Systemcheck..." if is_de else "Animation & system check..."
             update_pbar(80, f"⏳ {anim_text}")
 
+            from PyQt6.QtCore import QTimer
+
             show_animation = getattr(self, "show_language_animation", None)
-            if callable(show_animation):
-                show_animation(self.LANG, callback=after_animation)
-            else:
+            animation_callback_called = {"value": False}
+
+            def finish_language_animation_once():
+                if animation_callback_called["value"]:
+                    return
+                animation_callback_called["value"] = True
                 after_animation()
 
+            if callable(show_animation):
+                show_animation(
+                    self.LANG,
+                    callback=finish_language_animation_once,
+                )
+                # Sicherheitsnetz, falls die Animation keinen Callback auslöst.
+                QTimer.singleShot(
+                    6000,
+                    lambda: finish_language_animation_once()
+                    if not animation_callback_called["value"] else None,
+                )
+            else:
+                finish_language_animation_once()
+
             QApplication.processEvents()
+
+            # Layout nach dem Sprachwechsel wie beim Programmstart neu anpassen.
+            try:
+                fit_buttons = getattr(self, "_fit_all_button_texts", None)
+                if callable(fit_buttons):
+                    QTimer.singleShot(0, fit_buttons)
+                    QTimer.singleShot(250, fit_buttons)
+                    QTimer.singleShot(700, fit_buttons)
+
+                for widget in self.findChildren(QWidget):
+                    try:
+                        layout = widget.layout()
+                        if layout is not None:
+                            layout.invalidate()
+                            layout.activate()
+                        widget.updateGeometry()
+                    except (RuntimeError, AttributeError):
+                        pass
+
+                self.updateGeometry()
+                QApplication.processEvents()
+            except Exception as layout_exc:
+                log_error("Layout-Aktualisierung fehlgeschlagen", layout_exc)
 
         except Exception as exc:
             log_error("Sprachwechsel fehlgeschlagen", exc)
@@ -1565,11 +1615,10 @@ class PatchManagerGUI(QWidget):
         if clear_log:
             widget.setHtml("")
 
-        # ------------------------------------------------------------
-        # HTML-Puffer
-        # ------------------------------------------------------------
-
+        # Der SystemCheckWorker liefert den einzigen Kopf über sein HTML-Signal.
+        # Das Info-Feld vorher leeren, damit kein alter Begrüßungskopf stehen bleibt.
         self._system_check_html = []
+        widget.setHtml("")
 
         def append_html(fragment):
             """
@@ -1728,6 +1777,37 @@ class PatchManagerGUI(QWidget):
         self._system_check_thread.start()
             
         
+    def _show_final_label_after_system_check(self):
+        """Zeigt die Abschlussmeldung in der aktuellen Sprache an."""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QLabel
+
+        pbar = getattr(self, "progress_bar", None)
+        if pbar is None:
+            return
+
+        is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+        text = "🛠️ Was bauen wir heute?" if is_de else "🛠️ What are we building today?"
+
+        label = getattr(self, "final_label", None)
+        if label is None:
+            label = QLabel(self)
+            label.setObjectName("final_label")
+            self.final_label = label
+
+        label.setText(text)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+        pos = pbar.mapTo(self, pbar.rect().topLeft())
+        label.setGeometry(pos.x(), pos.y(), pbar.width(), pbar.height())
+        label.setStyleSheet(
+            "QLabel { background-color: black; color: cyan; "
+            "border: 2px solid cyan; border-radius: 6px; "
+            "font-family: Arial, Segoe UI, sans-serif; "
+            "font-size: 20px; font-weight: bold; }"
+        )
+        label.show()
+        label.raise_()
+
     def _system_check_finished(self):
         """
         Wird nach erfolgreichem oder fehlerhaftem Worker-Ende
@@ -1756,14 +1836,8 @@ class PatchManagerGUI(QWidget):
                 == "de"
             )
 
-            pbar.setFormat(
-                (
-                    "✅ System Check abgeschlossen ✔   %p%"
-                    if is_de
-                    else
-                    "✅ System check completed ✔   %p%"
-                )
-            )
+            # 100 % bleibt die letzte Anzeige im Fortschrittsbalken.
+            pbar.setFormat("%p%")
 
         # ------------------------------------------------------------
         # Status zurücksetzen
@@ -1772,12 +1846,41 @@ class PatchManagerGUI(QWidget):
         self.is_loading = False
         self._checking_active = False
 
+        # Gespeicherten OSCam-Status erst jetzt zusammen mit dem
+        # Abschlusslabel anzeigen. Es wird kein Netzwerkcheck gestartet.
+        if getattr(self, "_oscam_check_completed", False):
+            try:
+                self.on_update_check_finished(
+                    bool(getattr(self, "_oscam_update_available", False)),
+                    getattr(self, "last_remote_rev", None)
+                    or getattr(self, "current_rev", None),
+                    refresh_only=True,
+                )
+            except Exception as label_exc:
+                log_error(
+                    "OSCam-Anzeige konnte nach Systemcheck nicht aktualisiert werden",
+                    label_exc,
+                )
+        else:
+            label = getattr(self, "final_label", None)
+            if label is not None:
+                label.hide()
+
         # ------------------------------------------------------------
         # Vorhandene Update-Prüfung beibehalten
         #
         # Wichtig:
         # Sie läuft jetzt NACH dem Systemcheck.
         # ------------------------------------------------------------
+
+        # Abschlussmeldung erst nach dem beendeten Systemcheck anzeigen.
+        try:
+            self._show_final_label_after_system_check()
+        except Exception as label_exc:
+            log_error(
+                "Abschlussmeldung konnte nicht angezeigt werden",
+                label_exc,
+            )
 
         try:
             self.check_for_update_on_start()
@@ -7367,14 +7470,20 @@ class PatchManagerGUI(QWidget):
             try:
                 # Prüfen ob die Online-Nummer größer als die lokale ist
                 update_available = int(remote_rev) > int(self.current_rev)
+                self._oscam_update_available = update_available
+                self._oscam_check_completed = True
                 self.on_update_check_finished(update_available, remote_rev)
             except ValueError:
+                self._oscam_update_available = False
+                self._oscam_check_completed = True
                 self.on_update_check_finished(False, self.current_rev)
         else:
             # Fehlerfall: Nur lokalen Stand zeigen
+            self._oscam_update_available = False
+            self._oscam_check_completed = True
             self.on_update_check_finished(False, self.current_rev)
 
-    def on_update_check_finished(self, update_available=False, new_rev=None):
+    def on_update_check_finished(self, update_available=False, new_rev=None, refresh_only=False):
         """
         Aktualisiert das UI:
         - Status Label (Update / aktuell)
@@ -7476,12 +7585,13 @@ class PatchManagerGUI(QWidget):
             title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
             
             # Update-Meldung zusätzlich im großen Infoscreen anzeigen
-            self.append_info(
-                self.info_text,
-                f"🚀 [{timestamp}] {title} "
-                f"(r{old_rev} → r{new_rev})",
-                "warning",
-            )
+            if not refresh_only:
+                self.append_info(
+                    self.info_text,
+                    f"🚀 [{timestamp}] {title} "
+                    f"(r{old_rev} → r{new_rev})",
+                    "warning",
+                )
 
             if status_label:
                 html = (
@@ -7490,7 +7600,8 @@ class PatchManagerGUI(QWidget):
                     f"<span style='color:{C_REV}; font-size:{F_REV_SIZE}; font-family:{F_REV}; font-weight:{F_REV_WEIGHT};'>(r{old_rev} ➔ r{new_rev})</span>"
                 )
                 status_label.setText(html)
-            play_system_sound("update")
+            if not refresh_only:
+                play_system_sound("update")
 
             # --- Blink-Sequenz 3x ---
             delays = [300, 600, 900, 1200, 1500, 1800]
@@ -7638,18 +7749,9 @@ class PatchManagerGUI(QWidget):
 
             import html
 
-            self.append_info(
-                self.info_text,
-                (
-                    f'<span style="font-size:30px; font-weight:bold; color:#FF0000;">'
-                    f'🔗 Git-URL: </span>'
-                    f'<span style="font-size:30px; font-weight:bold; color:#00BFFF;">'
-                    f'{html.escape(git_url)}</span>'
-                ),
-                "html",
-            )
 
-            play_system_sound("uptodate" if new_rev else "error")
+            if not refresh_only:
+                play_system_sound("uptodate" if new_rev else "error")
 
             # --- Blink-Sequenz für Revision ---
             delays = [300, 600, 900, 1200, 1500, 1800]
@@ -11879,9 +11981,12 @@ class PatchManagerGUI(QWidget):
         # ---------------------------------------------------------
         # INFO TEXT
         # ---------------------------------------------------------
+        # Den bereits aufgebauten System-Monitor beim Sprachwechsel
+        # nicht durch den statischen Begrüßungstext überschreiben.
         if (
             hasattr(self, "info_text")
             and "info_text" in TEXTS[self.LANG]
+            and not getattr(self, "_system_check_html", None)
         ):
             self.info_text.setPlainText(
                 TEXTS[self.LANG]["info_text"]
@@ -13797,6 +13902,36 @@ class PatchManagerGUI(QWidget):
             )
             output.append(
                 f'<div style="color:{C_LINE}; text-align:left;">{"-" * 45}</div>'
+            )
+
+            # Die beiden Repository-Links ganz am Ende der Monitor-Ausgabe
+            # anzeigen – nach aktiver Konfiguration und Trennlinie.
+            import html
+
+            git_url = "unbekannt"
+            try:
+                selected_url = get_selected_stream_repo_url()
+                if selected_url:
+                    git_url = str(selected_url).strip() or "unbekannt"
+            except Exception:
+                pass
+
+            if git_url == "unbekannt":
+                try:
+                    result = git_command(
+                        ["remote", "get-url", "origin"],
+                        cwd=TEMP_REPO,
+                        allowed_returncodes=(0, 1),
+                    )
+                    git_url = (result.stdout or "").strip() or "unbekannt"
+                except Exception:
+                    pass
+
+            output.append(
+                '<div style="font-size:30px; font-weight:bold; text-align:left;">'
+                '<span style="color:#FF0000;">🔗 Git-URL: </span>'
+                f'<span style="color:#00BFFF;">{html.escape(git_url)}</span>'
+                '</div>'
             )
 
             # Log ausgeben

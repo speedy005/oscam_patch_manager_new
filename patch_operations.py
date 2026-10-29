@@ -1887,7 +1887,7 @@ def create_patch(
                 result = subprocess.run(
                     [git_executable, "ls-remote", "--exit-code", candidate, "refs/heads/master"],
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                    encoding="utf-8", errors="replace", timeout=35, shell=False
+                    encoding="utf-8", errors="replace", timeout=15, shell=False
                 )
                 stdout = (result.stdout or "").strip()
                 stderr = (result.stderr or "").strip()

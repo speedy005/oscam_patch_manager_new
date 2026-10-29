@@ -209,7 +209,7 @@ class SystemCheckWorker(QObject):
 
             header = f"""
             <div style="
-                text-align:left;
+                text-align:center;
                 width:100%;
                 font-family:sans-serif;
                 background:transparent;
@@ -352,7 +352,7 @@ class SystemCheckWorker(QObject):
             system_html += self.row(
                 "📟",
                 "CPU",
-                f"{cpu_arch} ({cpu_count} Kerne)",
+                f"{cpu_arch} ({cpu_count} {'Kerne' if self.is_de else 'cores'})",
                 C_GREEN,
                 C_BLUE,
             )
@@ -515,6 +515,20 @@ class SystemCheckWorker(QObject):
             for i, tool_name in enumerate(tool_list):
 
                 path = shutil.which(tool_name)
+
+                # Die interne Patch-Erstellung nutzt Git diff/apply.
+                # Ein separates Unix-Programm "patch" ist dafür nicht nötig.
+                if tool_name == "patch" and not path:
+                    status_icon = "✅"
+                    info = "über Git verfügbar" if self.is_de else "via Git"
+                    tool_html += self.row(
+                        status_icon,
+                        tool_name.capitalize(),
+                        info,
+                        C_GREEN,
+                        C_BLUE,
+                    )
+                    continue
 
                 if path:
                     status_icon = "✅"
