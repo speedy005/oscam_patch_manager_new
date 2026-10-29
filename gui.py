@@ -24,17 +24,32 @@ class _PatchCreateBridge(QObject):
     def __init__(self, gui):
         super().__init__(gui)
         self._gui = gui
-        # create_patch reads these settings; it must not receive the QWidget itself.
-        # LANG is read dynamically so a language switch is not stuck on an old value.
-        for name in ("EMUREPO", "selected_emu_repo_url", "selected_emu_repo_branch",
-                     "selected_emu_commit", "selected_emu_commit_repo_url",
-                     "selected_streamboard_commit", "selected_streamboard_repo_url"):
-            try:
-                setattr(self, name, getattr(gui, name, None))
-            except Exception:
-                pass
+        # Repository-Auswahl und Commits immer aktuell aus dem GUI lesen.
+        # create_patch erhält die Bridge statt des QWidget-Objekts.
         self.info_text = None
         self.progress_bar = None
+
+    _GUI_SETTING_NAMES = frozenset((
+        "EMUREPO", "selected_emu_repo_url", "selected_emu_repo_branch",
+        "selected_emu_commit", "selected_emu_commit_repo_url",
+        "selected_streamboard_commit", "selected_streamboard_repo_url",
+    ))
+
+    def __getattr__(self, name):
+        if name in self._GUI_SETTING_NAMES:
+            return getattr(self._gui, name, None)
+        raise AttributeError(name)
+
+    def __setattr__(self, name, value):
+        if name in self._GUI_SETTING_NAMES:
+            try:
+                gui = object.__getattribute__(self, "_gui")
+            except AttributeError:
+                gui = None
+            if gui is not None:
+                setattr(gui, name, value)
+                return
+        super().__setattr__(name, value)
 
     @property
     def LANG(self):
@@ -78,18 +93,33 @@ class _PatchCreateWorker(QThread):
         except Exception:
             pass
 
+    
+    
+    
     def run(self):
+        print("[WORKER-DEBUG] run() gestartet", flush=True)
         try:
-            # All GUI updates from create_patch are redirected through Qt signals.
             def progress(value=None, text=None):
                 if value is not None:
-                    self.bridge.progress_value.emit(max(0, min(100, int(value))))
+                    self.bridge.progress_value.emit(
+                        max(0, min(100, int(value)))
+                    )
                 if text is not None:
                     self.bridge.progress_text.emit(str(text))
+
+            print("[WORKER-DEBUG] Rufe create_patch() auf", flush=True)
             result = self.create_patch_func(self.bridge, None, progress)
+            print(f"[WORKER-DEBUG] create_patch() beendet: {result!r}", flush=True)
             self.done.emit(result)
+
         except Exception as exc:
+            import traceback
+            print(f"[WORKER-DEBUG] Ausnahme: {exc!r}", flush=True)
+            traceback.print_exc()
             self.failed.emit(str(exc))
+
+
+
 
 
 class ResponsiveGridReflow(QObject):
@@ -1061,12 +1091,7 @@ class PatchManagerGUI(QWidget):
                     )
                     self.final_label.hide()
 
-                # Systemcheck nach dem Sprachwechsel starten
-                if hasattr(self, "run_full_system_check"):
-                    QTimer.singleShot(
-                        200,
-                        lambda: self.run_full_system_check(clear_log=True),
-                    )
+                
 
                 def final_blink():
                     try:
@@ -2946,17 +2971,20 @@ class PatchManagerGUI(QWidget):
 
 
     def hide_final_label(self):
-        """Blendet das finale Status-Label aus."""
-        if hasattr(self, "final_label") and self.final_label:
-            self.final_label.hide()
-            from PyQt6.QtWidgets import QApplication
+        """Blendet das finale Status-Label aus und stoppt dessen Blink-Timer."""
+        timer = getattr(self, "_final_message_blink_timer", None)
 
-            QApplication.processEvents()
+        if timer is not None:
+            timer.stop()
+            timer.deleteLater()
+            self._final_message_blink_timer = None
 
-    # ========================== NCam ==========================
-    import os
-    import platform
-    import shutil
+        label = getattr(self, "final_label", None)
+        if label is not None:
+            label.hide()
+
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
 
     def auto_detect_ncam_path(self):
         """Sucht den NCam Bonecrew Pfad automatisch auf Linux & Windows."""
@@ -7483,6 +7511,104 @@ class PatchManagerGUI(QWidget):
         
         else:
             # --- Up-to-date ---
+            # --- Finale Meldung parallel zum Revisions-Blinken anzeigen ---
+            try:
+                pbar = getattr(self, "progress_bar", None)
+
+                if pbar is not None:
+                    is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+                    final_text = (
+                        "🛠️ Was bauen wir heute?"
+                        if is_de
+                        else "🛠️ What are we building today?"
+                    )
+
+                    # Label sicher erstellen und über dem Fortschrittsbalken anzeigen
+                    label = getattr(self, "final_label", None)
+                    if label is None:
+                        label = QLabel(self)
+                        label.setObjectName("final_label")
+                        label.setAlignment(
+                            Qt.AlignmentFlag.AlignCenter
+                        )
+                        self.final_label = label
+
+                    label.setText(final_text)
+                    pbar_pos = pbar.mapTo(self, pbar.rect().topLeft())
+                    label.setGeometry(
+                        pbar_pos.x(),
+                        pbar_pos.y(),
+                        pbar.width(),
+                        pbar.height(),
+                    )
+                    label.setStyleSheet(
+                        "QLabel {"
+                        " background-color: black;"
+                        " color: cyan;"
+                        " border: 2px solid cyan;"
+                        " border-radius: 6px;"
+                        " font-family: Arial, Segoe UI, sans-serif;"
+                        " font-size: 20px;"
+                        " font-weight: bold;"
+                        "}"
+                    )
+                    label.show()
+                    label.raise_()
+
+                    # Meldung synchron mit der Revisionsnummer exakt 3x blinken lassen
+                    old_timer = getattr(self, "_final_message_blink_timer", None)
+                    if old_timer is not None:
+                        old_timer.stop()
+                        old_timer.deleteLater()
+                        self._final_message_blink_timer = None
+
+                    # Gleiche Zeitpunkte und Farben wie bei der Revisionsanimation
+                    blink_delays = [300, 600, 900, 1200, 1500, 1800]
+                    blink_colors = [
+                        "transparent",
+                        "cyan",
+                        "transparent",
+                        "cyan",
+                        "transparent",
+                        "cyan",
+                    ]
+
+                    def set_final_message_color(color):
+                        label = getattr(self, "final_label", None)
+                        if label is None or not label.isVisible():
+                            return
+
+                        label.setStyleSheet(
+                            "QLabel {"
+                            " background-color: black;"
+                            f" color: {color};"
+                            " border: 2px solid cyan;"
+                            " border-radius: 6px;"
+                            " font-family: Arial, Segoe UI, sans-serif;"
+                            " font-size: 20px;"
+                            " font-weight: bold;"
+                            "}"
+                        )
+
+                    # Blinkphase mit der Revisionsnummer synchronisieren
+                    set_final_message_color("transparent")
+                    for delay, color in zip(blink_delays, blink_colors):
+                        QTimer.singleShot(
+                            delay,
+                            lambda c=color: set_final_message_color(c),
+                        )
+                    # Nach der Animation die Meldung dauerhaft sichtbar lassen
+                    QTimer.singleShot(
+                        1900,
+                        lambda: set_final_message_color("cyan"),
+                    )
+
+            except Exception as exc:
+                print(
+                    f"[FINAL-MESSAGE-BLINK] Fehler: {exc!r}",
+                    flush=True,
+                )
+
             set_status_ui()
 
             # Status und aktuell ausgewählte OSCam-Git-URL im großen Infoscreen anzeigen.
@@ -8886,6 +9012,28 @@ class PatchManagerGUI(QWidget):
         Passt Header, Logo, Schriftgrößen und Overlay an.
         """
         super().resizeEvent(event)
+
+        # Sichtbares finales Label an die aktuelle Position des Fortschrittsbalkens anpassen.
+        try:
+            pbar = getattr(self, "progress_bar", None)
+            label = getattr(self, "final_label", None)
+
+            if (
+                pbar is not None
+                and label is not None
+                and label.isVisible()
+                and label.parentWidget() == self
+            ):
+                pbar_pos = pbar.mapTo(self, pbar.rect().topLeft())
+                label.setGeometry(
+                    pbar_pos.x(),
+                    pbar_pos.y(),
+                    pbar.width(),
+                    pbar.height(),
+                )
+                label.raise_()
+        except Exception as exc:
+            print(f"[FINAL-LABEL-RESIZE] {exc!r}", flush=True)
 
         # Responsive Breiten für Status- und Einstellungsleiste:
         # feste Pixelbreiten waren auf schmalen Fenstern unnötig platzintensiv.
@@ -16782,6 +16930,10 @@ class PatchManagerGUI(QWidget):
                     )
                     return current
                 self.progress_bar.setValue(0)
+                print(
+                    f"[GUI-LANG-DEBUG] self.LANG={getattr(self, 'LANG', None)!r}",
+                    flush=True
+                )
                 worker = _PatchCreateWorker(self, create_patch)
                 worker.failed.connect(
                     lambda message: self.append_info(
@@ -16795,6 +16947,32 @@ class PatchManagerGUI(QWidget):
                     )
                 )
                 def _patch_create_done(_result):
+                    print(
+                        f"[PATCH-PROGRESS] done callback: result={_result!r}",
+                        flush=True
+                    )
+
+                    try:
+                        pbar = getattr(self, "progress_bar", None)
+                        if pbar is not None:
+                            print(
+                                f"[PATCH-PROGRESS] before 100: "
+                                f"value={pbar.value()}, format={pbar.format()!r}",
+                                flush=True
+                            )
+                            pbar.setValue(100)
+                            pbar.setFormat("%p%")
+                            print(
+                                f"[PATCH-PROGRESS] after 100: "
+                                f"value={pbar.value()}, format={pbar.format()!r}",
+                                flush=True
+                            )
+                    except Exception as exc:
+                        print(
+                            f"[PATCH-PROGRESS] Could not set 100%: {exc!r}",
+                            flush=True
+                        )
+
                     lang = str(getattr(self, "LANG", "de")).lower()[:2]
                     T = TEXTS.get(lang, TEXTS.get("de", {}))
 
@@ -20429,7 +20607,7 @@ class PatchManagerGUI(QWidget):
         widget = info_widget or getattr(self, "info_text", None)
         pbar = getattr(self, "progress_bar", None)
         current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
-        is_de = current_lang == "de"
+        
 
         # --- Styles ---
         rainbow = (

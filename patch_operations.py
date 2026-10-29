@@ -807,12 +807,23 @@ def ensure_git_repository(
         )
 
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(
-            f"{description}: Git-Clone hat das Zeitlimit "
-            f"von {clone_timeout} Sekunden überschritten.\n"
-            f"URL: {repo_url}\n"
-            f"Ziel: {repo_dir}"
-        ) from exc
+        import os
+        lang = os.environ.get("LANG", "de").lower()[:2]
+        if lang == "en":
+            timeout_message = (
+                f"{description}: Git clone timed out after "
+                f"{clone_timeout} seconds.\n"
+                f"URL: {repo_url}\n"
+                f"Target: {repo_dir}"
+            )
+        else:
+            timeout_message = (
+                f"{description}: Git-Clone hat das Zeitlimit "
+                f"von {clone_timeout} Sekunden überschritten.\n"
+                f"URL: {repo_url}\n"
+                f"Ziel: {repo_dir}"
+            )
+        raise RuntimeError(timeout_message) from exc
 
     except OSError as exc:
         raise RuntimeError(
@@ -879,7 +890,8 @@ def clean_patch_folder(
     NICHT GELÖSCHT:
         - streamboard-git/ (geschütztes Repository)
     """
-
+    import traceback
+    print("[CLEAN CALLER]\n" + "".join(traceback.format_stack(limit=12)), flush=True)
     import os
     import shutil
     import stat
@@ -1085,26 +1097,12 @@ def clean_patch_folder(
     targets.append((emu_git_path, "folder"))
 
     # ---------------------------------------------------------
-    # TEMP_REPO/
+    # TEMP_REPO / streamboard-git bleibt geschützt
     # ---------------------------------------------------------
-
-    temp_repo = globals().get("TEMP_REPO")
-
-    
-    if temp_repo:
-        temp_repo_path = os.path.abspath(temp_repo)
-
-        targets.append((temp_repo_path, "folder"))
-
-        log(
-            f"[CLEAN] TEMP_REPO: {temp_repo_path}",
-            "info"
-        )
-    else:
-        log(
-            "⚠️ TEMP_REPO ist nicht definiert und wird übersprungen.",
-            "warning"
-        )
+    log(
+        "[CLEAN] TEMP_REPO wird geschützt und nicht gelöscht.",
+        "info"
+    )
 
     # ---------------------------------------------------------
     # TEMP_PATCH_GIT/ (falls vorhanden)
@@ -1422,7 +1420,13 @@ def create_patch(
     ).lower()[:2]
 
     is_de = current_lang == "de"
-
+    print(
+        f"[LANG-DEBUG] file={__file__!r}, "
+        f"LANG={current_lang!r}, "
+        f"GUI-Typ={type(gui_instance).__name__}, "
+        f"GUI-LANG={getattr(gui_instance, 'LANG', None)!r}",
+        flush=True
+    )
     # ============================================================
     # Übersetzungen
     # ============================================================
@@ -2382,8 +2386,11 @@ def create_patch(
             )
 
             log(
-                "[PATCH] Erstelle temporären "
-                "Validierungs-Worktree..."
+                (
+                    "[PATCH] Erstelle temporären Validierungs-Worktree..."
+                    if is_de
+                    else "[PATCH] Creating temporary validation worktree..."
+                )
             )
 
             run_git(
@@ -2400,8 +2407,11 @@ def create_patch(
             )
 
             log(
-                "[PATCH] Wende Patch im "
-                "temporären Worktree an..."
+                (
+                    "[PATCH] Wende Patch im temporären Worktree an..."
+                    if is_de
+                    else "[PATCH] Applying patch in temporary worktree..."
+                )
             )
 
             run_git(
@@ -2675,11 +2685,29 @@ def create_patch(
                 emu_repo_branch = str(cfg.get("emu_branch", emu_repo_branch) or emu_repo_branch).strip() or emu_repo_branch
             except Exception:
                 pass
+        
+        if not emu_repo_url:
+            # Fallback auf die Hauptkonfiguration config.json
+            try:
+                from paths import CONFIG_FILE
+
+                with open(CONFIG_FILE, "r", encoding="utf-8") as handle:
+                    main_cfg = json.load(handle)
+
+                emu_repo_url = str(
+                    main_cfg.get("emu_repo_url", "") or
+                    main_cfg.get("EMUREPO", "") or ""
+                ).strip()
+
+            except (OSError, ValueError, TypeError):
+                pass
+
         if not emu_repo_url:
             emu_repo_url = str(
                 globals().get("SELECTED_EMU_REPO_URL", "") or
                 globals().get("EMUREPO_URL", "") or ""
             ).strip()
+
         if not emu_repo_url:
             raise RuntimeError(
                 "Keine OSCam-Emu Repository-URL gesetzt. Bitte im GitHub-Konfigurationsdialog eintragen."
