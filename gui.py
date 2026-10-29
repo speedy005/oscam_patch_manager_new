@@ -2675,7 +2675,31 @@ class PatchManagerGUI(QWidget):
     def oscam_emu_git_clear(self, info_widget=None, progress_callback=None):
         """Zentrales Logging für die Emu-Git Bereinigung – mit Neon-Regenbogen & Abschluss-Puls."""
 
-        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+
+        lang_confirm = str(getattr(self, "LANG", "de")).lower()[:2]
+        confirm_box = QMessageBox(self)
+        confirm_box.setWindowTitle("OSCam-Emu Git")
+        confirm_box.setText(
+            "Möchtest du das OSCam-Emu-Git wirklich leeren?"
+            if lang_confirm == "de"
+            else "Do you really want to clear the OSCam-Emu Git?"
+        )
+        yes_button = confirm_box.addButton(
+            "Ja" if lang_confirm == "de" else "Yes",
+            QMessageBox.ButtonRole.YesRole,
+        )
+        confirm_box.addButton(
+            "Nein" if lang_confirm == "de" else "No",
+            QMessageBox.ButtonRole.NoRole,
+        )
+        confirm_box.setDefaultButton(
+            confirm_box.buttons()[1]
+        )
+        confirm_box.exec()
+        if confirm_box.clickedButton() != yes_button:
+            return
+
         from PyQt6.QtCore import QTimer
 
         # --- Final Label verstecken ---
@@ -5073,7 +5097,7 @@ class PatchManagerGUI(QWidget):
         func_names = {
             "btn_check_tools": "run_full_system_check",
             "restart_tool_button": "restart_app",
-            "clean_emu_button": "clean_emu_data",
+            "clean_emu_button": "oscam_emu_git_clear",
             "patch_emu_git_button": "run_patch_process",
             "btn_edit_patch": "edit_patch_header",
         }
@@ -19794,14 +19818,23 @@ class PatchManagerGUI(QWidget):
         worker.start()
 
     def on_clean_emu_clicked(self):
-        """Sorgt dafür, dass das Log vor der Bereinigung englisch wird."""
-        # 1. Sprache/UI synchronisieren (löscht alte deutsche Texte im Log)
-        self.update_language()
-        # 2. Bereinigung starten (schreibt jetzt ins leere, englische Log)
-        from oscam_patch_manager import (
-            clean_oscam_emu_git,
-        )  # oder wo die Funktion liegt
+        """Fragt vor dem Leeren des OSCam-Emu-Git-Repositories nach."""
+        from PyQt6.QtWidgets import QMessageBox
 
+        is_de = str(globals().get("LANG", "de")).lower().startswith("de")
+        answer = QMessageBox.question(
+            self,
+            "OSCam-Emu Git",
+            "Möchtest du das OSCam-Emu-Git wirklich leeren?"
+            if is_de else
+            "Do you really want to clear the OSCam-Emu Git?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        from oscam_patch_manager import clean_oscam_emu_git
         clean_oscam_emu_git(gui_instance=self)
 
     def on_button_clicked(self, key, func):
