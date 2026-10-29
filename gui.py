@@ -1209,6 +1209,10 @@ class PatchManagerGUI(QWidget):
             update_pbar(10, f"⏳ {overlay_text}")
 
             if hasattr(self, "loading_overlay") and hasattr(self, "loading_label"):
+                from PyQt6.QtCore import Qt
+                self.loading_overlay.setAttribute(
+                    Qt.WidgetAttribute.WA_TransparentForMouseEvents, False
+                )
                 self.loading_overlay.setGeometry(self.rect())
                 self.loading_label.setText(overlay_text)
                 self.loading_overlay.show()
@@ -6072,11 +6076,17 @@ class PatchManagerGUI(QWidget):
     from PyQt6.QtGui import QFont, QColor
 
     def hide_language_overlay(self):
-        """Blendet das Sprachwechsel-Overlay aus, falls eines existiert."""
+        """Blendet das Sprachwechsel-Overlay aus und gibt Mausklicks frei."""
+        from PyQt6.QtCore import Qt
+
         overlay = getattr(self, "loading_overlay", None)
         if overlay is not None:
             try:
                 overlay.hide()
+                overlay.setAttribute(
+                    Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+                )
+                overlay.setGeometry(0, 0, 0, 0)
                 overlay.lower()
             except RuntimeError:
                 pass
@@ -9269,9 +9279,12 @@ class PatchManagerGUI(QWidget):
             )
             self.info_text.setFont(text_font)
 
-        # 9. Lade-Overlay auf Fenstergröße halten
-        if getattr(self, "loading_overlay", None):
-            self.loading_overlay.setGeometry(self.rect())
+        # 9. Lade-Overlay nur skalieren, wenn es sichtbar ist.
+        # Ein verborgenes Overlay darf nach dem Sprachwechsel nicht
+        # versehentlich wieder die gesamte Fensterfläche belegen.
+        overlay = getattr(self, "loading_overlay", None)
+        if overlay is not None and overlay.isVisible():
+            overlay.setGeometry(self.rect())
 
 
     def open_terminal(self, **kwargs):

@@ -2016,6 +2016,7 @@ def create_patch(
         emu_dir,
         stream_commit
     ):
+        nonlocal stream_url
 
         remote_name = (
             "streamboard-current"
@@ -2032,10 +2033,9 @@ def create_patch(
             timeout=60
         ).strip()
 
-        stream_url = get_selected_stream_repo_url()
-
+        # Eine zuvor erfolgreich ermittelte Fallback-Quelle beibehalten.
         stream_url = str(
-            stream_url
+            stream_url or get_selected_stream_repo_url()
         ).strip()
 
         # --------------------------------------------------------
