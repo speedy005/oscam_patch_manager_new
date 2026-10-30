@@ -694,28 +694,58 @@ class SystemCheckWorker(QObject):
             # ============================================================
             # REPOSITORIES
             # ============================================================
-
             repo_list = [
+
                 (
+
                     "📡",
+
                     "Streamboard Oscam",
-                    "git.streamboard.tv",
+
+                    "https://git.streamboard.tv/common/oscam",
+
                 ),
+
                 (
+
                     "🐙",
+
                     "OSCam Emu Mirror",
-                    "github.com",
+
+                    "https://github.com/oscam-mirror/oscam-emu",
+
                 ),
+
                 (
+
                     "⭐",
+
                     "speedy Oscam Emu",
-                    "github.com",
+
+                    "https://github.com/speedy005/Oscam-emu",
+
                 ),
+
                 (
-                    "🔗",
-                    "GitHub API Server",
-                    "api.github.com",
+
+                    "⭐",
+
+                    "speedy Oscam Git",
+
+                    "https://github.com/speedy005/oscam-git",
+
                 ),
+
+                (
+
+                    "🔗",
+
+                    "GitHub API Server",
+
+                    "api.github.com",
+
+                ),
+
             ]
 
             repo_html = ""
@@ -729,17 +759,30 @@ class SystemCheckWorker(QObject):
                 online = False
 
                 try:
-                    # TCP-Test statt gethostbyname().
-                    # Dadurch haben wir einen echten Timeout.
-                    with socket.create_connection(
-                        (host, 443),
-                        timeout=self.SOCKET_TIMEOUT,
-                    ):
-                        online = True
+                    if r_name == "GitHub API Server":
+                        with socket.create_connection(
+                            (host, 443),
+                            timeout=self.SOCKET_TIMEOUT,
+                        ):
+                            online = True
+                    else:
+                        result = subprocess.run(
+                            ["git", "ls-remote", host, "HEAD"],
+                            capture_output=True,
+                            text=True,
+                            timeout=self.SOCKET_TIMEOUT,
+                            check=False,
+                        )
+
+                        online = (
+                            result.returncode == 0
+                            and bool(result.stdout.strip())
+                        )
 
                 except (
                     OSError,
                     socket.timeout,
+                    subprocess.TimeoutExpired,
                 ):
                     online = False
 
