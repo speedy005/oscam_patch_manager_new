@@ -961,6 +961,21 @@ class PatchManagerGUI(QWidget):
                         )
                     )
 
+                if hasattr(self, "music_button"):
+                    self.music_button.setText(
+                        ("🎵 Musik ausschalten" if self.music_button.isChecked() else "🎵 Musik einschalten")
+                        if is_de else
+                        ("🎵 Music off" if self.music_button.isChecked() else "🎵 Music on")
+                    )
+                    self.music_button.setToolTip(
+                        "Hintergrundmusik aus dem Ordner sounds ein- oder ausschalten."
+                        if is_de else
+                        "Toggle background music from the sounds folder."
+                    )
+
+                if hasattr(self, "music_title_combo"):
+                    self._refresh_background_music_titles()
+
                 # Live-Konsole: neue Werkzeugbuttons der gewählten Sprache anpassen.
                 if hasattr(self, "copy_log_button"):
                     self.copy_log_button.setText(
@@ -1408,6 +1423,141 @@ class PatchManagerGUI(QWidget):
             finally:
                 if not finished["value"]:
                     release_lock()
+
+    def _load_background_music_files(self):
+        """Findet unterstützte Musikdateien im sounds-Ordner neben dem Tool."""
+        from pathlib import Path
+
+        sounds_dir = Path(os.path.dirname(os.path.abspath(__file__))) / "sounds"
+        supported = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac"}
+        try:
+            sounds_dir.mkdir(parents=True, exist_ok=True)
+            return sorted(
+                str(path) for path in sounds_dir.iterdir()
+                if path.is_file() and path.suffix.lower() in supported
+            )
+        except OSError as exc:
+            print(f"[MUSIC] sounds-Ordner kann nicht gelesen werden: {exc}")
+            return []
+
+    def _refresh_background_music_titles(self):
+        """Aktualisiert Titelauswahl und Tooltips passend zur UI-Sprache."""
+        combo = getattr(self, "music_title_combo", None)
+        if combo is None:
+            return
+        from pathlib import Path
+        previous_selection = combo.currentData()
+        files = self._load_background_music_files()
+        self._background_music_files = files
+        is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem("🔀 Zufälliger Titel" if is_de else "🔀 Random track", "__random__")
+        for path in files:
+            combo.addItem("🎧 " + Path(path).stem, path)
+        restore_index = combo.findData(previous_selection)
+        combo.setCurrentIndex(restore_index if restore_index >= 0 else 0)
+        combo.setToolTip("Musiktitel auswählen" if is_de else "Choose a music track")
+        combo.blockSignals(False)
+
+    def on_background_music_selection_changed(self, index):
+        """Startet den ausgewählten Titel sofort, falls Musik bereits läuft."""
+        combo = getattr(self, "music_title_combo", None)
+        player = getattr(self, "_background_music_player", None)
+        button = getattr(self, "music_button", None)
+        if combo is None or player is None or button is None or not button.isChecked():
+            return
+        self._play_random_background_track()
+
+    def toggle_background_music(self, enabled):
+        """Schaltet Hintergrundmusik ein oder aus."""
+        from PyQt6.QtCore import QUrl
+        from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
+
+        is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+        button = getattr(self, "music_button", None)
+
+        if not enabled:
+            player = getattr(self, "_background_music_player", None)
+            if player is not None:
+                player.stop()
+            if button is not None:
+                button.setText("🎵 Musik einschalten" if is_de else "🎵 Music on")
+            return
+
+        self._refresh_background_music_titles()
+        files = self._background_music_files
+        if not files:
+            if button is not None:
+                button.blockSignals(True)
+                button.setChecked(False)
+                button.blockSignals(False)
+                button.setText("🎵 Keine Musik gefunden" if is_de else "🎵 No music found")
+            QMessageBox.information(
+                self,
+                "Hintergrundmusik" if is_de else "Background music",
+                (
+                    "Lege MP3-, WAV-, OGG-, FLAC-, M4A- oder AAC-Dateien "
+                    "in den Ordner 'sounds' neben der GUI-Datei."
+                    if is_de else
+                    "Place MP3, WAV, OGG, FLAC, M4A or AAC files "
+                    "in the 'sounds' folder next to the GUI file."
+                )
+            )
+            return
+
+        try:
+            player = getattr(self, "_background_music_player", None)
+            if player is None:
+                output = QAudioOutput(self)
+                output.setVolume(0.20)
+                player = QMediaPlayer(self)
+                player.setAudioOutput(output)
+                player.mediaStatusChanged.connect(self._on_background_music_status)
+                self._background_music_output = output
+                self._background_music_player = player
+
+            self._play_random_background_track()
+            if button is not None:
+                button.setText("🎵 Musik ausschalten" if is_de else "🎵 Music off")
+        except Exception as exc:
+            print(f"[MUSIC] Wiedergabe konnte nicht gestartet werden: {exc}")
+            if button is not None:
+                button.blockSignals(True)
+                button.setChecked(False)
+                button.blockSignals(False)
+                button.setText("🎵 Musik einschalten" if is_de else "🎵 Music on")
+
+    def _play_random_background_track(self):
+        from PyQt6.QtCore import QUrl
+        import random
+
+        player = getattr(self, "_background_music_player", None)
+        files = getattr(self, "_background_music_files", [])
+        if player is None or not files:
+            return
+        combo = getattr(self, "music_title_combo", None)
+        selected = combo.currentData() if combo is not None else "__random__"
+        if selected and selected != "__random__" and selected in files:
+            track = selected
+        else:
+            previous = getattr(self, "_last_background_track", None)
+            choices = [path for path in files if path != previous] or files
+            track = random.choice(choices)
+        self._last_background_track = track
+        player.setSource(QUrl.fromLocalFile(track))
+        player.play()
+
+    def _on_background_music_status(self, status):
+        """Spielt den gewählten Titel erneut oder wählt einen neuen Zufallstitel."""
+        from PyQt6.QtMultimedia import QMediaPlayer
+
+        if (
+            status == QMediaPlayer.MediaStatus.EndOfMedia
+            and getattr(self, "music_button", None) is not None
+            and self.music_button.isChecked()
+        ):
+            self._play_random_background_track()
 
     def on_s3_repository_changed(self, repo_name):
         try:
@@ -14494,21 +14644,26 @@ class PatchManagerGUI(QWidget):
         install_path_layout = QHBoxLayout(install_path_container)
         install_path_layout.setContentsMargins(0, 0, 0, 0)
         install_path_layout.setSpacing(8)
+        # Patch-Buttons oben bündig mit "Log speichern" / "Musik einschalten"
         install_path_layout.setAlignment(
-            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop
         )
 
         path_button_column = QWidget()
         path_button_layout = QVBoxLayout(path_button_column)
         path_button_layout.setContentsMargins(0, 0, 0, 0)
         path_button_layout.setSpacing(3)
-        path_button_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        path_button_layout.setAlignment(
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop
+        )
 
         patch_button_column = QWidget()
         patch_button_layout = QVBoxLayout(patch_button_column)
         patch_button_layout.setContentsMargins(0, 0, 0, 0)
         patch_button_layout.setSpacing(3)
-        patch_button_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        patch_button_layout.setAlignment(
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop
+        )
 
         self.header_btn_s3_ncam = QPushButton(self.TEXT.get("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad"))
         self.header_btn_s3_ncam.setMinimumSize(200, 50)
@@ -14631,6 +14786,35 @@ class PatchManagerGUI(QWidget):
         if hasattr(self, "export_log"):
             self.log_button.clicked.connect(self.export_log)
 
+        # --- HINTERGRUNDMUSIK (sounds-Ordner im Tool-Verzeichnis) ---
+        self.music_button = QPushButton("🎵 Musik einschalten" if lang == "de" else "🎵 Music on")
+        self.music_button.setCheckable(True)
+        self.music_button.setMinimumSize(120, 32)
+        self.music_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.music_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.music_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.music_button.setStyleSheet(action_button_style)
+        self.music_button.setToolTip(
+            "Hintergrundmusik aus dem Ordner sounds ein- oder ausschalten."
+            if lang == "de" else
+            "Toggle background music from the sounds folder."
+        )
+        self.music_button.toggled.connect(self.toggle_background_music)
+        self.music_title_combo = QComboBox()
+        self.music_title_combo.setMinimumWidth(180)
+        self.music_title_combo.setMaximumWidth(240)
+        self.music_title_combo.setToolTip(
+            "Musiktitel auswählen" if lang == "de" else "Choose a music track"
+        )
+        self.music_title_combo.setStyleSheet(
+            "QComboBox { padding: 5px 8px; border-radius: 6px; }"
+        )
+        self.music_title_combo.currentIndexChanged.connect(self.on_background_music_selection_changed)
+        self._background_music_files = []
+        self._background_music_player = None
+        self._background_music_output = None
+        self._refresh_background_music_titles()
+
         # --- STATS ---
         self.telemetry_cb = QPushButton("Stats")
         self.telemetry_cb.setCheckable(True)
@@ -14678,6 +14862,16 @@ class PatchManagerGUI(QWidget):
             alignment=Qt.AlignmentFlag.AlignCenter
         ) 
 
+        # Musikbutton direkt unter "Log speichern".
+        header_actions_layout.addWidget(
+            self.music_button, 1, 0, 1, 2,
+            alignment=Qt.AlignmentFlag.AlignCenter
+        )
+        header_actions_layout.addWidget(
+            self.music_title_combo, 2, 0, 1, 2,
+            alignment=Qt.AlignmentFlag.AlignCenter
+        )
+
         # --- UNTERE REIHE ---
         # Eigener Container, damit nur Oscam-git-url nach links
         # versetzt wird, ohne die obere Reihe zu verschieben.
@@ -14691,7 +14885,7 @@ class PatchManagerGUI(QWidget):
         )
 
         header_actions_layout.addWidget(
-            oscam_row_container, 1, 0, 1, 2,
+            oscam_row_container, 3, 0, 1, 2,
             alignment=Qt.AlignmentFlag.AlignCenter
         )
 
