@@ -2,11 +2,45 @@
 OSCam Music Player – eigenständiges Player-Fenster für den OSCam Patch Manager.
 Dieses Modul wird von der Haupt-GUI importiert; die Wiedergabe bleibt dort zentral.
 """
-from PyQt6.QtCore import Qt, QTimer, QSettings
+import math
+import random
+
+from PyQt6.QtCore import Qt, QTimer, QSettings, QRectF
+from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QRadialGradient
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QSlider, QComboBox, QFrame
+    QSlider, QComboBox, QFrame, QSizePolicy
 )
+
+
+class SpeakerWidget(QWidget):
+    """Gezeichnete, dezent pulsierende Lautsprechermembran."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.level = 0.12
+        self.phase = 0.0
+        self.setMinimumSize(112, 158)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+    def set_level(self, level, phase):
+        self.level = max(0.0, min(1.0, level)); self.phase = phase; self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height(); cx, cy = w/2, h/2
+        r = min(w*.43, h*.43); pulse = (0.5 + 0.5*math.sin(self.phase))*self.level
+        p.setPen(QPen(QColor('#285d32'), 2)); p.setBrush(QColor('#0b120e'))
+        p.drawRoundedRect(QRectF(3, 3, w-6, h-6), 12, 12)
+        p.setPen(QPen(QColor(57,255,85,90+int(100*pulse)), 5+2*pulse)); p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawEllipse(QRectF(cx-r, cy-r, 2*r, 2*r))
+        grad=QRadialGradient(cx-r*.22, cy-r*.25, r*1.25)
+        grad.setColorAt(0,QColor('#49634c')); grad.setColorAt(.38,QColor('#1d2d22')); grad.setColorAt(1,QColor('#080d0a'))
+        p.setPen(QPen(QColor('#72ff7c'),1.5)); p.setBrush(QBrush(grad))
+        p.drawEllipse(QRectF(cx-r*.82,cy-r*.82,r*1.64,r*1.64))
+        p.setPen(QPen(QColor('#4ebd5b'),2)); p.setBrush(QColor('#111a14'))
+        p.drawEllipse(QRectF(cx-r*.55,cy-r*.55,r*1.1,r*1.1))
+        p.setPen(QPen(QColor('#8aff91'),1.5)); p.setBrush(QColor('#263b2b'))
+        p.drawEllipse(QRectF(cx-r*.25,cy-r*.25,r*.5,r*.5)); p.end()
 
 
 class MusicPlayerWindow(QWidget):
@@ -15,108 +49,77 @@ class MusicPlayerWindow(QWidget):
         self.host = host
         self.settings = QSettings("speedy005", "OSCamPatchManager")  # Legacy fallback only
         self.setWindowTitle("OSCam • Cyber Music Player")
-        self.setMinimumWidth(430)
+        self.setMinimumSize(680, 500)
+        self.resize(760, 550)
+        self._phase = 0.0
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, False)
         self._build_ui()
         self._timer = QTimer(self)
-        self._timer.setInterval(300)
-        self._timer.timeout.connect(self._sync_state)
+        self._timer.setInterval(160)
+        self._timer.timeout.connect(self._animate_stereo)
         self._timer.start()
         self.set_language()
 
     def _build_ui(self):
         self.setStyleSheet("""
-            QWidget {
-                background: #090d0b; color: #d8ffe0;
-                font-family: 'Segoe UI'; font-size: 10pt;
-            }
-            QFrame#panel {
-                background: #111a15; border: 1px solid #39ff55;
-                border-radius: 12px;
-            }
-            QLabel#brand {
-                color: #63ff72; font-size: 17pt; font-weight: 900;
-            }
-            QLabel#track {
-                color: #f0ff4a; font-size: 12pt; font-weight: 700;
-            }
-            QPushButton {
-                color: #eaff00; background: #202b24;
-                border: 1px solid #39ff55; border-radius: 8px;
-                padding: 8px 12px; font-weight: bold;
-            }
-            QPushButton:hover { background: #304b36; color: white; }
-            QComboBox, QSlider {
-                background: #17221b; border: 1px solid #397d43;
-                border-radius: 6px; padding: 6px;
-            }
-            QSlider::groove:horizontal {
-                height: 6px; background: #304536; border-radius: 3px;
-            }
-            QSlider::handle:horizontal {
-                background: #70ff79; width: 14px; margin: -5px 0;
-                border-radius: 7px;
-            }
+            QWidget { background:#080d0a; color:#d9ffe0; font-family:'Segoe UI'; font-size:10pt; }
+            QFrame#panel { background:#111914; border:2px solid #397c43; border-radius:16px; }
+            QFrame#display { background:#050907; border:1px solid #4cff61; border-radius:9px; }
+            QLabel#brand { color:#73ff7d; font-size:19pt; font-weight:900; }
+            QLabel#track { color:#f1ff64; font-size:13pt; font-weight:800; }
+            QPushButton { color:#eaff00; background:#1c2a20; border:1px solid #4cff61; border-radius:8px; padding:9px 13px; font-weight:bold; }
+            QPushButton:hover { background:#315b38; color:white; }
+            QPushButton#mainplay { color:#071009; background:#72ff79; font-size:11pt; min-width:118px; }
+            QComboBox { background:#111e15; border:1px solid #4b9b55; border-radius:6px; padding:7px; }
+            QSlider::groove:horizontal { height:7px; background:#263d2b; border-radius:3px; }
+            QSlider::handle:horizontal { background:#75ff80; width:16px; margin:-5px 0; border-radius:8px; }
         """)
-        root = QVBoxLayout(self)
-        root.setContentsMargins(14, 14, 14, 14)
-        root.setSpacing(10)
-        panel = QFrame()
-        panel.setObjectName("panel")
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(16, 14, 16, 16)
-        layout.setSpacing(12)
-
-        brand = QLabel("◉ OSCAM  /  CYBER PLAYER")
-        brand.setObjectName("brand")
-        brand.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(brand)
-
-        self.track_label = QLabel("Bereit für den nächsten Build-Sound")
-        self.track_label.setObjectName("track")
-        self.track_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.track_label)
-
-        self.track_combo = QComboBox()
-        self.track_combo.currentIndexChanged.connect(self._selection_changed)
-        layout.addWidget(self.track_combo)
-
-        self.progress = QSlider(Qt.Orientation.Horizontal)
-        self.progress.setRange(0, 1000)
-        self.progress.sliderMoved.connect(self._seek)
-        layout.addWidget(self.progress)
-
-        self.time_label = QLabel("00:00  /  00:00")
-        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.time_label)
-
-        controls = QHBoxLayout()
-        self.prev_btn = QPushButton("⏮")
-        self.play_btn = QPushButton("▶  PLAY")
-        self.stop_btn = QPushButton("■  STOP")
-        self.next_btn = QPushButton("⏭")
-        self.prev_btn.clicked.connect(lambda: self._step_track(-1))
-        self.next_btn.clicked.connect(lambda: self._step_track(1))
-        self.play_btn.clicked.connect(self._toggle_play)
-        self.stop_btn.clicked.connect(self._stop)
-        for button in (self.prev_btn, self.play_btn, self.stop_btn, self.next_btn):
-            controls.addWidget(button)
+        root=QVBoxLayout(self); root.setContentsMargins(14,14,14,14)
+        panel=QFrame(); panel.setObjectName("panel")
+        layout=QVBoxLayout(panel); layout.setContentsMargins(16,14,16,16); layout.setSpacing(10)
+        brand=QLabel("◉  OSCAM  /  CYBER STEREO  ◉"); brand.setObjectName("brand")
+        brand.setAlignment(Qt.AlignmentFlag.AlignCenter); layout.addWidget(brand)
+        sub=QLabel("MATRIX EDITION  •  HI-FI DIGITAL SOUND SYSTEM")
+        sub.setStyleSheet("color:#83c98b;font-size:8pt;font-weight:bold;")
+        sub.setAlignment(Qt.AlignmentFlag.AlignCenter); layout.addWidget(sub)
+        deck=QHBoxLayout(); deck.setSpacing(10)
+        self.left_speaker=SpeakerWidget(); self.right_speaker=SpeakerWidget()
+        deck.addWidget(self.left_speaker,2)
+        display=QFrame(); display.setObjectName("display")
+        center=QVBoxLayout(display); center.setContentsMargins(12,12,12,12); center.setSpacing(8)
+        status=QLabel("● POWER ON     ▰ DIGITAL RECEIVER")
+        status.setStyleSheet("color:#83c98b;font-size:8pt;font-weight:bold;")
+        status.setAlignment(Qt.AlignmentFlag.AlignCenter); center.addWidget(status)
+        self.track_label=QLabel("Bereit für den nächsten Build-Sound")
+        self.track_label.setObjectName("track"); self.track_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        center.addWidget(self.track_label)
+        self.track_combo=QComboBox(); self.track_combo.currentIndexChanged.connect(self._selection_changed)
+        center.addWidget(self.track_combo)
+        self.eq_bars=[]; eq=QHBoxLayout(); eq.setSpacing(3)
+        for i in range(18):
+            bar=QFrame(); bar.setMinimumWidth(4); bar.setFixedHeight(30)
+            bar.setStyleSheet("background:#24472b;border:1px solid #397c43;border-radius:2px;")
+            self.eq_bars.append(bar); eq.addWidget(bar)
+        center.addLayout(eq)
+        self.progress=QSlider(Qt.Orientation.Horizontal); self.progress.setRange(0,1000)
+        self.progress.sliderMoved.connect(self._seek); center.addWidget(self.progress)
+        self.time_label=QLabel("00:00  /  00:00"); self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.time_label.setStyleSheet("color:#83c98b;font-size:8pt;"); center.addWidget(self.time_label)
+        deck.addWidget(display,5); deck.addWidget(self.right_speaker,2); layout.addLayout(deck,1)
+        controls=QHBoxLayout(); self.prev_btn=QPushButton("◀◀")
+        self.play_btn=QPushButton("▶  PLAY"); self.play_btn.setObjectName("mainplay")
+        self.stop_btn=QPushButton("■  STOP"); self.next_btn=QPushButton("▶▶")
+        self.prev_btn.clicked.connect(lambda:self._step_track(-1)); self.next_btn.clicked.connect(lambda:self._step_track(1))
+        self.play_btn.clicked.connect(self._toggle_play); self.stop_btn.clicked.connect(self._stop)
+        for b in (self.prev_btn,self.play_btn,self.stop_btn,self.next_btn): controls.addWidget(b)
         layout.addLayout(controls)
-
-        volume_row = QHBoxLayout()
-        volume_row.addWidget(QLabel("🔊"))
-        self.volume = QSlider(Qt.Orientation.Horizontal)
-        self.volume.setRange(0, 100)
-        music_cfg = (getattr(self.host, "current_config", {}) or {}).get("music", {})
-        self.volume.setValue(max(0, min(100, int(music_cfg.get("volume", 20)))))
-        self.volume.valueChanged.connect(self._set_volume)
-        volume_row.addWidget(self.volume, 1)
-        self.volume_label = QLabel("20 %")
-        volume_row.addWidget(self.volume_label)
-        layout.addLayout(volume_row)
-
-        root.addWidget(panel)
-        self.refresh_tracks()
+        volume=QHBoxLayout(); volume.addWidget(QLabel("🔊  MASTER VOLUME"))
+        self.volume=QSlider(Qt.Orientation.Horizontal); self.volume.setRange(0,100)
+        music_cfg=(getattr(self.host,"current_config",{}) or {}).get("music",{})
+        self.volume.setValue(max(0,min(100,int(music_cfg.get("volume",20)))))
+        self.volume.valueChanged.connect(self._set_volume); volume.addWidget(self.volume,1)
+        self.volume_label=QLabel(f"{self.volume.value()} %"); volume.addWidget(self.volume_label)
+        layout.addLayout(volume); root.addWidget(panel); self.refresh_tracks()
 
     def set_language(self):
         is_de = str(getattr(self.host, "LANG", "de")).lower().startswith("de")
@@ -223,6 +226,19 @@ class MusicPlayerWindow(QWidget):
         if current:
             from pathlib import Path
             self.track_label.setText("♪  " + Path(current).stem)
+
+    def _animate_stereo(self):
+        self._phase += 0.24
+        button=getattr(self.host,"music_button",None)
+        playing=bool(button and button.isChecked())
+        level=random.uniform(.45,1.0) if playing else .08
+        self.left_speaker.set_level(level,self._phase)
+        self.right_speaker.set_level(level*random.uniform(.8,1.0),self._phase+1.2)
+        for bar in self.eq_bars:
+            height=random.randint(8,42) if playing else 8
+            bar.setFixedHeight(height)
+            bar.setStyleSheet("background:#72ff79;border:1px solid #397c43;border-radius:2px;" if playing else "background:#24472b;border:1px solid #397c43;border-radius:2px;")
+        self._sync_state()
 
     def showEvent(self, event):
         self.refresh_tracks()
