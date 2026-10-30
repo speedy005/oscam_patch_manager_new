@@ -975,6 +975,28 @@ class PatchManagerGUI(QWidget):
 
                 if hasattr(self, "music_title_combo"):
                     self._refresh_background_music_titles()
+                if hasattr(self, "music_player_button"):
+                    self.music_player_button.setText(
+                        "🎚 Player öffnen" if is_de else "🎚 Open player"
+                    )
+                    self.music_player_button.setToolTip(
+                        "Separaten Cyber Music Player öffnen"
+                        if is_de else "Open the separate Cyber Music Player"
+                    )
+                    self.music_player_button.setToolTip(
+                        "Separaten Cyber Music Player öffnen"
+                        if is_de else
+                        "Open the separate Cyber Music Player"
+                    )
+
+                # Auch ein bereits geöffnetes Player-Fenster live umschalten.
+                player_window = getattr(self, "_music_player_window", None)
+                if player_window is not None:
+                    try:
+                        player_window.set_language()
+                        player_window.refresh_tracks()
+                    except Exception as player_exc:
+                        log_error("Externer Musikplayer konnte nicht aktualisiert werden", player_exc)
 
                 # Live-Konsole: neue Werkzeugbuttons der gewählten Sprache anpassen.
                 if hasattr(self, "copy_log_button"):
@@ -1423,6 +1445,25 @@ class PatchManagerGUI(QWidget):
             finally:
                 if not finished["value"]:
                     release_lock()
+
+    def open_external_music_player(self):
+        """Öffnet den separaten Player aus music_player.py."""
+        try:
+            from music_player import MusicPlayerWindow
+            if self._music_player_window is None:
+                self._music_player_window = MusicPlayerWindow(self, self)
+            self._music_player_window.refresh_tracks()
+            self._music_player_window.set_language()
+            self._music_player_window.show()
+            self._music_player_window.raise_()
+            self._music_player_window.activateWindow()
+        except Exception as exc:
+            print(f"[MUSIC PLAYER] Player konnte nicht geöffnet werden: {exc}")
+            QMessageBox.warning(
+                self,
+                "Music Player",
+                f"Der externe Player konnte nicht geladen werden:\\n{exc}"
+            )
 
     def _load_background_music_files(self):
         """Findet unterstützte Musikdateien im sounds-Ordner neben dem Tool."""
@@ -14643,10 +14684,10 @@ class PatchManagerGUI(QWidget):
         install_path_container = QWidget()
         install_path_layout = QHBoxLayout(install_path_container)
         install_path_layout.setContentsMargins(0, 0, 0, 0)
-        install_path_layout.setSpacing(8)
+        install_path_layout.setSpacing(3)
         # Patch-Buttons oben bündig mit "Log speichern" / "Musik einschalten"
         install_path_layout.setAlignment(
-            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
         )
 
         path_button_column = QWidget()
@@ -14677,6 +14718,34 @@ class PatchManagerGUI(QWidget):
         self.header_btn_s3_ncam.clicked.connect(self.select_ncam_patch_path_manually)
         path_button_layout.addWidget(self.header_btn_s3_ncam)
 
+        # Player direkt unter dem S3-Patch-Pfad platzieren.
+        self.music_player_button = QPushButton("🎚 Player öffnen" if lang == "de" else "🎚 Open player")
+        self.music_player_button.setMinimumSize(240, 50)
+        self.music_player_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.music_player_button.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+        self.music_player_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.music_player_button.setStyleSheet("""
+            QPushButton {
+                background-color: #000000;
+                color: #39ff14;
+                border: 1px solid #39ff14;
+                border-radius: 5px;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #163316;
+                color: white;
+            }
+        """)
+        self.music_player_button.setToolTip(
+            "Separaten Cyber Music Player öffnen"
+            if lang == "de" else "Open the separate Cyber Music Player"
+        )
+        self.music_player_button.clicked.connect(self.open_external_music_player)
+        self._music_player_window = None
+        
+
         self.header_btn_s4 = QPushButton(self.TEXT.get("patch_folder_s4", "S4-Pfad"))
         self.header_btn_s4.setMinimumSize(200, 50)
         self.header_btn_s4.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
@@ -14688,7 +14757,7 @@ class PatchManagerGUI(QWidget):
         )
         self.header_btn_s4.clicked.connect(self.select_s4_patch_path_manually)
         path_button_layout.addWidget(self.header_btn_s4)
-
+        path_button_layout.addWidget(self.music_player_button)          
         # Die beiden Patch-Kopieraktionen ebenfalls untereinander.
         self.header_btn_patch_ncam = QPushButton(self.TEXT.get("patch_copy_s3_ncam", "Patch → S3-NCam"))
         self.header_btn_patch_ncam.setMinimumSize(200, 50)
@@ -14767,7 +14836,7 @@ class PatchManagerGUI(QWidget):
         log_text = "Log speichern" if lang == "de" else "Save Log"
 
         self.log_button = QPushButton(log_text)
-        self.log_button.setMinimumSize(120, 32)
+        self.log_button.setMinimumSize(220, 50)
         self.log_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.log_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.log_button.setIcon(
@@ -14789,7 +14858,7 @@ class PatchManagerGUI(QWidget):
         # --- HINTERGRUNDMUSIK (sounds-Ordner im Tool-Verzeichnis) ---
         self.music_button = QPushButton("🎵 Musik einschalten" if lang == "de" else "🎵 Music on")
         self.music_button.setCheckable(True)
-        self.music_button.setMinimumSize(120, 32)
+        self.music_button.setMinimumSize(220, 50)
         self.music_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.music_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.music_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -14801,8 +14870,8 @@ class PatchManagerGUI(QWidget):
         )
         self.music_button.toggled.connect(self.toggle_background_music)
         self.music_title_combo = QComboBox()
-        self.music_title_combo.setMinimumWidth(180)
-        self.music_title_combo.setMaximumWidth(240)
+        self.music_title_combo.setMinimumWidth(220)
+        self.music_title_combo.setMaximumWidth(250)
         self.music_title_combo.setToolTip(
             "Musiktitel auswählen" if lang == "de" else "Choose a music track"
         )
@@ -14868,24 +14937,11 @@ class PatchManagerGUI(QWidget):
             alignment=Qt.AlignmentFlag.AlignCenter
         )
         header_actions_layout.addWidget(
-            self.music_title_combo, 2, 0, 1, 2,
+            self.music_title_combo, 2, 0, 1, 1,
             alignment=Qt.AlignmentFlag.AlignCenter
         )
-
-        # --- UNTERE REIHE ---
-        # Eigener Container, damit nur Oscam-git-url nach links
-        # versetzt wird, ohne die obere Reihe zu verschieben.
-        oscam_row_container = QWidget()
-        oscam_row_layout = QHBoxLayout(oscam_row_container)
-        oscam_row_layout.setContentsMargins(0, 0, 0, 0)
-        oscam_row_layout.setSpacing(0)
-        oscam_row_layout.addWidget(
-            self.oscam_source_button,
-            alignment=Qt.AlignmentFlag.AlignCenter
-        )
-
         header_actions_layout.addWidget(
-            oscam_row_container, 3, 0, 1, 2,
+            self.oscam_source_button, 2, 1, 1, 1,
             alignment=Qt.AlignmentFlag.AlignCenter
         )
 
