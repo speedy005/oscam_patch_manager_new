@@ -1140,16 +1140,6 @@ class PatchManagerGUI(QWidget):
                         release_lock()
 
                         btn = getattr(self, "buttons", {}).get("patch_create")
-                        print(
-                            "[LANG-DIAG]",
-                            "lock=", getattr(self, "_block_language_change", None),
-                            "button_exists=", btn is not None,
-                            "button_enabled=", btn.isEnabled() if btn else None,
-                            "button_visible=", btn.isVisible() if btn else None,
-                            "overlay_visible=", self.loading_overlay.isVisible()
-                                if getattr(self, "loading_overlay", None) else None,
-                            flush=True,
-                        )
 
                         # Den Systemcheck nach dem Sprachwechsel starten.
                         # Die Abschlussmeldung bleibt bis zum Check-Ende verborgen.
@@ -1322,6 +1312,7 @@ class PatchManagerGUI(QWidget):
                 log_error("Button-Text-Anpassung fehlgeschlagen", exc)
 
             anim_text = "Animation & Systemcheck..." if is_de else "Animation & system check..."
+
             update_pbar(80, f"⏳ {anim_text}")
 
             from PyQt6.QtCore import QTimer
@@ -1336,16 +1327,49 @@ class PatchManagerGUI(QWidget):
                 after_animation()
 
             if callable(show_animation):
-                show_animation(
-                    self.LANG,
-                    callback=finish_language_animation_once,
-                )
+
+                try:
+                    show_animation(
+                        self.LANG,
+                        callback=finish_language_animation_once,
+                    )
+                except Exception as exc:
+                    raise
+
                 # Sicherheitsnetz, falls die Animation keinen Callback auslöst.
-                QTimer.singleShot(
-                    6000,
-                    lambda: finish_language_animation_once()
-                    if not animation_callback_called["value"] else None,
-                )
+                def force_finish_language_animation():
+                    if animation_callback_called["value"]:
+                        return
+
+
+                    for name in (
+                        "text_fade_in",
+                        "flag_fade_in",
+                        "flag_slide",
+                        "out_anim",
+                        "f_out",
+                    ):
+                        anim = getattr(self, name, None)
+                        if anim is not None:
+                            try:
+                                anim.stop()
+                            except Exception:
+                                pass
+
+                    for name in ("text_label", "flag_label"):
+                        widget = getattr(self, name, None)
+                        if widget is not None:
+                            try:
+                                widget.hide()
+                                widget.deleteLater()
+                            except Exception:
+                                pass
+                            setattr(self, name, None)
+
+                    finish_language_animation_once()
+
+                QTimer.singleShot(6000, force_finish_language_animation)
+
             else:
                 finish_language_animation_once()
 
@@ -6125,84 +6149,159 @@ class PatchManagerGUI(QWidget):
 
         is_de = lang_code.lower() == "de"
         text_msg = "Sprache wird umgestellt..." if is_de else "Switching language..."
-        flag_char = "🇩🇪" if is_de else "🇺🇸"
+                # 3. Flagge als echtes SVG-Bild statt Emoji anzeigen
+        from PyQt6.QtCore import QByteArray, Qt
+        from PyQt6.QtGui import QPixmap
+        from PyQt6.QtSvg import QSvgRenderer
+        from PyQt6.QtGui import QPainter
 
-        # 2. Text Label Setup (Neon Glow vorbereitet)
+        if is_de:
+            flag_svg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"
+                 viewBox="0 0 120 80">
+                <rect width="120" height="26.67" y="0" fill="#000000"/>
+                <rect width="120" height="26.67" y="26.67" fill="#DD0000"/>
+                <rect width="120" height="26.66" y="53.34" fill="#FFCE00"/>
+            </svg>
+            """
+        else:
+            flag_svg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"
+                 viewBox="0 0 60 30">
+                <rect width="60" height="30" fill="#012169"/>
+                <path d="M0 0 L60 30 M60 0 L0 30"
+                      stroke="#FFFFFF" stroke-width="6"/>
+                <path d="M0 0 L60 30 M60 0 L0 30"
+                      stroke="#C8102E" stroke-width="2.5"/>
+                <path d="M30 0 V30 M0 15 H60"
+                      stroke="#FFFFFF" stroke-width="10"/>
+                <path d="M30 0 V30 M0 15 H60"
+                      stroke="#C8102E" stroke-width="5"/>
+            </svg>
+            """
+
+        pixmap = QPixmap(120, 80)
+        pixmap.fill(Qt.GlobalColor.transparent)
+
+        renderer = QSvgRenderer(QByteArray(flag_svg.encode("utf-8")))
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+
+        self.flag_label = QLabel(self)
+        self.flag_label.setPixmap(pixmap)
+        self.flag_label.setFixedSize(120, 80)
+
+        t_y = (self.height() - 80) // 2
+        f_x = (self.width() - 120) // 2
+        f_y = t_y - 100
+
+        # Sprachtext-Label vor den Animationen erstellen
         self.text_label = QLabel(text_msg, self)
-        self.text_label.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
+        self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.text_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        self.text_label.setGeometry(
+            20, t_y + 15, max(1, self.width() - 40), 42
+        )
         self.text_label.setStyleSheet(
             "color: rgba(255, 111, 0, 0); background: transparent;"
         )
-        self.text_label.adjustSize()
-        t_x, t_y = (self.width() - self.text_label.width()) // 2, (
-            self.height() - self.text_label.height()
-        ) // 2 + 30
-        self.text_label.move(t_x, t_y)
-
-        self.shadow = QGraphicsDropShadowEffect(self.text_label)
-        self.shadow.setColor(QColor("#FF6F00"))
-        self.shadow.setOffset(0, 0)
-        self.shadow.setBlurRadius(0)
-        self.text_label.setGraphicsEffect(self.shadow)
         self.text_label.show()
+        self.text_label.raise_()
 
-        # 3. Flag Label Setup (Slide & Fade)
-        from PyQt6.QtGui import QFont
-
-        self.flag_label = QLabel(flag_char, self)
-
-        font = QFont("Noto Color Emoji", 64)
-        font.setFamily("NotoColorEmoji")
-        font.setPointSize(64)
-
-        self.flag_label.setFont(font)
-        self.flag_label.adjustSize()
-
-        self.flag_label.adjustSize()
-        f_x, f_y = (
-            self.width() - self.flag_label.width()
-        ) // 2, t_y - self.flag_label.height() - 20
+        self.flag_label.move(f_x, f_y)
 
         flag_opacity = QGraphicsOpacityEffect(self.flag_label)
         flag_opacity.setOpacity(0)
         self.flag_label.setGraphicsEffect(flag_opacity)
         self.flag_label.show()
 
-        # 4. Animationen: Neon-Puls & Fade-Out
+        # Schatteneffekt separat auf dem Textlabel verwenden.
+        # Der Opacity-Effekt der Flagge bleibt dadurch erhalten.
+        from PyQt6.QtWidgets import QGraphicsDropShadowEffect
+
+        self.shadow = QGraphicsDropShadowEffect(self.text_label)
+        self.shadow.setBlurRadius(5)
+        self.shadow.setColor(QColor(255, 111, 0, 220))
+        self.shadow.setOffset(0, 0)
+        self.text_label.setGraphicsEffect(self.shadow)
+
+        # 4. Animationen: Einblenden -> Glow -> Ausblenden
+        from PyQt6.QtCore import QTimer, QVariantAnimation
+        from PyQt6.QtGui import QColor
+
+        self._language_animation_finishing = False
+        self._language_animation_callback_done = False
+
+        def finish_animation():
+            if self._language_animation_callback_done:
+                return
+
+            self._language_animation_callback_done = True
+
+            for attr in ("text_label", "flag_label"):
+                widget = getattr(self, attr, None)
+                if widget is not None:
+                    widget.hide()
+                    widget.deleteLater()
+                    setattr(self, attr, None)
+
+            if callback:
+                try:
+                    callback()
+                except Exception:
+                    import traceback
+                    traceback.print_exc(file=sys.__stderr__)
+
+
         def fade_out():
-            # Text und Flagge sanft ausblenden
+            if self._language_animation_finishing:
+                return
+
+            self._language_animation_finishing = True
+
+            # Text ausblenden
             self.out_anim = QVariantAnimation(self)
             self.out_anim.setDuration(600)
             self.out_anim.setStartValue(QColor(255, 111, 0, 255))
             self.out_anim.setEndValue(QColor(255, 111, 0, 0))
             self.out_anim.valueChanged.connect(
-                lambda c: self.text_label.setStyleSheet(
-                    f"color: {c.name(QColor.NameFormat.HexArgb)}; background: transparent;"
+                lambda c: (
+                    self.text_label.setStyleSheet(
+                        f"color: {c.name(QColor.NameFormat.HexArgb)}; "
+                        "background: transparent;"
+                    )
+                    if getattr(self, "text_label", None) else None
                 )
             )
 
-            self.f_out = QPropertyAnimation(flag_opacity, b"opacity")
+            # Flagge gleichzeitig ausblenden
+            opacity = self.flag_label.graphicsEffect()
+            self.f_out = QPropertyAnimation(opacity, b"opacity", self)
             self.f_out.setDuration(600)
-            self.f_out.setStartValue(1)
-            self.f_out.setEndValue(0)
+            self.f_out.setStartValue(1.0)
+            self.f_out.setEndValue(0.0)
+            self.f_out.finished.connect(finish_animation)
 
-            self.f_out.finished.connect(
-                lambda: (
-                    self.text_label.hide(),
-                    self.flag_label.hide(),
-                    callback() if callback else None,
-                )
-            )
             self.out_anim.start()
             self.f_out.start()
+
 
         def start_glow_pulse(times=6):
             state = {"i": 0}
 
             def toggle():
-                val = 5 + (state["i"] % 2) * 25
-                self.shadow.setBlurRadius(val)
+                if self._language_animation_finishing:
+                    return
+
+                shadow = getattr(self, "shadow", None)
+                if shadow is not None:
+                    shadow.setBlurRadius(
+                        5 + (state["i"] % 2) * 25
+                    )
+
                 state["i"] += 1
+
                 if state["i"] < times * 2:
                     QTimer.singleShot(180, toggle)
                 else:
@@ -6210,24 +6309,29 @@ class PatchManagerGUI(QWidget):
 
             toggle()
 
-        # 5. Start: Text-Farbe Animation (Echter Fade-In)
+        # Text-Fade-In
         self.text_fade_in = QVariantAnimation(self)
         self.text_fade_in.setDuration(900)
         self.text_fade_in.setStartValue(QColor(255, 111, 0, 0))
         self.text_fade_in.setEndValue(QColor(255, 111, 0, 255))
         self.text_fade_in.valueChanged.connect(
-            lambda c: self.text_label.setStyleSheet(
-                f"color: {c.name(QColor.NameFormat.HexArgb)}; background: transparent;"
+            lambda c: (
+                self.text_label.setStyleSheet(
+                    f"color: {c.name(QColor.NameFormat.HexArgb)}; "
+                    "background: transparent;"
+                )
+                if getattr(self, "text_label", None) else None
             )
         )
 
-        # Flagge Fade & Slide
-        self.flag_fade_in = QPropertyAnimation(flag_opacity, b"opacity")
+        # Flaggen-Fade-In
+        self.flag_fade_in = QPropertyAnimation(flag_opacity, b"opacity", self)
         self.flag_fade_in.setDuration(900)
-        self.flag_fade_in.setStartValue(0)
-        self.flag_fade_in.setEndValue(1)
+        self.flag_fade_in.setStartValue(0.0)
+        self.flag_fade_in.setEndValue(1.0)
 
-        self.flag_slide = QPropertyAnimation(self.flag_label, b"geometry")
+        # Flaggen-Slide
+        self.flag_slide = QPropertyAnimation(self.flag_label, b"geometry", self)
         self.flag_slide.setDuration(900)
         self.flag_slide.setStartValue(
             QRect(f_x, f_y + 50, self.flag_label.width(), self.flag_label.height())
@@ -6237,6 +6341,7 @@ class PatchManagerGUI(QWidget):
         )
         self.flag_slide.setEasingCurve(QEasingCurve.Type.OutBack)
 
+        # Erst nach dem Einblenden mit dem Glow beginnen
         self.flag_fade_in.finished.connect(
             lambda: QTimer.singleShot(100, start_glow_pulse)
         )
