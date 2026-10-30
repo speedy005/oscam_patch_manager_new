@@ -1465,6 +1465,47 @@ class PatchManagerGUI(QWidget):
                 f"Der externe Player konnte nicht geladen werden:\\n{exc}"
             )
 
+    def _save_music_state(self, **updates):
+        """Speichert Player-Auswahl und Wiedergabestatus in der vorhandenen config.json."""
+        try:
+            cfg = getattr(self, "current_config", None)
+            if not isinstance(cfg, dict):
+                cfg = load_config()
+            if not isinstance(cfg, dict):
+                cfg = {}
+            music_cfg = dict(cfg.get("music", {})) if isinstance(cfg.get("music"), dict) else {}
+            music_cfg.update(updates)
+            cfg["music"] = music_cfg
+            self.current_config = cfg
+            save_config({"music": music_cfg}, gui_instance=self, silent=True)
+        except Exception as exc:
+            print(f"[MUSIC] Einstellungen konnten nicht gespeichert werden: {exc}")
+
+    def _restore_music_state(self):
+        """Stellt den letzten Titel wieder her und setzt die frühere Wiedergabe fort."""
+        try:
+            cfg = getattr(self, "current_config", None)
+            if not isinstance(cfg, dict):
+                cfg = load_config()
+            music_cfg = cfg.get("music", {}) if isinstance(cfg, dict) else {}
+            wanted = str(music_cfg.get("last_track", "") or "")
+            combo = getattr(self, "music_title_combo", None)
+            if combo is not None and wanted:
+                from pathlib import Path
+                idx = combo.findData(wanted)
+                if idx < 0:
+                    idx = combo.findText("🎧 " + Path(wanted).stem)
+                if idx >= 0:
+                    combo.blockSignals(True)
+                    combo.setCurrentIndex(idx)
+                    combo.blockSignals(False)
+            if bool(music_cfg.get("was_playing", False)):
+                from PyQt6.QtCore import QTimer
+                QTimer.singleShot(1200, lambda: self.music_button.setChecked(True)
+                                  if getattr(self, "music_button", None) is not None else None)
+        except Exception as exc:
+            print(f"[MUSIC] Gespeicherte Einstellungen konnten nicht geladen werden: {exc}")
+
     def _load_background_music_files(self):
         """Findet unterstützte Musikdateien im sounds-Ordner neben dem Tool."""
         from pathlib import Path
@@ -1506,6 +1547,8 @@ class PatchManagerGUI(QWidget):
         combo = getattr(self, "music_title_combo", None)
         player = getattr(self, "_background_music_player", None)
         button = getattr(self, "music_button", None)
+        if combo is not None and index >= 0:
+            self._save_music_state(last_track=str(combo.currentData() or ""))
         if combo is None or player is None or button is None or not button.isChecked():
             return
         self._play_random_background_track()
@@ -1519,6 +1562,9 @@ class PatchManagerGUI(QWidget):
         button = getattr(self, "music_button", None)
 
         if not enabled:
+            combo = getattr(self, "music_title_combo", None)
+            selected = combo.currentData() if combo is not None else ""
+            self._save_music_state(last_track=str(selected or ""), was_playing=False)
             player = getattr(self, "_background_music_player", None)
             if player is not None:
                 player.stop()
@@ -1527,6 +1573,9 @@ class PatchManagerGUI(QWidget):
             return
 
         self._refresh_background_music_titles()
+        combo = getattr(self, "music_title_combo", None)
+        selected = combo.currentData() if combo is not None else ""
+        self._save_music_state(last_track=str(selected or ""), was_playing=True)
         files = self._background_music_files
         if not files:
             if button is not None:
@@ -1551,7 +1600,8 @@ class PatchManagerGUI(QWidget):
             player = getattr(self, "_background_music_player", None)
             if player is None:
                 output = QAudioOutput(self)
-                output.setVolume(0.20)
+                music_cfg = (getattr(self, "current_config", {}) or {}).get("music", {})
+                output.setVolume(max(0, min(100, int(music_cfg.get("volume", 20)))) / 100.0)
                 player = QMediaPlayer(self)
                 player.setAudioOutput(output)
                 player.mediaStatusChanged.connect(self._on_background_music_status)
@@ -1586,6 +1636,7 @@ class PatchManagerGUI(QWidget):
             choices = [path for path in files if path != previous] or files
             track = random.choice(choices)
         self._last_background_track = track
+        self._save_music_state(last_track=track, was_playing=True)
         player.setSource(QUrl.fromLocalFile(track))
         player.play()
 
@@ -14684,7 +14735,7 @@ class PatchManagerGUI(QWidget):
         install_path_container = QWidget()
         install_path_layout = QHBoxLayout(install_path_container)
         install_path_layout.setContentsMargins(0, 0, 0, 0)
-        install_path_layout.setSpacing(3)
+        install_path_layout.setSpacing(1)
         # Patch-Buttons oben bündig mit "Log speichern" / "Musik einschalten"
         install_path_layout.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
@@ -14804,8 +14855,8 @@ class PatchManagerGUI(QWidget):
         header_actions_container = QWidget()
         header_actions_layout = QGridLayout(header_actions_container)
         header_actions_layout.setContentsMargins(0, 0, 0, 0)
-        header_actions_layout.setHorizontalSpacing(3)
-        header_actions_layout.setVerticalSpacing(3)
+        header_actions_layout.setHorizontalSpacing(1)
+        header_actions_layout.setVerticalSpacing(2)
         header_actions_layout.setAlignment(
             Qt.AlignmentFlag.AlignHCenter |
             Qt.AlignmentFlag.AlignVCenter
@@ -14836,8 +14887,8 @@ class PatchManagerGUI(QWidget):
         log_text = "Log speichern" if lang == "de" else "Save Log"
 
         self.log_button = QPushButton(log_text)
-        self.log_button.setMinimumSize(220, 50)
-        self.log_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.log_button.setFixedSize(220, 50)
+        self.log_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.log_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.log_button.setIcon(
             self.style().standardIcon(
@@ -14858,8 +14909,8 @@ class PatchManagerGUI(QWidget):
         # --- HINTERGRUNDMUSIK (sounds-Ordner im Tool-Verzeichnis) ---
         self.music_button = QPushButton("🎵 Musik einschalten" if lang == "de" else "🎵 Music on")
         self.music_button.setCheckable(True)
-        self.music_button.setMinimumSize(220, 50)
-        self.music_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.music_button.setFixedSize(220, 50)
+        self.music_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.music_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.music_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.music_button.setStyleSheet(action_button_style)
@@ -14883,6 +14934,8 @@ class PatchManagerGUI(QWidget):
         self._background_music_player = None
         self._background_music_output = None
         self._refresh_background_music_titles()
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(500, self._restore_music_state)
 
         # --- STATS ---
         self.telemetry_cb = QPushButton("Stats")

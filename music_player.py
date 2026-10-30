@@ -2,7 +2,7 @@
 OSCam Music Player – eigenständiges Player-Fenster für den OSCam Patch Manager.
 Dieses Modul wird von der Haupt-GUI importiert; die Wiedergabe bleibt dort zentral.
 """
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QSettings
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSlider, QComboBox, QFrame
@@ -13,6 +13,7 @@ class MusicPlayerWindow(QWidget):
     def __init__(self, host, parent=None):
         super().__init__(parent or host, Qt.WindowType.Window)
         self.host = host
+        self.settings = QSettings("speedy005", "OSCamPatchManager")  # Legacy fallback only
         self.setWindowTitle("OSCam • Cyber Music Player")
         self.setMinimumWidth(430)
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, False)
@@ -106,7 +107,8 @@ class MusicPlayerWindow(QWidget):
         volume_row.addWidget(QLabel("🔊"))
         self.volume = QSlider(Qt.Orientation.Horizontal)
         self.volume.setRange(0, 100)
-        self.volume.setValue(20)
+        music_cfg = (getattr(self.host, "current_config", {}) or {}).get("music", {})
+        self.volume.setValue(max(0, min(100, int(music_cfg.get("volume", 20)))))
         self.volume.valueChanged.connect(self._set_volume)
         volume_row.addWidget(self.volume, 1)
         self.volume_label = QLabel("20 %")
@@ -129,12 +131,18 @@ class MusicPlayerWindow(QWidget):
 
     def refresh_tracks(self):
         source = getattr(self.host, "music_title_combo", None)
+        music_cfg = (getattr(self.host, "current_config", {}) or {}).get("music", {})
         self.track_combo.blockSignals(True)
         self.track_combo.clear()
         if source is not None:
             for i in range(source.count()):
                 self.track_combo.addItem(source.itemText(i), source.itemData(i))
-            self.track_combo.setCurrentIndex(max(0, source.currentIndex()))
+            wanted = str(music_cfg.get("last_track", "") or "")
+            idx = self.track_combo.findData(wanted) if wanted else -1
+            if idx < 0 and wanted:
+                from pathlib import Path
+                idx = self.track_combo.findText("🎧 " + Path(wanted).stem)
+            self.track_combo.setCurrentIndex(idx if idx >= 0 else max(0, source.currentIndex()))
         self.track_combo.blockSignals(False)
 
     def _selection_changed(self, index):
@@ -142,6 +150,9 @@ class MusicPlayerWindow(QWidget):
         if source is not None and index >= 0:
             source.setCurrentIndex(index)
         self._sync_state()
+        source = getattr(self.host, "music_title_combo", None)
+        if source is not None and index >= 0:
+            self.host._save_music_state(last_track=str(source.currentData() or ""))
 
     def _player(self):
         return getattr(self.host, "_background_music_player", None)
@@ -176,6 +187,8 @@ class MusicPlayerWindow(QWidget):
         self.track_combo.setCurrentIndex(index)
 
     def _set_volume(self, value):
+        if hasattr(self.host, "_save_music_state"):
+            self.host._save_music_state(volume=int(value))
         output = getattr(self.host, "_background_music_output", None)
         if output is not None:
             output.setVolume(value / 100.0)
