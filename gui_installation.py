@@ -60,10 +60,15 @@ class PatchManagerInstallationMixin:
             return
 
         self.selected_s3_repository = repo_name
-        self.current_config["s3_repository_name"] = repo_name
 
         try:
-            save_config(self.current_config)
+            success = save_config(
+                {"s3_repository_name": repo_name},
+                gui_instance=self,
+                silent=True
+            )
+            if not success:
+                raise RuntimeError("S3-Repository konnte nicht gespeichert werden.")
         except Exception as e:
             QMessageBox.warning(
                 self,

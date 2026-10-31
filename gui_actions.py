@@ -1528,12 +1528,27 @@ class PatchManagerActionsMixin:
             self.CONFIG_OLD = os.path.join(new_dir, "config_old.json")
             self.GITHUB_CONFIG_OLD = os.path.join(new_dir, "github_upload_config_old.json")
 
-            # Config speichern
+            # Config sicher aktualisieren: aktuelle Datei laden und nur
+            # den geänderten Wert ergänzen.
             if hasattr(self, "cfg"):
-                self.cfg["s3_patch_path"] = new_dir
                 try:
-                    with open("config.json", "w", encoding="utf-8") as f:
-                        json.dump(self.cfg, f, indent=2)
+                    config_path = CONFIG_FILE
+                    current_cfg = {}
+
+                    if os.path.isfile(config_path):
+                        with open(config_path, "r", encoding="utf-8") as f:
+                            loaded = json.load(f)
+                        if isinstance(loaded, dict):
+                            current_cfg = loaded
+
+                    current_cfg["s3_patch_path"] = new_dir
+
+                    with open(config_path, "w", encoding="utf-8") as f:
+                        json.dump(current_cfg, f, indent=4, ensure_ascii=False)
+                        f.write("\n")
+
+                    self.cfg = current_cfg
+                    self.current_config = current_cfg
 
                     success_msg = f"✅ Ordner geändert: {new_dir}" if is_de else f"✅ Folder changed: {new_dir}"
                     log(success_msg, "success")

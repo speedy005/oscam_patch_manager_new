@@ -13,6 +13,7 @@ import tempfile
 import wave
 import shlex
 from PyQt6.QtCore import QThread, pyqtSignal
+from weather import open_weather_window
 
 
 class _PatchCreateBridge(QObject):
@@ -1754,10 +1755,15 @@ class PatchManagerGUI(QWidget):
             return
 
         self.selected_s3_repository = repo_name
-        self.current_config["s3_repository_name"] = repo_name
 
         try:
-            save_config(self.current_config)
+            success = save_config(
+                {"s3_repository_name": repo_name},
+                gui_instance=self,
+                silent=True
+            )
+            if not success:
+                raise RuntimeError("S3-Repository konnte nicht gespeichert werden.")
         except Exception as e:
             QMessageBox.warning(
                 self,
@@ -11746,6 +11752,7 @@ class PatchManagerGUI(QWidget):
             "header_btn_patch_s4",
             "log_button",
             "music_button",
+            "weather_button",
         ):
             button = getattr(self, name, None)
             if button is not None:
@@ -13365,26 +13372,39 @@ class PatchManagerGUI(QWidget):
             self.CONFIG_OLD = os.path.join(new_dir, "config_old.json")
             self.GITHUB_CONFIG_OLD = os.path.join(new_dir, "github_upload_config_old.json")
 
-            # Config speichern
-            if hasattr(self, "cfg"):
-                self.cfg["s3_patch_path"] = new_dir
-                try:
-                    with open("config.json", "w", encoding="utf-8") as f:
-                        json.dump(self.cfg, f, indent=2)
+            # Config sicher aktualisieren: aktuelle Datei zuerst einlesen.
+            try:
+                config_path = CONFIG_FILE
+                current_cfg = {}
 
-                    success_msg = f"✅ Ordner geändert: {new_dir}" if is_de else f"✅ Folder changed: {new_dir}"
-                    log(success_msg, "success")
-                    if pbar:
-                        finalize_pbar("✅ " + ("Gespeichert!" if is_de else "Saved!"))
-                    if "safe_play" in globals():
-                        safe_play("complete.oga")
+                if os.path.isfile(config_path):
+                    with open(config_path, "r", encoding="utf-8") as f:
+                        loaded_cfg = json.load(f)
+                    if isinstance(loaded_cfg, dict):
+                        current_cfg = loaded_cfg
 
-                except Exception as e:
-                    log(f"❌ Fehler: {e}", "error")
-                    if pbar:
-                        finalize_pbar("❌ " + str(e))
-                    if "safe_play" in globals():
-                        safe_play("dialog-error.oga")
+                current_cfg["s3_patch_path"] = new_dir
+
+                with open(config_path, "w", encoding="utf-8") as f:
+                    json.dump(current_cfg, f, indent=4, ensure_ascii=False)
+                    f.write("\n")
+
+                self.cfg = current_cfg
+                self.current_config = current_cfg
+
+                success_msg = f"✅ Ordner geändert: {new_dir}" if is_de else f"✅ Folder changed: {new_dir}"
+                log(success_msg, "success")
+                if pbar:
+                    finalize_pbar("✅ " + ("Gespeichert!" if is_de else "Saved!"))
+                if "safe_play" in globals():
+                    safe_play("complete.oga")
+
+            except Exception as e:
+                log(f"❌ Fehler: {e}", "error")
+                if pbar:
+                    finalize_pbar("❌ " + str(e))
+                if "safe_play" in globals():
+                    safe_play("dialog-error.oga")
         else:
             log("ℹ️ Abgebrochen" if is_de else "ℹ️ Cancelled", "info")
             if pbar:
@@ -14915,6 +14935,26 @@ class PatchManagerGUI(QWidget):
             lambda checked=False: self.copy_patch_to_target("s4")
         )
         patch_button_layout.addWidget(self.header_btn_patch_s4)
+
+        # --- WETTERBUTTON ---
+        self.weather_button = QPushButton(
+            "🌤 Wetter anzeigen" if lang == "de" else "🌤 Show weather"
+        )
+        self.weather_button.setMinimumSize(240, 50)
+        self.weather_button.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
+        self.weather_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.weather_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.weather_button.setToolTip(
+            "Aktuelles Wetter und 5-Tage-Vorhersage anzeigen"
+            if lang == "de"
+            else "Show current weather and 5-day forecast"
+        )
+        self.weather_button.clicked.connect(
+            lambda checked=False: open_weather_window(self)
+        )
+        patch_button_layout.addWidget(self.weather_button)
 
         install_path_layout.addWidget(path_button_column)
         install_path_layout.addWidget(patch_button_column)

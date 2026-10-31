@@ -242,6 +242,17 @@ def load_config(gui_instance=None):
         "theme_mode": "standard",
         "blink_speed": 500,
         "led_enabled": True,
+
+        # Weitere dauerhaft gespeicherte Einstellungen
+        "allow_telemetry": True,
+        "last_stream_commit": "",
+        "previous_stream_commit": "",
+        "ncam_patch_path": r"C:\Users\chris\Downloads\oscam_patch_manager\oscam_patch_manager_new\s3_ncam_bonecrew\support\patches",
+        "s4_patch_path": r"C:\Users\chris\Downloads\oscam_patch_manager\oscam_patch_manager_new\s4\data\patches",
+        "oscam_source": "speedy Oscan",
+        "emu_repo_url": "https://github.com/speedy005/Oscam-emu.git",
+        "weather_city": "Ratingen",
+        "s3_repository_name": "S3 Simplebuild",
     }
 
 

@@ -830,17 +830,15 @@ class PatchManagerSettingsMixin:
             return {}
         except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
             print(f"[CONFIG] Konfigurationsdatei kann nicht gelesen werden: {exc}")
-            # Originaldatei sichern, bevor eine leere Standardkonfiguration angelegt wird.
+            # Originaldatei sichern und niemals automatisch durch {} ersetzen.
             try:
                 stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 backup = f"{CONFIG_FILE}.invalid_{stamp}.bak"
                 shutil.copy2(CONFIG_FILE, backup)
-                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                    f.write("{}\n")
                 print(f"[CONFIG] Fehlerhafte Datei gesichert unter: {backup}")
-                print("[CONFIG] Eine leere Standardkonfiguration wurde angelegt. Bitte Einstellungen prüfen.")
+                print("[CONFIG] Originaldatei bleibt unverändert. Bitte Sicherung prüfen.")
             except OSError as backup_exc:
-                print(f"[CONFIG] Konnte Konfiguration nicht sichern/zurücksetzen: {backup_exc}")
+                print(f"[CONFIG] Konnte Konfiguration nicht sichern: {backup_exc}")
             return {}
 
     def update_blink_speed(self, value):

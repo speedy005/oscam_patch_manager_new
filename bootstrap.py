@@ -290,10 +290,29 @@ def get_setting(key, default=True):
     return _SETTINGS_CACHE.get(key, default)
 
 def save_setting(key, value):
-    _SETTINGS_CACHE[key] = value
+    """Speichert einen einzelnen Wert, ohne andere Config-Einträge zu verlieren."""
+    global _SETTINGS_CACHE
+
     try:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(_SETTINGS_CACHE, f, indent=4)
+        current = {}
+
+        if os.path.isfile(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    current = loaded
+            except (OSError, json.JSONDecodeError):
+                current = dict(_SETTINGS_CACHE) if isinstance(_SETTINGS_CACHE, dict) else {}
+
+        current[key] = value
+
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(current, f, indent=4, ensure_ascii=False)
+            f.write("\n")
+
+        _SETTINGS_CACHE = current
+
     except Exception as e:
         print(f"Fehler beim Speichern: {e}")
 
