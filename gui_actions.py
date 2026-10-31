@@ -703,8 +703,11 @@ class PatchManagerActionsMixin:
                     return True
 
             # Bestimmte Dateien nicht sichern oder überschreiben.
+            # config.json wird beim Update geschützt, aber im Backup gesichert.
             if path.name.casefold() in {
-                name.casefold() for name in protected_files
+                name.casefold()
+                for name in protected_files
+                if name.casefold() != "config.json"
             }:
                 return True
 
