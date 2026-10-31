@@ -9618,7 +9618,7 @@ class PatchManagerGUI(QWidget):
             if hasattr(self, "color_label"):
                 self.color_label.setFixedWidth(85 if compact else 120)
             if hasattr(self, "color_box"):
-                self.color_box.setFixedWidth(95 if compact else 120)
+                self.color_box.setFixedWidth(250)
             if hasattr(self, "commit_label"):
                 self.commit_label.setFixedWidth(100 if compact else 140)
             if hasattr(self, "commit_spin"):
@@ -15756,7 +15756,7 @@ class PatchManagerGUI(QWidget):
         saved_color = self.cfg.get("theme_color", self.cfg.get("color", "Classics"))
         index = self.color_box.findText(saved_color)
         self.color_box.setCurrentIndex(index if index >= 0 else 0)
-        self.color_box.setFixedSize(120, CONTROL_HEIGHT)
+        self.color_box.setFixedSize(250, CONTROL_HEIGHT)
         self.color_box.setStyleSheet(control_style)
         self.color_box.currentIndexChanged.connect(self.change_colors)
 
@@ -16127,7 +16127,7 @@ class PatchManagerGUI(QWidget):
         self.color_label.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
-        self.color_box.setFixedWidth(200)
+        self.color_box.setFixedWidth(250)
 
         settings_row.addWidget(self.color_label)
         settings_row.addWidget(self.color_box)
