@@ -1062,80 +1062,71 @@ class StereoMeter(QWidget):
 # MAIN MUSIC PLAYER
 # ============================================================
 
+
 class MusicPlayerWindow(QWidget):
 
     def __init__(self, host, parent=None):
-
-        super().__init__(
-            parent or host,
-            Qt.WindowType.Window
-        )
+        super().__init__(parent or host, Qt.WindowType.Window)
 
         global ACTIVE_THEME
 
         self.host = host
+        self.settings = QSettings("speedy005", "OSCamPatchManager")
 
-        self.settings = QSettings(
-            "speedy005",
-            "OSCamPatchManager"
-        )
-
-        # Gespeichertes Theme laden
         saved_theme = self.settings.value(
-            "music_player/color_theme",
-            ACTIVE_THEME
+            "music_player/color_theme", ACTIVE_THEME
         )
-
         if saved_theme in COLOR_THEMES:
             ACTIVE_THEME = saved_theme
 
-        self.setWindowTitle(
-            "OSCam Patch Manager Player • NEON BEAST ULTIMATE"
-        )
-
-        self.setMinimumSize(850, 680)
+        self._resume_position = 0
+        self._resume_track = ""
+        self._resume_pending = False
+        self._restoring_position = False
+        self._last_saved_position = -1
+        self._restore_attempts = 0
 
         self._phase = 0.0
         self._hue = 190
-
         self._audio_level = 0.0
         self._audio_peak = 0.0
-
         self._audio_bands = [.02] * 32
         self._stereo_levels = [0.0, 0.0]
 
         self._buffer_output = None
         self._buffer_player = None
         self._buffer_signal_connected = False
-
         self._fft_ready = False
         self._audio_buffer_received = False
         self._last_samples = []
 
-        self._build_ui()
+        self.setWindowTitle(
+            "OSCam Patch Manager Player • NEON BEAST ULTIMATE"
+        )
+        self.setMinimumSize(850, 680)
 
+        self._build_ui()
         self._restore_window_geometry()
+
 
         self._timer = QTimer(self)
         self._timer.setInterval(33)
         self._timer.timeout.connect(self._animate_stereo)
         self._timer.start()
 
+
         self.set_language()
         self._set_volume(self.volume.value())
+
 
     # ========================================================
     # WINDOW GEOMETRY
     # ========================================================
 
     def _restore_window_geometry(self):
-
-        geometry = self.settings.value(
-            "music_player/window_geometry"
-        )
+        geometry = self.settings.value("music_player/window_geometry")
 
         if geometry is not None:
-
             try:
                 if self.restoreGeometry(geometry):
                     return
@@ -1145,34 +1136,31 @@ class MusicPlayerWindow(QWidget):
         self.resize(1050, 790)
 
     def _save_window_geometry(self):
-
-        self.settings.setValue(
-            "music_player/window_geometry",
-            self.saveGeometry()
-        )
-
-        self.settings.sync()
+        try:
+            self.settings.setValue(
+                "music_player/window_geometry",
+                self.saveGeometry()
+            )
+            self.settings.sync()
+        except RuntimeError:
+            pass
 
     # ========================================================
     # THEME MANAGEMENT
     # ========================================================
 
     def _change_theme(self, index):
-
         global ACTIVE_THEME
 
         theme_key = self.theme_combo.itemData(index)
-
         if theme_key not in COLOR_THEMES:
             return
 
         ACTIVE_THEME = theme_key
 
         self.settings.setValue(
-            "music_player/color_theme",
-            ACTIVE_THEME
+            "music_player/color_theme", ACTIVE_THEME
         )
-
         self.settings.sync()
 
         self._apply_style()
@@ -1192,7 +1180,6 @@ class MusicPlayerWindow(QWidget):
     # ========================================================
 
     def _apply_style(self):
-
         self.setStyleSheet(f"""
             QWidget {{
                 background-color:{C('background')};
@@ -1200,7 +1187,6 @@ class MusicPlayerWindow(QWidget):
                 font-family:'Segoe UI';
                 font-size:9pt;
             }}
-
             QFrame#chassis {{
                 background:qlineargradient(
                     x1:0,y1:0,x2:1,y2:1,
@@ -1211,7 +1197,6 @@ class MusicPlayerWindow(QWidget):
                 border:2px solid {C('border')};
                 border-radius:23px;
             }}
-
             QFrame#display {{
                 background:qlineargradient(
                     x1:0,y1:0,x2:0,y2:1,
@@ -1222,26 +1207,22 @@ class MusicPlayerWindow(QWidget):
                 border:1px solid {C('border_glow')};
                 border-radius:16px;
             }}
-
             QFrame#glass {{
                 background:{C('panel_dark')};
                 border:1px solid {C('border')};
                 border-radius:12px;
             }}
-
             QFrame#controlPanel {{
                 background:{C('panel')};
                 border:1px solid {C('border')};
                 border-radius:15px;
             }}
-
             QFrame#neonLine {{
                 background:{C('border_glow')};
                 border:none;
                 max-height:2px;
                 min-height:2px;
             }}
-
             QLabel#brand {{
                 background:transparent;
                 color:{C('brand')};
@@ -1249,7 +1230,6 @@ class MusicPlayerWindow(QWidget):
                 font-weight:1000;
                 letter-spacing:4px;
             }}
-
             QLabel#tagline {{
                 background:transparent;
                 color:{C('tagline')};
@@ -1257,21 +1237,18 @@ class MusicPlayerWindow(QWidget):
                 font-weight:bold;
                 letter-spacing:3px;
             }}
-
             QLabel#status {{
                 background:transparent;
                 color:{C('status')};
                 font-size:9pt;
                 font-weight:bold;
             }}
-
             QLabel#tiny {{
                 background:transparent;
                 color:{C('muted')};
                 font-size:8pt;
                 letter-spacing:1px;
             }}
-
             QLabel#section {{
                 background:transparent;
                 color:{C('section')};
@@ -1279,21 +1256,18 @@ class MusicPlayerWindow(QWidget):
                 font-weight:bold;
                 letter-spacing:2px;
             }}
-
             QLabel#track {{
                 background:transparent;
                 color:{C('track')};
                 font-size:16pt;
                 font-weight:1000;
             }}
-
             QLabel#readout {{
                 background:transparent;
                 color:{C('readout')};
                 font-size:8pt;
                 font-weight:bold;
             }}
-
             QLabel#leftChannel {{
                 background:transparent;
                 color:{C('left')};
@@ -1301,7 +1275,6 @@ class MusicPlayerWindow(QWidget):
                 font-weight:bold;
                 letter-spacing:3px;
             }}
-
             QLabel#rightChannel {{
                 background:transparent;
                 color:{C('right')};
@@ -1309,14 +1282,12 @@ class MusicPlayerWindow(QWidget):
                 font-weight:bold;
                 letter-spacing:3px;
             }}
-
             QLabel#volumeValue {{
                 background:transparent;
                 color:{C('volume')};
                 font-size:10pt;
                 font-weight:bold;
             }}
-
             QPushButton {{
                 color:{C('text')};
                 background:{C('button')};
@@ -1325,13 +1296,11 @@ class MusicPlayerWindow(QWidget):
                 padding:10px 14px;
                 font-weight:bold;
             }}
-
             QPushButton:hover {{
                 background:{C('button_hover')};
                 border:1px solid {C('button_hover_border')};
                 color:#ffffff;
             }}
-
             QPushButton#mainplay {{
                 color:#04101b;
                 background:qlineargradient(
@@ -1347,22 +1316,18 @@ class MusicPlayerWindow(QWidget):
                 min-width:135px;
                 min-height:45px;
             }}
-
             QPushButton#mainplay:hover {{
                 background:{C('play_start')};
                 border:2px solid #ffffff;
             }}
-
             QPushButton#stopButton {{
                 color:{C('stop')};
                 border:1px solid {C('stop')};
             }}
-
             QPushButton#stopButton:hover {{
                 background:{C('button_hover')};
                 border:1px solid {C('stop')};
             }}
-
             QComboBox {{
                 color:{C('text')};
                 background:{C('panel_dark')};
@@ -1371,11 +1336,9 @@ class MusicPlayerWindow(QWidget):
                 padding:10px;
                 selection-background-color:{C('border')};
             }}
-
             QComboBox:hover {{
                 border:1px solid {C('border_glow')};
             }}
-
             QComboBox QAbstractItemView {{
                 color:{C('text')};
                 background:{C('panel')};
@@ -1383,13 +1346,11 @@ class MusicPlayerWindow(QWidget):
                 border:1px solid {C('border')};
                 padding:5px;
             }}
-
             QSlider::groove:horizontal {{
                 height:7px;
                 background:{C('slider_track')};
                 border-radius:3px;
             }}
-
             QSlider::sub-page:horizontal {{
                 background:qlineargradient(
                     x1:0,y1:0,x2:1,y2:0,
@@ -1398,7 +1359,6 @@ class MusicPlayerWindow(QWidget):
                 );
                 border-radius:3px;
             }}
-
             QSlider::handle:horizontal {{
                 background:{C('slider_handle')};
                 border:3px solid {C('slider_handle_border')};
@@ -1407,7 +1367,6 @@ class MusicPlayerWindow(QWidget):
                 margin:-7px 0;
                 border-radius:9px;
             }}
-
             QSlider::handle:horizontal:hover {{
                 border:4px solid {C('slider_fill_end')};
             }}
@@ -1418,7 +1377,6 @@ class MusicPlayerWindow(QWidget):
     # ========================================================
 
     def _build_ui(self):
-
         self._apply_style()
 
         root = QVBoxLayout(self)
@@ -1431,21 +1389,17 @@ class MusicPlayerWindow(QWidget):
         layout.setContentsMargins(20, 17, 20, 17)
         layout.setSpacing(12)
 
-        # HEADER
         header = QHBoxLayout()
         brand_box = QVBoxLayout()
 
         brand = QLabel("OSCAM MUSIC PLAYER")
         brand.setObjectName("brand")
 
-        tagline = QLabel(
-            "ULTIMATE CYBERPUNK HI-FI EXPERIENCE"
-        )
+        tagline = QLabel("ULTIMATE CYBERPUNK HI-FI EXPERIENCE")
         tagline.setObjectName("tagline")
 
         brand_box.addWidget(brand)
         brand_box.addWidget(tagline)
-
         header.addLayout(brand_box)
         header.addStretch()
 
@@ -1453,19 +1407,14 @@ class MusicPlayerWindow(QWidget):
 
         self.status_label = QLabel("● SYSTEM ONLINE")
         self.status_label.setObjectName("status")
-        self.status_label.setAlignment(
-            Qt.AlignmentFlag.AlignRight
-        )
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.signal_label = QLabel("DSP / STANDBY")
         self.signal_label.setObjectName("tiny")
-        self.signal_label.setAlignment(
-            Qt.AlignmentFlag.AlignRight
-        )
+        self.signal_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         status_box.addWidget(self.status_label)
         status_box.addWidget(self.signal_label)
-
         header.addLayout(status_box)
         layout.addLayout(header)
 
@@ -1473,33 +1422,27 @@ class MusicPlayerWindow(QWidget):
         line.setObjectName("neonLine")
         layout.addWidget(line)
 
-        # MAIN DECK
         deck = QHBoxLayout()
         deck.setSpacing(13)
 
         left_box = QVBoxLayout()
-
         left_label = QLabel("◈ LEFT CHANNEL")
         left_label.setObjectName("leftChannel")
         left_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.left_speaker = SpeakerWidget("woofer", "left")
-
         left_box.addWidget(left_label)
         left_box.addWidget(self.left_speaker, 1)
 
         right_box = QVBoxLayout()
-
         right_label = QLabel("RIGHT CHANNEL ◈")
         right_label.setObjectName("rightChannel")
         right_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.right_speaker = SpeakerWidget("woofer", "right")
-
         right_box.addWidget(right_label)
         right_box.addWidget(self.right_speaker, 1)
 
-        # CENTER DISPLAY
         display = QFrame()
         display.setObjectName("display")
 
@@ -1510,59 +1453,47 @@ class MusicPlayerWindow(QWidget):
         reactor = QLabel("◈  AUDIO REACTOR  ◈")
         reactor.setObjectName("section")
         reactor.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         center.addWidget(reactor)
 
         self.track_label = QLabel("NEON BEAST // READY")
         self.track_label.setObjectName("track")
         self.track_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.track_label.setWordWrap(True)
-
         center.addWidget(self.track_label)
 
         self.track_combo = QComboBox()
         self.track_combo.setMinimumHeight(42)
-
         self.track_combo.currentIndexChanged.connect(
             self._selection_changed
         )
-
         center.addWidget(self.track_combo)
 
         spectrum_title = QLabel("REALTIME FREQUENCY ANALYZER")
         spectrum_title.setObjectName("tiny")
         spectrum_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         center.addWidget(spectrum_title)
 
         self.spectrum = SpectrumWidget()
         center.addWidget(self.spectrum)
 
         frequency_row = QHBoxLayout()
-
         for text in ("SUB", "BASS", "LOW", "MID", "HIGH", "AIR"):
-
             label = QLabel(text)
             label.setObjectName("tiny")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
             frequency_row.addWidget(label)
-
         center.addLayout(frequency_row)
 
         self.progress = QSlider(Qt.Orientation.Horizontal)
         self.progress.setRange(0, 1000)
         self.progress.sliderMoved.connect(self._seek)
-
         center.addWidget(self.progress)
 
         self.time_label = QLabel("00:00 / 00:00")
         self.time_label.setObjectName("tiny")
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         center.addWidget(self.time_label)
 
-        # VU METERS
         meter_panel = QFrame()
         meter_panel.setObjectName("glass")
 
@@ -1575,7 +1506,6 @@ class MusicPlayerWindow(QWidget):
 
         left_meter_label = QLabel("L")
         right_meter_label = QLabel("R")
-
         left_meter_label.setObjectName("readout")
         right_meter_label.setObjectName("readout")
 
@@ -1583,16 +1513,13 @@ class MusicPlayerWindow(QWidget):
         meter_layout.addWidget(self.vu_left, 0, 1)
         meter_layout.addWidget(right_meter_label, 1, 0)
         meter_layout.addWidget(self.vu_right, 1, 1)
-
         center.addWidget(meter_panel)
 
         deck.addLayout(left_box, 2)
         deck.addWidget(display, 5)
         deck.addLayout(right_box, 2)
-
         layout.addLayout(deck, 1)
 
-        # TRANSPORT CONTROLS
         controls_panel = QFrame()
         controls_panel.setObjectName("controlPanel")
 
@@ -1613,19 +1540,8 @@ class MusicPlayerWindow(QWidget):
         self.play_btn.setObjectName("mainplay")
         self.stop_btn.setObjectName("stopButton")
 
-        self.prev_btn.setToolTip("Previous track")
-        self.next_btn.setToolTip("Next track")
-        self.play_btn.setToolTip("Play / Pause")
-        self.stop_btn.setToolTip("Stop playback")
-
-        self.prev_btn.clicked.connect(
-            lambda: self._step_track(-1)
-        )
-
-        self.next_btn.clicked.connect(
-            lambda: self._step_track(1)
-        )
-
+        self.prev_btn.clicked.connect(lambda: self._step_track(-1))
+        self.next_btn.clicked.connect(lambda: self._step_track(1))
         self.play_btn.clicked.connect(self._toggle_play)
         self.stop_btn.clicked.connect(self._stop)
 
@@ -1635,13 +1551,10 @@ class MusicPlayerWindow(QWidget):
         controls.addWidget(self.stop_btn)
         controls.addWidget(self.next_btn)
         controls.addStretch()
-
         layout.addWidget(controls_panel)
 
-        # MASTER VOLUME
         volume_panel = QFrame()
         volume_panel.setObjectName("glass")
-
         volume_layout = QHBoxLayout(volume_panel)
         volume_layout.setContentsMargins(15, 10, 15, 10)
 
@@ -1669,13 +1582,10 @@ class MusicPlayerWindow(QWidget):
         volume_layout.addWidget(master)
         volume_layout.addWidget(self.volume, 1)
         volume_layout.addWidget(self.volume_label)
-
         layout.addWidget(volume_panel)
 
-        # THEME SELECTOR
         theme_panel = QFrame()
         theme_panel.setObjectName("glass")
-
         theme_layout = QHBoxLayout(theme_panel)
         theme_layout.setContentsMargins(15, 8, 15, 8)
 
@@ -1689,43 +1599,34 @@ class MusicPlayerWindow(QWidget):
             self.theme_combo.addItem(theme["name"], key)
 
         selected_index = self.theme_combo.findData(ACTIVE_THEME)
-
         if selected_index >= 0:
             self.theme_combo.setCurrentIndex(selected_index)
 
-        self.theme_combo.currentIndexChanged.connect(
-            self._change_theme
-        )
-
+        self.theme_combo.currentIndexChanged.connect(self._change_theme)
         self.theme_combo.setToolTip("Neon-Farbdesign auswählen")
 
         theme_layout.addWidget(theme_label)
         theme_layout.addStretch()
         theme_layout.addWidget(self.theme_combo)
-
         layout.addWidget(theme_panel)
 
-        # FOOTER
         footer = QLabel(
             "RGB NEON ENGINE  •  LIVE DSP  •  "
             "STEREO DRIVER ARRAY  •  OSCAM"
         )
-
         footer.setObjectName("tagline")
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         layout.addWidget(footer)
 
         root.addWidget(chassis)
-
         self.refresh_tracks()
 
     # ========================================================
     # LANGUAGE
     # ========================================================
 
+    
     def set_language(self):
-
         is_de = str(
             getattr(self.host, "LANG", "de")
         ).lower().startswith("de")
@@ -1735,17 +1636,12 @@ class MusicPlayerWindow(QWidget):
         self.play_btn.setText(
             "▶ ABSPIELEN" if is_de else "▶ PLAY"
         )
-
         self.stop_btn.setText(
             "■ STOPP" if is_de else "■ STOP"
         )
-
-        self.volume_label.setText(
-            f"{self.volume.value()} %"
-        )
+        self.volume_label.setText(f"{self.volume.value()} %")
 
         if self.track_combo.count() == 0:
-
             self.track_label.setText(
                 "BEREIT FÜR DEN NÄCHSTEN BUILD-SOUND"
                 if is_de else
@@ -1757,12 +1653,7 @@ class MusicPlayerWindow(QWidget):
     # ========================================================
 
     def refresh_tracks(self):
-
-        source = getattr(
-            self.host,
-            "music_title_combo",
-            None
-        )
+        source = getattr(self.host, "music_title_combo", None)
 
         music_cfg = (
             getattr(self.host, "current_config", {}) or {}
@@ -1772,25 +1663,16 @@ class MusicPlayerWindow(QWidget):
         self.track_combo.clear()
 
         if source is not None:
-
             for i in range(source.count()):
-
                 self.track_combo.addItem(
                     source.itemText(i),
                     source.itemData(i)
                 )
 
-            wanted = str(
-                music_cfg.get("last_track", "") or ""
-            )
-
-            idx = (
-                self.track_combo.findData(wanted)
-                if wanted else -1
-            )
+            wanted = str(music_cfg.get("last_track", "") or "")
+            idx = self.track_combo.findData(wanted) if wanted else -1
 
             if idx < 0 and wanted:
-
                 idx = self.track_combo.findText(
                     "🎧 " + Path(wanted).stem
                 )
@@ -1799,27 +1681,15 @@ class MusicPlayerWindow(QWidget):
                 idx = max(0, source.currentIndex())
 
             if self.track_combo.count():
-
                 self.track_combo.setCurrentIndex(
-                    max(
-                        0,
-                        min(
-                            idx,
-                            self.track_combo.count()-1
-                        )
-                    )
+                    max(0, min(idx, self.track_combo.count() - 1))
                 )
 
         self.track_combo.blockSignals(False)
         self._update_track_label()
 
     def _selection_changed(self, index):
-
-        source = getattr(
-            self.host,
-            "music_title_combo",
-            None
-        )
+        source = getattr(self.host, "music_title_combo", None)
 
         if source is not None and index >= 0:
             source.setCurrentIndex(index)
@@ -1831,7 +1701,6 @@ class MusicPlayerWindow(QWidget):
             and index >= 0
             and hasattr(self.host, "_save_music_state")
         ):
-
             self.host._save_music_state(
                 last_track=str(source.currentData() or "")
             )
@@ -1839,27 +1708,18 @@ class MusicPlayerWindow(QWidget):
         self._sync_state()
 
     def _update_track_label(self):
-
         text = self.track_combo.currentText().strip()
-
         self.track_label.setText(
             text if text else "NEON BEAST // READY"
         )
 
     def _step_track(self, step):
-
         count = self.track_combo.count()
-
         if count <= 1:
             return
 
         index = self.track_combo.currentIndex()
-
-        first = (
-            1
-            if self.track_combo.itemData(0) == "__random__"
-            else 0
-        )
+        first = 1 if self.track_combo.itemData(0) == "__random__" else 0
 
         if count <= first:
             return
@@ -1867,10 +1727,7 @@ class MusicPlayerWindow(QWidget):
         if index < first:
             index = first
         else:
-            index = first + (
-                (index - first + step)
-                % (count - first)
-            )
+            index = first + ((index - first + step) % (count - first))
 
         self.track_combo.setCurrentIndex(index)
 
@@ -1879,19 +1736,13 @@ class MusicPlayerWindow(QWidget):
     # ========================================================
 
     def _player(self):
-
         player = getattr(
-            self.host,
-            "_background_music_player",
-            None
+            self.host, "_background_music_player", None
         )
-
         self._attach_audio_analysis(player)
-
         return player
 
     def _attach_audio_analysis(self, player):
-
         if player is None or player is self._buffer_player:
             return
 
@@ -1900,7 +1751,6 @@ class MusicPlayerWindow(QWidget):
         self._buffer_signal_connected = False
         self._audio_buffer_received = False
         self._fft_ready = False
-
         self._stereo_levels = [0.0, 0.0]
         self._audio_bands = [.02] * 32
 
@@ -1912,27 +1762,19 @@ class MusicPlayerWindow(QWidget):
                 return
 
             self._buffer_output = QAudioBufferOutput(self)
-
             self._buffer_output.audioBufferReceived.connect(
                 self._on_audio_buffer
             )
-
             player.setAudioBufferOutput(self._buffer_output)
 
             self._buffer_signal_connected = True
-
             self.signal_label.setText("DSP / AUDIO CONNECTED")
 
         except (
-            ImportError,
-            AttributeError,
-            TypeError,
-            RuntimeError
+            ImportError, AttributeError, TypeError, RuntimeError
         ) as error:
-
             self._buffer_output = None
             self._buffer_signal_connected = False
-
             self.signal_label.setText("DSP / AUDIO ERROR")
             print("AudioBufferOutput Fehler:", error)
 
@@ -1941,60 +1783,39 @@ class MusicPlayerWindow(QWidget):
     # ========================================================
 
     def _on_audio_buffer(self, buffer):
-
         try:
-
             fmt = buffer.format()
             raw = bytes(buffer.data())
-
             sample_format = fmt.sampleFormat()
 
             name = getattr(
-                sample_format,
-                "name",
-                str(sample_format)
+                sample_format, "name", str(sample_format)
             ).lower()
 
             if "float" in name:
                 width, code, scale = 4, "f", 1.0
-
             elif "int16" in name or "signedint16" in name:
                 width, code, scale = 2, "h", 32768.0
-
             elif "int32" in name or "signedint32" in name:
                 width, code, scale = 4, "i", 2147483648.0
-
             elif "uint8" in name:
                 width, code, scale = 1, None, 128.0
-
             else:
                 return
 
             if width == 1:
-
-                samples = [
-                    (v - 128) / 128.0
-                    for v in raw
-                ]
-
+                samples = [(v - 128) / 128.0 for v in raw]
             else:
-
                 count = len(raw) // width
-
                 if count == 0:
                     return
 
                 try:
-
                     from PyQt6.QtMultimedia import QAudioFormat
-
                     endian = (
-                        "<"
-                        if fmt.byteOrder()
-                        == QAudioFormat.Endian.LittleEndian
-                        else ">"
+                        "<" if fmt.byteOrder() ==
+                        QAudioFormat.Endian.LittleEndian else ">"
                     )
-
                 except (ImportError, AttributeError):
                     endian = "<"
 
@@ -2002,7 +1823,6 @@ class MusicPlayerWindow(QWidget):
                     endian + code * count,
                     raw[:count * width]
                 )
-
                 samples = [
                     max(-1.0, min(1.0, value / scale))
                     for value in unpacked
@@ -2014,14 +1834,13 @@ class MusicPlayerWindow(QWidget):
             channels = max(1, int(fmt.channelCount()))
 
             if channels >= 2 and len(samples) >= channels:
-
                 left = samples[0::channels]
                 right = samples[1::channels]
 
                 def rms(values):
                     return math.sqrt(
-                        sum(v*v for v in values)
-                        / max(1, len(values))
+                        sum(v * v for v in values) /
+                        max(1, len(values))
                     )
 
                 l_rms = rms(left)
@@ -2032,85 +1851,63 @@ class MusicPlayerWindow(QWidget):
                     min(1.0, r_rms * 3.5)
                 ]
                 self._audio_buffer_received = True
-                length = min(len(left), len(right))
 
+                length = min(len(left), len(right))
                 mono = [
                     (left[i] + right[i]) * .5
                     for i in range(length)
                 ]
-
             else:
-
                 mono = samples
-
                 value = math.sqrt(
-                    sum(v*v for v in mono)
-                    / max(1, len(mono))
+                    sum(v * v for v in mono) /
+                    max(1, len(mono))
                 )
-
                 self._stereo_levels = [
                     min(1.0, value * 3.5)
                 ] * 2
                 self._audio_buffer_received = True
+
             if not mono:
                 return
 
             rms_value = math.sqrt(
-                sum(v*v for v in mono)
-                / len(mono)
+                sum(v * v for v in mono) / len(mono)
             )
-
             self._audio_level = min(1.0, rms_value * 3.5)
-
-            self._audio_peak = min(
-                1.0,
-                max(abs(v) for v in mono)
-            )
+            self._audio_peak = min(1.0, max(abs(v) for v in mono))
 
             self._last_samples = mono[-512:]
-
             available = len(self._last_samples)
 
             if available < 64:
                 return
 
-            n = 1 << (
-                min(available, 512).bit_length() - 1
-            )
-
+            n = 1 << (min(available, 512).bit_length() - 1)
             values = self._last_samples[-n:]
 
-            # Hann window
             windowed = [
                 values[i] * (
                     .5 - .5 * math.cos(
-                        2 * math.pi * i / max(1, n-1)
+                        2 * math.pi * i / max(1, n - 1)
                     )
                 )
                 for i in range(n)
             ]
 
             spectrum = fft_real(windowed)
-
             if not spectrum:
                 return
 
-            # Logarithmische Verteilung
             bands = []
             max_bin = max(2, n // 2)
 
             for band in range(32):
-
-                low = max(
-                    1,
-                    int(max_bin ** (band / 32))
-                )
-
+                low = max(1, int(max_bin ** (band / 32)))
                 high = max(
                     low + 1,
                     int(max_bin ** ((band + 1) / 32))
                 )
-
                 high = min(max_bin, high)
 
                 magnitudes = [
@@ -2121,26 +1918,19 @@ class MusicPlayerWindow(QWidget):
 
                 energy = (
                     math.sqrt(
-                        sum(v*v for v in magnitudes)
-                        / len(magnitudes)
+                        sum(v * v for v in magnitudes) /
+                        len(magnitudes)
                     )
                     if magnitudes else 0.0
                 )
-
-                bands.append(
-                    max(.02, min(1.0, energy * 4.5))
-                )
+                bands.append(max(.02, min(1.0, energy * 4.5)))
 
             self._audio_bands = bands
             self._fft_ready = True
 
         except (
-            ValueError,
-            TypeError,
-            BufferError,
-            struct.error,
-            RuntimeError,
-            ZeroDivisionError
+            ValueError, TypeError, BufferError, struct.error,
+            RuntimeError, ZeroDivisionError
         ):
             return
 
@@ -2149,63 +1939,41 @@ class MusicPlayerWindow(QWidget):
     # ========================================================
 
     def _toggle_play(self):
-
-        button = getattr(
-            self.host,
-            "music_button",
-            None
-        )
-
+        button = getattr(self.host, "music_button", None)
         if button is None:
             return
 
-        # Zentralen OSCam-Button auslösen
         button.click()
-
         self._sync_state()
 
     def _stop(self):
-
         player = self._player()
-
         if player is not None:
             player.stop()
 
-        button = getattr(
-            self.host,
-            "music_button",
-            None
-        )
-
+        button = getattr(self.host, "music_button", None)
         if button is not None and button.isChecked():
             button.setChecked(False)
 
         self._sync_state()
 
     def _set_volume(self, value):
-
         value = max(0, min(100, int(value)))
 
         if hasattr(self.host, "_save_music_state"):
             self.host._save_music_state(volume=value)
 
         output = getattr(
-            self.host,
-            "_background_music_output",
-            None
+            self.host, "_background_music_output", None
         )
-
         if output is not None:
             output.setVolume(value / 100.0)
 
         self.volume_label.setText(f"{value} %")
 
     def _seek(self, value):
-
         player = self._player()
-
         if player is not None and player.duration() > 0:
-
             player.setPosition(
                 int(player.duration() * value / 1000)
             )
@@ -2215,67 +1983,55 @@ class MusicPlayerWindow(QWidget):
     # ========================================================
 
     def _sync_state(self):
-
         player = getattr(
-            self.host,
-            "_background_music_player",
-            None
+            self.host, "_background_music_player", None
         )
-
-        button = getattr(
-            self.host,
-            "music_button",
-            None
-        )
+        button = getattr(self.host, "music_button", None)
 
         playing = bool(button and button.isChecked())
-
         is_de = str(
             getattr(self.host, "LANG", "de")
         ).lower().startswith("de")
 
         self.play_btn.setText(
-            (
-                "Ⅱ PAUSE" if playing else "▶ ABSPIELEN"
-            )
-            if is_de
-            else (
-                "Ⅱ PAUSE" if playing else "▶ PLAY"
-            )
+            ("Ⅱ PAUSE" if playing else "▶ ABSPIELEN")
+            if is_de else
+            ("Ⅱ PAUSE" if playing else "▶ PLAY")
         )
 
         if player is None:
-
             self.progress.setValue(0)
             self.time_label.setText("00:00 / 00:00")
-
             return
 
         try:
+            duration = int(player.duration())
+            position = int(player.position())
 
-            duration = player.duration()
-            position = player.position()
+            if self._resume_pending and duration > 0:
+                self._restore_playback_position()
+
+            if (
+                not self._restoring_position
+                and position >= 0
+                and abs(position - self._last_saved_position) >= 2000
+            ):
+                self._save_playback_position()
 
             if duration > 0 and not self.progress.isSliderDown():
-
                 self.progress.setValue(
                     int(position * 1000 / duration)
                 )
 
             def stamp(ms):
-
                 seconds = max(0, int(ms / 1000))
-
-                return (
-                    f"{seconds // 60:02d}:"
-                    f"{seconds % 60:02d}"
-                )
+                return f"{seconds // 60:02d}:{seconds % 60:02d}"
 
             self.time_label.setText(
                 f"{stamp(position)} / {stamp(duration)}"
             )
 
-        except (AttributeError, RuntimeError):
+        except (AttributeError, RuntimeError, TypeError):
             pass
 
     # ========================================================
@@ -2283,105 +2039,60 @@ class MusicPlayerWindow(QWidget):
     # ========================================================
 
     def _animate_stereo(self):
-
         self._phase += .22
 
         player = getattr(
-            self.host,
-            "_background_music_player",
-            None
+            self.host, "_background_music_player", None
         )
-
-        # Audioanalyse automatisch verbinden
         self._attach_audio_analysis(player)
 
-        # Tatsächlichen Player-Status abfragen
         try:
             from PyQt6.QtMultimedia import QMediaPlayer
-
             playing = (
                 player is not None
-                and player.playbackState()
-                == QMediaPlayer.PlaybackState.PlayingState
+                and player.playbackState() ==
+                QMediaPlayer.PlaybackState.PlayingState
             )
-
         except (AttributeError, RuntimeError):
             playing = False
 
         if playing:
-
             if (
                 self._buffer_signal_connected
                 and self._audio_buffer_received
             ):
-
                 left = self._stereo_levels[0]
                 right = self._stereo_levels[1]
-
                 bands = self._audio_bands
 
                 self.signal_label.setText("DSP / LIVE AUDIO")
                 self.status_label.setText("● AUDIO STREAM ACTIVE")
-
                 sub = sum(bands[:4]) / 4
-                bass = sum(bands[4:9]) / 5
-                mid = sum(bands[9:21]) / 12
-                high = sum(bands[21:]) / 11
-
             else:
-
-                # Keine künstliche Animation!
-                left = 0.0
-                right = 0.0
-
+                left = right = 0.0
                 bands = [.02] * 32
-
                 sub = 0.0
-                bass = 0.0
-                mid = 0.0
-                high = 0.0
-
                 self.signal_label.setText("DSP / WAITING FOR AUDIO")
                 self.status_label.setText("● WAITING FOR SIGNAL")
 
-            # LEFT SPEAKER
-            self.left_speaker.set_level(
-                left,
-                self._phase,
-                sub
-            )
-
-            # RIGHT SPEAKER
-            self.right_speaker.set_level(
-                right,
-                self._phase,
-                sub
-            )
-
-            # REAL STEREO VU
+            self.left_speaker.set_level(left, self._phase, sub)
+            self.right_speaker.set_level(right, self._phase, sub)
             self.vu_left.set_level(left)
             self.vu_right.set_level(right)
-
-            # REAL FFT
             self.spectrum.set_bands(bands)
 
         else:
-
-            # Bei Pause und Stopp alles zurücksetzen
             self._stereo_levels = [0.0, 0.0]
             self._audio_level = 0.0
             self._audio_peak = 0.0
-
             self._audio_bands = [.02] * 32
             self._audio_buffer_received = False
             self._fft_ready = False
 
             self.left_speaker.set_level(0.0, self._phase, 0.0)
             self.right_speaker.set_level(0.0, self._phase, 0.0)
-
             self.vu_left.reset()
             self.vu_right.reset()
-
             self.spectrum.set_bands([.02] * 32)
 
             self.signal_label.setText("DSP / STANDBY")
@@ -2390,25 +2101,193 @@ class MusicPlayerWindow(QWidget):
         self._sync_state()
 
     # ========================================================
+    # PLAYBACK POSITION PERSISTENCE
+    # ========================================================
+
+    def _get_current_track_path(self):
+        source = getattr(
+            self.host, "music_title_combo", None
+        )
+        if source is not None:
+            return str(source.currentData() or "")
+        return ""
+
+    def _save_playback_position(self):
+        # Speicherung erfolgt ausschließlich über gui.py.
+        return
+
+    def _load_playback_position(self):
+        self._resume_track = str(
+            self.settings.value(
+                "music_player/resume_track", ""
+            ) or ""
+        )
+
+        try:
+            self._resume_position = max(
+                0,
+                int(self.settings.value(
+                    "music_player/resume_position", 0
+                ))
+            )
+        except (TypeError, ValueError):
+            self._resume_position = 0
+
+        self._resume_pending = bool(self._resume_track)
+
+    def _restore_playback_position(self):
+        if not self._resume_pending or self._restoring_position:
+            return False
+
+        player = getattr(
+            self.host, "_background_music_player", None
+        )
+        if player is None:
+            return False
+
+        if self._get_current_track_path() != self._resume_track:
+            return False
+
+        try:
+            duration = int(player.duration())
+            if duration <= 0:
+                return False
+
+            target = min(
+                self._resume_position,
+                max(0, duration - 1000)
+            )
+
+            self._restoring_position = True
+            player.setPosition(target)
+
+            QTimer.singleShot(
+                400,
+                lambda target=target: self._verify_restored_position(target)
+            )
+            return True
+
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            self._restoring_position = False
+            return False
+
+    def _verify_restored_position(self, target):
+        player = getattr(
+            self.host, "_background_music_player", None
+        )
+        if player is None:
+            self._restoring_position = False
+            return
+
+        try:
+            actual = int(player.position())
+
+            if abs(actual - target) <= 2500:
+                self._resume_pending = False
+                self._last_saved_position = actual
+            else:
+                # Einmal erneut setzen; Player kann noch laden.
+                player.setPosition(target)
+                QTimer.singleShot(
+                    500,
+                    lambda target=target:
+                    self._finish_restore_check(target)
+                )
+
+        except (AttributeError, RuntimeError, TypeError):
+            pass
+
+    def _finish_restore_check(self, target):
+        player = getattr(
+            self.host, "_background_music_player", None
+        )
+        if player is not None:
+            try:
+                actual = int(player.position())
+                if abs(actual - target) <= 2500:
+                    self._resume_pending = False
+                    self._last_saved_position = actual
+            except (AttributeError, RuntimeError, TypeError):
+                pass
+
+        self._restoring_position = False
+
+    def _resume_track_on_startup(self):
+        if not self._resume_track:
+            return
+
+        source = getattr(
+            self.host, "music_title_combo", None
+        )
+        if source is None:
+            return
+
+        index = source.findData(self._resume_track)
+        if index < 0:
+            return
+
+        source.setCurrentIndex(index)
+        self._resume_pending = True
+
+        player = getattr(
+            self.host, "_background_music_player", None
+        )
+        if player is None:
+            return
+
+        try:
+            from PyQt6.QtMultimedia import QMediaPlayer
+
+            if (
+                player.playbackState()
+                != QMediaPlayer.PlaybackState.PlayingState
+            ):
+                button = getattr(
+                    self.host, "music_button", None
+                )
+                if button is not None:
+                    button.click()
+
+        except (ImportError, AttributeError, RuntimeError):
+            pass
+
+        self._retry_restore_position(0)
+
+    def _retry_restore_position(self, attempt):
+        if not self._resume_pending:
+            return
+
+        if attempt >= 40:
+            return
+
+        if self._restore_playback_position():
+            return
+
+        QTimer.singleShot(
+            500,
+            lambda attempt=attempt:
+            self._retry_restore_position(attempt + 1)
+        )
+
+    # ========================================================
     # WINDOW EVENTS
     # ========================================================
 
     def showEvent(self, event):
-
         self.refresh_tracks()
         self.set_language()
-
         super().showEvent(event)
 
     def closeEvent(self, event):
-
-        # Fenstergröße und Position speichern.
+        # Nur Fenster schließen, nicht den zentralen Player stoppen.
+        self._save_playback_position()
         self._save_window_geometry()
 
-        # Nur den Visual Player Timer stoppen.
-        # Die OSCam-Wiedergabe bleibt zentral aktiv.
+        if hasattr(self, "_save_timer"):
+            self._save_timer.stop()
 
         if hasattr(self, "_timer"):
             self._timer.stop()
 
         super().closeEvent(event)
+

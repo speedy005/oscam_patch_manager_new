@@ -1511,10 +1511,17 @@ class PatchManagerGUI(QWidget):
         combo = getattr(self, "music_title_combo", None)
         player = getattr(self, "_background_music_player", None)
         button = getattr(self, "music_button", None)
+
         if combo is not None and hasattr(self, "_music_settings"):
             self._music_settings.setValue("music/track", combo.currentData())
+
+        # Während der Start-Wiederherstellung keinen neuen Titel starten.
+        if getattr(self, "_restoring_background_music", False):
+            return
+
         if combo is None or player is None or button is None or not button.isChecked():
             return
+
         self._play_random_background_track()
 
     def toggle_background_music(self, enabled):
@@ -1528,6 +1535,8 @@ class PatchManagerGUI(QWidget):
         settings = getattr(self, "_music_settings", QSettings("speedy005", "OSCamPatchManager"))
         settings.setValue("music/playing", bool(enabled))
         if not enabled:
+            # Position vor stop() sichern.
+            self._save_background_music_state()
             player = getattr(self, "_background_music_player", None)
             if player is not None:
                 player.stop()
@@ -1608,6 +1617,91 @@ class PatchManagerGUI(QWidget):
             and self.music_button.isChecked()
         ):
             self._play_random_background_track()
+
+    def _save_background_music_state(self):
+        """Speichert Titel und Position des zentralen Musikplayers."""
+        from PyQt6.QtMultimedia import QMediaPlayer
+
+        settings = getattr(self, "_music_settings", None)
+        if settings is None:
+            return
+
+        try:
+            combo = getattr(self, "music_title_combo", None)
+            if combo is not None:
+                settings.setValue(
+                    "music/track", combo.currentData() or "__random__"
+                )
+
+            player = getattr(self, "_background_music_player", None)
+            if player is not None:
+                track = player.source().toLocalFile()
+
+                if track:
+                    settings.setValue("music_player/resume_track", track)
+
+                # Eine gestoppte Wiedergabe darf die letzte Position
+                # nicht mit 0 überschreiben.
+                if (
+                    player.playbackState()
+                    != QMediaPlayer.PlaybackState.StoppedState
+                ):
+                    settings.setValue(
+                        "music_player/resume_position",
+                        max(0, int(player.position()))
+                    )
+
+            button = getattr(self, "music_button", None)
+            settings.setValue(
+                "music/playing",
+                bool(button is not None and button.isChecked())
+            )
+            settings.sync()
+
+        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            print(f"[MUSIC] Speichern fehlgeschlagen: {exc}")
+
+    def _retry_background_music_restore(self):
+        """Stellt die gespeicherte Position nach dem Laden des Mediums wieder her."""
+        from PyQt6.QtCore import QTimer
+
+        if not getattr(self, "_background_music_restore_pending", False):
+            return
+
+        button = getattr(self, "music_button", None)
+        player = getattr(self, "_background_music_player", None)
+
+        if button is None or not button.isChecked() or player is None:
+            self._background_music_restore_pending = False
+            return
+
+        try:
+            current_track = player.source().toLocalFile()
+            expected_track = self._background_music_restore_track
+            duration = int(player.duration())
+
+            if current_track == expected_track and duration > 0:
+                target = min(
+                    self._background_music_restore_position,
+                    max(0, duration - 1000)
+                )
+                player.setPosition(target)
+                self._background_music_restore_pending = False
+                print(f"[MUSIC] Position wiederhergestellt: {target} ms")
+                QTimer.singleShot(500, self._save_background_music_state)
+                return
+
+        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            print(f"[MUSIC] Restore-Versuch fehlgeschlagen: {exc}")
+
+        self._background_music_restore_attempts += 1
+
+        if self._background_music_restore_attempts >= 40:
+            self._background_music_restore_pending = False
+            print("[MUSIC] Wiederherstellung nach 20 Sekunden abgebrochen.")
+            return
+
+        QTimer.singleShot(500, self._retry_background_music_restore)
 
     def on_s3_repository_changed(self, repo_name):
         try:
@@ -14885,10 +14979,60 @@ class PatchManagerGUI(QWidget):
         )
         self.music_title_combo.currentIndexChanged.connect(self.on_background_music_selection_changed)
         self._refresh_background_music_titles()
-        self.music_button.toggled.connect(self.toggle_background_music)
-        self.music_button.setChecked(
-            self._music_settings.value("music/playing", False, type=bool)
+
+        # Gespeicherten Titel und Wiedergabestatus laden.
+        saved_playing = self._music_settings.value(
+            "music/playing", False, type=bool
         )
+        saved_resume_track = str(
+            self._music_settings.value("music_player/resume_track", "") or ""
+        )
+        preferred_track = (
+            saved_resume_track if saved_playing and saved_resume_track
+            else str(self._music_settings.value("music/track", "__random__") or "__random__")
+        )
+
+        preferred_index = self.music_title_combo.findData(preferred_track)
+        if preferred_index >= 0:
+            self.music_title_combo.blockSignals(True)
+            self.music_title_combo.setCurrentIndex(preferred_index)
+            self.music_title_combo.blockSignals(False)
+
+        self._background_music_restore_track = saved_resume_track
+        try:
+            self._background_music_restore_position = max(
+                0, int(self._music_settings.value("music_player/resume_position", 0))
+            )
+        except (TypeError, ValueError):
+            self._background_music_restore_position = 0
+
+        self._background_music_restore_attempts = 0
+        self._background_music_restore_pending = bool(
+            saved_playing
+            and saved_resume_track
+            and self._background_music_restore_position > 0
+        )
+
+        self.music_button.toggled.connect(self.toggle_background_music)
+        self.music_button.setChecked(saved_playing)
+
+        # Speichern unabhängig vom geöffneten NEON-BEAST-Fenster.
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtWidgets import QApplication
+
+        self._background_music_save_timer = QTimer(self)
+        self._background_music_save_timer.setInterval(2000)
+        self._background_music_save_timer.timeout.connect(
+            self._save_background_music_state
+        )
+        self._background_music_save_timer.start()
+
+        app = QApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self._save_background_music_state)
+
+        if self._background_music_restore_pending:
+            QTimer.singleShot(700, self._retry_background_music_restore)
 
         # --- STATS ---
         self.telemetry_cb = QPushButton("Stats")
