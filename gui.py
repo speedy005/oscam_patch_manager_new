@@ -11029,13 +11029,19 @@ class PatchManagerGUI(QWidget):
         # --------------------------------------------------
         persistent_backup_dir = project_dir / "backup"
         persistent_backup_zip = persistent_backup_dir / "backup.zip"
-        backup_temp_zip = persistent_backup_dir / "backup.tmp.zip"
+        backup_temp_zip = None
 
         try:
             persistent_backup_dir.mkdir(parents=True, exist_ok=True)
 
-            if backup_temp_zip.exists():
-                backup_temp_zip.unlink()
+            fd, backup_temp_name = tempfile.mkstemp(
+                prefix="backup.",
+                suffix=".tmp.zip",
+                dir=persistent_backup_dir,
+            )
+            os.close(fd)
+
+            backup_temp_zip = Path(backup_temp_name)
 
             # os.walk mit topdown=True ist entscheidend:
             # Geschützte Verzeichnisse werden aus dirs entfernt,
@@ -11114,15 +11120,23 @@ class PatchManagerGUI(QWidget):
                         f"Backup-Prüfung fehlgeschlagen: {bad_file}"
                     )
 
+                backup_contents = set(backup_archive.namelist())
+
+                if "config.json" not in backup_contents:
+                    raise RuntimeError(
+                        "config.json fehlt im Backup. "
+                        "Das bisherige Backup bleibt erhalten."
+                    )
+
             # Erst jetzt das bisherige Backup ersetzen.
             os.replace(backup_temp_zip, persistent_backup_zip)
 
         except Exception as backup_error:
-            try:
-                if backup_temp_zip.exists():
-                    backup_temp_zip.unlink()
-            except OSError:
-                pass
+            if backup_temp_zip is not None:
+                try:
+                    backup_temp_zip.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
             QMessageBox.critical(
                 self,
