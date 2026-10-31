@@ -1022,6 +1022,16 @@ class PatchManagerGUI(QWidget):
                             if is_de else "Clear only the visible console output; log files remain unchanged",
                         )
                     )
+                if hasattr(self, "weather_button"):
+                    self.weather_button.setText(
+                        "🌤 Wetter anzeigen" if is_de else "🌤 Show weather"
+                    )
+                    self.weather_button.setToolTip(
+                        "Aktuelles Wetter und 5-Tage-Vorhersage anzeigen"
+                        if is_de else
+                        "Show current weather and 5-day forecast"
+                    )
+
                 # BUILD-LOG-Analyse und Systemdiagnose ebenfalls live umschalten.
                 if hasattr(self, "analyze_build_logs_button"):
                     self.analyze_build_logs_button.setText(
