@@ -1,25 +1,24 @@
 
 """
 OSCam Music Player – NEON BEAST ULTIMATE
-Cyberpunk Edition mit zentraler Farbverwaltung.
+10 Neon Themes | RGB Speakers | 32-Band FFT | Stereo VU
 
-Features:
-- Zentrale Farbpalette mit 5 Neon-Themes
-- Theme-Auswahl direkt im Player
-- Theme-Einstellung wird gespeichert
-- Neon Cyan LEFT / Neon Pink RIGHT
-- RGB Speaker Animation
+- Zentrale Farbverwaltung
+- 10 umschaltbare Neon-Themes
+- Theme-Auswahl wird gespeichert
+- Fenstergröße und Position werden gespeichert
+- Neon LEFT / RIGHT Lautsprecher
 - 32-Band FFT Spectrum
 - Stereo VU Meter
+- Master Volume
 - Zentrale OSCam-Wiedergabe
-- Persistente Fenstergröße und Fensterposition
-
-Die Wiedergabe bleibt zentral in der Haupt-GUI.
-Es wird keine separate QMediaPlayer-Instanz erstellt.
+- Keine separate QMediaPlayer-Instanz
 """
 
 import math
 import struct
+
+from pathlib import Path
 
 from PyQt6.QtCore import Qt, QTimer, QSettings, QRectF, QPointF
 from PyQt6.QtGui import (
@@ -34,79 +33,64 @@ from PyQt6.QtWidgets import (
 
 
 # ============================================================
-# ZENTRALE NEON-FARBPALETTE
+# ZENTRALE FARBVERWALTUNG
 # ============================================================
 #
-# Hier kannst du sämtliche Farben zentral ändern.
+# ACTIVE_THEME:
+#   Bestimmt das Standard-Theme beim ersten Start.
 #
-# Verfügbare Themes:
-#   cyberpunk
-#   neon_blue
-#   matrix
-#   synthwave
-#   fire_ice
-#
-# ACTIVE_THEME bestimmt das Standard-Theme.
-# Eine gespeicherte Auswahl hat beim Start Vorrang.
+# Alle Farben können in COLOR_THEMES geändert werden.
+# Eine gespeicherte Theme-Auswahl hat Vorrang.
 # ============================================================
+
+ACTIVE_THEME = "fire_ice"
+
 
 COLOR_THEMES = {
 
     "cyberpunk": {
         "name": "Cyberpunk Purple / Cyan",
-
         "background": "#070914",
         "panel": "#121a31",
         "panel_dark": "#080e1b",
         "panel_light": "#1a1030",
         "display": "#111b32",
-
         "border": "#51418d",
         "border_glow": "#00dcff",
-
         "text": "#e5f4ff",
         "muted": "#8091b2",
-
         "brand": "#ff1744",
         "tagline": "#ffff00",
         "status": "#43ffba",
         "section": "#45eaff",
         "track": "#55dfff",
         "readout": "#57ffcc",
-
         "left": "#00eaff",
         "right": "#ff00cc",
         "volume": "#55edff",
-
         "slider_track": "#25314b",
         "slider_fill": "#00dfff",
         "slider_fill_end": "#a05cff",
         "slider_handle": "#ffffff",
         "slider_handle_border": "#00dcff",
-
         "button": "#18233c",
         "button_border": "#59488c",
         "button_hover": "#34335d",
         "button_hover_border": "#50eaff",
-
         "play_start": "#6fffff",
         "play_middle": "#00c8ff",
         "play_end": "#a27aff",
         "stop": "#ff5799",
-
         "spectrum_background": "#050a14",
         "spectrum_grid": "#17283b",
-
         "vu_background": "#101b2b",
         "vu_inactive": "#1b2a3e",
         "vu_low": "#39ffae",
         "vu_mid": "#ffe15c",
         "vu_high": "#ff3e73",
-
         "speaker_housing": "#090e1b",
         "speaker_border": "#28344d",
         "speaker_metal": "#45526e",
-
         "speaker_cone_1": "#75849f",
         "speaker_cone_2": "#344967",
         "speaker_cone_3": "#17253d",
@@ -115,59 +99,47 @@ COLOR_THEMES = {
 
     "neon_blue": {
         "name": "Electric Blue",
-
         "background": "#050b18",
         "panel": "#0c1b32",
         "panel_dark": "#071326",
         "panel_light": "#102747",
         "display": "#0b1c35",
-
         "border": "#1764a5",
         "border_glow": "#00aaff",
-
         "text": "#e5f5ff",
         "muted": "#789bbd",
-
         "brand": "#00aaff",
         "tagline": "#7df9ff",
         "status": "#00ffcc",
         "section": "#00cfff",
         "track": "#62dcff",
         "readout": "#00ffdf",
-
         "left": "#00eaff",
         "right": "#4169ff",
         "volume": "#00eaff",
-
         "slider_track": "#183451",
         "slider_fill": "#00aaff",
         "slider_fill_end": "#4169ff",
         "slider_handle": "#ffffff",
         "slider_handle_border": "#00cfff",
-
         "button": "#102b49",
         "button_border": "#1764a5",
         "button_hover": "#174a70",
         "button_hover_border": "#00dfff",
-
         "play_start": "#8affff",
         "play_middle": "#00aaff",
         "play_end": "#4169ff",
         "stop": "#ff5577",
-
         "spectrum_background": "#030b17",
         "spectrum_grid": "#12304b",
-
         "vu_background": "#0a1b2b",
         "vu_inactive": "#183451",
         "vu_low": "#00ffbb",
         "vu_mid": "#ffe15c",
         "vu_high": "#ff4466",
-
         "speaker_housing": "#071326",
         "speaker_border": "#17446b",
         "speaker_metal": "#41658a",
-
         "speaker_cone_1": "#91c9ed",
         "speaker_cone_2": "#315b80",
         "speaker_cone_3": "#163550",
@@ -176,59 +148,47 @@ COLOR_THEMES = {
 
     "matrix": {
         "name": "Matrix Green",
-
         "background": "#020b06",
         "panel": "#071b10",
         "panel_dark": "#031108",
         "panel_light": "#0d2818",
         "display": "#061b0e",
-
         "border": "#176b35",
         "border_glow": "#00ff66",
-
         "text": "#d8ffe5",
         "muted": "#75a98a",
-
         "brand": "#00ff66",
         "tagline": "#aaff00",
         "status": "#00ff99",
         "section": "#00ff66",
         "track": "#8affb0",
         "readout": "#00ff99",
-
         "left": "#00ff66",
         "right": "#aaff00",
         "volume": "#00ff66",
-
         "slider_track": "#183b25",
         "slider_fill": "#00ff66",
         "slider_fill_end": "#aaff00",
         "slider_handle": "#ffffff",
         "slider_handle_border": "#00ff66",
-
         "button": "#102b19",
         "button_border": "#267b43",
         "button_hover": "#17482a",
         "button_hover_border": "#00ff66",
-
         "play_start": "#aaffbb",
         "play_middle": "#00ff66",
         "play_end": "#aaff00",
         "stop": "#ff5544",
-
         "spectrum_background": "#020d07",
         "spectrum_grid": "#123820",
-
         "vu_background": "#061b0e",
         "vu_inactive": "#183b25",
         "vu_low": "#00ff66",
         "vu_mid": "#cfff00",
         "vu_high": "#ff4444",
-
         "speaker_housing": "#031108",
         "speaker_border": "#176b35",
         "speaker_metal": "#39734b",
-
         "speaker_cone_1": "#9bc9a8",
         "speaker_cone_2": "#315d3c",
         "speaker_cone_3": "#16351e",
@@ -237,59 +197,47 @@ COLOR_THEMES = {
 
     "synthwave": {
         "name": "Synthwave Pink / Purple",
-
         "background": "#10051c",
         "panel": "#21102e",
         "panel_dark": "#12091d",
         "panel_light": "#30113b",
         "display": "#1d0d2d",
-
         "border": "#8738a8",
         "border_glow": "#ff35d3",
-
         "text": "#fff0ff",
         "muted": "#b18bbd",
-
         "brand": "#ff35d3",
         "tagline": "#ffb8f4",
         "status": "#8dffdb",
         "section": "#ff65e8",
         "track": "#ff9cf0",
         "readout": "#b8fff1",
-
         "left": "#00eaff",
         "right": "#ff35d3",
         "volume": "#ff65e8",
-
         "slider_track": "#43204e",
         "slider_fill": "#ff35d3",
         "slider_fill_end": "#7b3cff",
         "slider_handle": "#ffffff",
         "slider_handle_border": "#ff35d3",
-
         "button": "#321640",
         "button_border": "#8738a8",
         "button_hover": "#57246b",
         "button_hover_border": "#ff65e8",
-
         "play_start": "#ffb8f4",
         "play_middle": "#ff35d3",
         "play_end": "#7b3cff",
         "stop": "#ff5577",
-
         "spectrum_background": "#10051c",
         "spectrum_grid": "#462052",
-
         "vu_background": "#1d0d2d",
         "vu_inactive": "#43204e",
         "vu_low": "#55ffbb",
         "vu_mid": "#ffe15c",
         "vu_high": "#ff3e73",
-
         "speaker_housing": "#12091d",
         "speaker_border": "#8738a8",
         "speaker_metal": "#80518f",
-
         "speaker_cone_1": "#d7a5e8",
         "speaker_cone_2": "#704080",
         "speaker_cone_3": "#351940",
@@ -298,94 +246,313 @@ COLOR_THEMES = {
 
     "fire_ice": {
         "name": "Fire & Ice",
-
         "background": "#0a0d18",
         "panel": "#171d2c",
         "panel_dark": "#0b1220",
         "panel_light": "#2b1720",
         "display": "#111c2b",
-
         "border": "#a64b55",
         "border_glow": "#ff6633",
-
         "text": "#fff1e8",
         "muted": "#a7a9bd",
-
         "brand": "#ff6633",
         "tagline": "#ffd166",
         "status": "#8dffcf",
         "section": "#ff9966",
         "track": "#ffc08a",
         "readout": "#8dffcf",
-
         "left": "#00d9ff",
         "right": "#ff6633",
         "volume": "#ff9966",
-
         "slider_track": "#29334a",
         "slider_fill": "#00d9ff",
         "slider_fill_end": "#ff6633",
         "slider_handle": "#ffffff",
         "slider_handle_border": "#00d9ff",
-
         "button": "#202b40",
         "button_border": "#8a5365",
         "button_hover": "#493047",
         "button_hover_border": "#ff9966",
-
         "play_start": "#9fffff",
         "play_middle": "#00d9ff",
         "play_end": "#ff6633",
         "stop": "#ff4455",
-
         "spectrum_background": "#080e19",
         "spectrum_grid": "#26364c",
-
         "vu_background": "#111c2b",
         "vu_inactive": "#29334a",
         "vu_low": "#00e6a0",
         "vu_mid": "#ffd166",
         "vu_high": "#ff4455",
-
         "speaker_housing": "#0b1220",
         "speaker_border": "#4b5368",
         "speaker_metal": "#7c7180",
-
         "speaker_cone_1": "#d4c6c5",
         "speaker_cone_2": "#665568",
         "speaker_cone_3": "#30283c",
         "speaker_cone_4": "#0b1220",
     },
+
+    "toxic_lime": {
+        "name": "Toxic Lime / Acid Green",
+        "background": "#080d05",
+        "panel": "#14200b",
+        "panel_dark": "#080f05",
+        "panel_light": "#24320d",
+        "display": "#101d09",
+        "border": "#668c16",
+        "border_glow": "#baff00",
+        "text": "#efffd6",
+        "muted": "#91a86c",
+        "brand": "#baff00",
+        "tagline": "#eaff7a",
+        "status": "#5dff9a",
+        "section": "#c8ff35",
+        "track": "#d7ff72",
+        "readout": "#aaff00",
+        "left": "#aaff00",
+        "right": "#00ff88",
+        "volume": "#c8ff35",
+        "slider_track": "#30421a",
+        "slider_fill": "#baff00",
+        "slider_fill_end": "#00ff88",
+        "slider_handle": "#ffffff",
+        "slider_handle_border": "#baff00",
+        "button": "#1b2a10",
+        "button_border": "#668c16",
+        "button_hover": "#344b16",
+        "button_hover_border": "#c8ff35",
+        "play_start": "#eaff7a",
+        "play_middle": "#baff00",
+        "play_end": "#00ff88",
+        "stop": "#ff5364",
+        "spectrum_background": "#070d05",
+        "spectrum_grid": "#263d15",
+        "vu_background": "#101d09",
+        "vu_inactive": "#30421a",
+        "vu_low": "#5dff66",
+        "vu_mid": "#dfff00",
+        "vu_high": "#ff4b38",
+        "speaker_housing": "#080f05",
+        "speaker_border": "#668c16",
+        "speaker_metal": "#617b39",
+        "speaker_cone_1": "#d8f5a2",
+        "speaker_cone_2": "#719b35",
+        "speaker_cone_3": "#304b19",
+        "speaker_cone_4": "#080f05",
+    },
+
+    "blood_moon": {
+        "name": "Blood Moon / Inferno Red",
+        "background": "#100508",
+        "panel": "#280c12",
+        "panel_dark": "#120609",
+        "panel_light": "#3b1017",
+        "display": "#200910",
+        "border": "#9b2638",
+        "border_glow": "#ff263f",
+        "text": "#ffe9e9",
+        "muted": "#b47c83",
+        "brand": "#ff263f",
+        "tagline": "#ffb347",
+        "status": "#ff8866",
+        "section": "#ff5264",
+        "track": "#ff9b86",
+        "readout": "#ffb347",
+        "left": "#ff263f",
+        "right": "#ff9b35",
+        "volume": "#ff5264",
+        "slider_track": "#4a1b25",
+        "slider_fill": "#ff263f",
+        "slider_fill_end": "#ff9b35",
+        "slider_handle": "#ffffff",
+        "slider_handle_border": "#ff5264",
+        "button": "#35121a",
+        "button_border": "#9b2638",
+        "button_hover": "#5a1725",
+        "button_hover_border": "#ff5264",
+        "play_start": "#ffd0a1",
+        "play_middle": "#ff4b36",
+        "play_end": "#c40032",
+        "stop": "#ff263f",
+        "spectrum_background": "#100508",
+        "spectrum_grid": "#4a1820",
+        "vu_background": "#200910",
+        "vu_inactive": "#4a1b25",
+        "vu_low": "#ff8a38",
+        "vu_mid": "#ffd166",
+        "vu_high": "#ff263f",
+        "speaker_housing": "#120609",
+        "speaker_border": "#9b2638",
+        "speaker_metal": "#89505a",
+        "speaker_cone_1": "#ffc1a8",
+        "speaker_cone_2": "#a63b43",
+        "speaker_cone_3": "#501824",
+        "speaker_cone_4": "#120609",
+    },
+
+    "arctic_aurora": {
+        "name": "Arctic Aurora / Ice Blue",
+        "background": "#041017",
+        "panel": "#0b202b",
+        "panel_dark": "#06131d",
+        "panel_light": "#103342",
+        "display": "#09202d",
+        "border": "#287d91",
+        "border_glow": "#54f5ff",
+        "text": "#e5fcff",
+        "muted": "#83b6c2",
+        "brand": "#54f5ff",
+        "tagline": "#a4ffe7",
+        "status": "#68ffc5",
+        "section": "#54f5ff",
+        "track": "#a4faff",
+        "readout": "#68ffc5",
+        "left": "#54f5ff",
+        "right": "#72ffbf",
+        "volume": "#54f5ff",
+        "slider_track": "#1c4655",
+        "slider_fill": "#54f5ff",
+        "slider_fill_end": "#72ffbf",
+        "slider_handle": "#ffffff",
+        "slider_handle_border": "#54f5ff",
+        "button": "#10303e",
+        "button_border": "#287d91",
+        "button_hover": "#175064",
+        "button_hover_border": "#72ffbf",
+        "play_start": "#d5ffff",
+        "play_middle": "#54f5ff",
+        "play_end": "#72ffbf",
+        "stop": "#ff648b",
+        "spectrum_background": "#041017",
+        "spectrum_grid": "#16404d",
+        "vu_background": "#09202d",
+        "vu_inactive": "#1c4655",
+        "vu_low": "#54f5ff",
+        "vu_mid": "#72ffbf",
+        "vu_high": "#ff648b",
+        "speaker_housing": "#06131d",
+        "speaker_border": "#287d91",
+        "speaker_metal": "#598c9b",
+        "speaker_cone_1": "#c9ffff",
+        "speaker_cone_2": "#4b9eae",
+        "speaker_cone_3": "#1b5263",
+        "speaker_cone_4": "#06131d",
+    },
+
+    "gold_rush": {
+        "name": "Gold Rush / Luxury Gold",
+        "background": "#100d06",
+        "panel": "#241b0c",
+        "panel_dark": "#100c05",
+        "panel_light": "#382a10",
+        "display": "#211807",
+        "border": "#94702a",
+        "border_glow": "#ffd45c",
+        "text": "#fff4d6",
+        "muted": "#b6a276",
+        "brand": "#ffd45c",
+        "tagline": "#fff0a6",
+        "status": "#aaffbb",
+        "section": "#ffd45c",
+        "track": "#ffe7a0",
+        "readout": "#ffd45c",
+        "left": "#ffd45c",
+        "right": "#ff9f43",
+        "volume": "#ffd45c",
+        "slider_track": "#51401e",
+        "slider_fill": "#ffd45c",
+        "slider_fill_end": "#ff9f43",
+        "slider_handle": "#ffffff",
+        "slider_handle_border": "#ffd45c",
+        "button": "#30230e",
+        "button_border": "#94702a",
+        "button_hover": "#594018",
+        "button_hover_border": "#ffd45c",
+        "play_start": "#fff0a6",
+        "play_middle": "#ffd45c",
+        "play_end": "#ff9f43",
+        "stop": "#ff5364",
+        "spectrum_background": "#100d06",
+        "spectrum_grid": "#443417",
+        "vu_background": "#211807",
+        "vu_inactive": "#51401e",
+        "vu_low": "#aaff88",
+        "vu_mid": "#ffd45c",
+        "vu_high": "#ff7043",
+        "speaker_housing": "#100c05",
+        "speaker_border": "#94702a",
+        "speaker_metal": "#9d824c",
+        "speaker_cone_1": "#fff0bd",
+        "speaker_cone_2": "#b38a3d",
+        "speaker_cone_3": "#61451c",
+        "speaker_cone_4": "#100c05",
+    },
+
+    "vaporwave": {
+        "name": "Vaporwave / Miami Neon",
+        "background": "#10071c",
+        "panel": "#20102f",
+        "panel_dark": "#10091d",
+        "panel_light": "#321440",
+        "display": "#1b0e2b",
+        "border": "#a13bba",
+        "border_glow": "#00ffe1",
+        "text": "#fff0ff",
+        "muted": "#b18cbd",
+        "brand": "#ff65df",
+        "tagline": "#00ffe1",
+        "status": "#80ffcc",
+        "section": "#00ffe1",
+        "track": "#ff9be9",
+        "readout": "#80ffcc",
+        "left": "#00ffe1",
+        "right": "#ff65df",
+        "volume": "#00ffe1",
+        "slider_track": "#46214f",
+        "slider_fill": "#00ffe1",
+        "slider_fill_end": "#ff65df",
+        "slider_handle": "#ffffff",
+        "slider_handle_border": "#00ffe1",
+        "button": "#301641",
+        "button_border": "#a13bba",
+        "button_hover": "#552365",
+        "button_hover_border": "#ff65df",
+        "play_start": "#aafff5",
+        "play_middle": "#00ffe1",
+        "play_end": "#ff65df",
+        "stop": "#ff5577",
+        "spectrum_background": "#10071c",
+        "spectrum_grid": "#492052",
+        "vu_background": "#1b0e2b",
+        "vu_inactive": "#46214f",
+        "vu_low": "#00ffc3",
+        "vu_mid": "#e6ff5c",
+        "vu_high": "#ff4b9a",
+        "speaker_housing": "#10091d",
+        "speaker_border": "#a13bba",
+        "speaker_metal": "#80518f",
+        "speaker_cone_1": "#f5c4ff",
+        "speaker_cone_2": "#a34cbd",
+        "speaker_cone_3": "#51205f",
+        "speaker_cone_4": "#10071c",
+    },
 }
 
 
-# Standard-Theme beim ersten Start
-ACTIVE_THEME = "fire_ice"
-
-
-def C(key):
-    """Zentraler Zugriff auf die aktive Theme-Farbe."""
-    theme = COLOR_THEMES.get(
-        ACTIVE_THEME,
+def C(key, theme=None):
+    """Zentraler Zugriff auf Theme-Farben."""
+    theme = theme or ACTIVE_THEME
+    palette = COLOR_THEMES.get(
+        theme,
         COLOR_THEMES["cyberpunk"]
     )
-    return theme.get(key, "#ffffff")
-
-
-def neon_color(hue, saturation=255, value=255, alpha=255):
-    return QColor.fromHsv(
-        int(hue) % 360,
-        saturation,
-        value,
-        alpha
-    )
+    return palette.get(key, "#ffffff")
 
 
 def blend_color(color_a, color_b, amount):
-    """Mischt zwei Farben."""
     a = QColor(color_a)
     b = QColor(color_b)
-
     amount = max(0.0, min(1.0, float(amount)))
 
     return QColor(
@@ -454,7 +621,6 @@ class NeonPanel(QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-
         self.setObjectName("neonPanel")
         self.setFrameShape(QFrame.Shape.NoFrame)
 
@@ -464,9 +630,13 @@ class NeonPanel(QFrame):
 # ============================================================
 
 class SpeakerWidget(QWidget):
-    """Animierter Lautsprecher mit Theme-Farben."""
 
-    def __init__(self, kind="woofer", channel="left", parent=None):
+    def __init__(
+        self,
+        kind="woofer",
+        channel="left",
+        parent=None
+    ):
         super().__init__(parent)
 
         self.kind = kind
@@ -939,11 +1109,11 @@ class MusicPlayerWindow(QWidget):
         self._buffer_signal_connected = False
 
         self._fft_ready = False
+        self._audio_buffer_received = False
         self._last_samples = []
 
         self._build_ui()
 
-        # Fenstergröße und Position wiederherstellen
         self._restore_window_geometry()
 
         self._timer = QTimer(self)
@@ -998,7 +1168,6 @@ class MusicPlayerWindow(QWidget):
 
         ACTIVE_THEME = theme_key
 
-        # Theme dauerhaft speichern
         self.settings.setValue(
             "music_player/color_theme",
             ACTIVE_THEME
@@ -1006,19 +1175,14 @@ class MusicPlayerWindow(QWidget):
 
         self.settings.sync()
 
-        # Stylesheet neu aufbauen
         self._apply_style()
 
-        # Zeichenflächen neu zeichnen
         self.left_speaker.update()
         self.right_speaker.update()
-
         self.spectrum.update()
-
         self.vu_left.update()
         self.vu_right.update()
 
-        # Theme-Auswahl aktualisieren
         self.theme_combo.setToolTip(
             COLOR_THEMES[ACTIVE_THEME]["name"]
         )
@@ -1267,10 +1431,7 @@ class MusicPlayerWindow(QWidget):
         layout.setContentsMargins(20, 17, 20, 17)
         layout.setSpacing(12)
 
-        # ----------------------------------------------------
         # HEADER
-        # ----------------------------------------------------
-
         header = QHBoxLayout()
         brand_box = QVBoxLayout()
 
@@ -1312,51 +1473,33 @@ class MusicPlayerWindow(QWidget):
         line.setObjectName("neonLine")
         layout.addWidget(line)
 
-        # ----------------------------------------------------
         # MAIN DECK
-        # ----------------------------------------------------
-
         deck = QHBoxLayout()
         deck.setSpacing(13)
 
-        # LEFT SPEAKER
         left_box = QVBoxLayout()
 
         left_label = QLabel("◈ LEFT CHANNEL")
         left_label.setObjectName("leftChannel")
-        left_label.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
+        left_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.left_speaker = SpeakerWidget(
-            "woofer",
-            "left"
-        )
+        self.left_speaker = SpeakerWidget("woofer", "left")
 
         left_box.addWidget(left_label)
         left_box.addWidget(self.left_speaker, 1)
 
-        # RIGHT SPEAKER
         right_box = QVBoxLayout()
 
         right_label = QLabel("RIGHT CHANNEL ◈")
         right_label.setObjectName("rightChannel")
-        right_label.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
+        right_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.right_speaker = SpeakerWidget(
-            "woofer",
-            "right"
-        )
+        self.right_speaker = SpeakerWidget("woofer", "right")
 
         right_box.addWidget(right_label)
         right_box.addWidget(self.right_speaker, 1)
 
-        # ----------------------------------------------------
         # CENTER DISPLAY
-        # ----------------------------------------------------
-
         display = QFrame()
         display.setObjectName("display")
 
@@ -1372,9 +1515,7 @@ class MusicPlayerWindow(QWidget):
 
         self.track_label = QLabel("NEON BEAST // READY")
         self.track_label.setObjectName("track")
-        self.track_label.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
+        self.track_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.track_label.setWordWrap(True)
 
         center.addWidget(self.track_label)
@@ -1388,13 +1529,9 @@ class MusicPlayerWindow(QWidget):
 
         center.addWidget(self.track_combo)
 
-        spectrum_title = QLabel(
-            "REALTIME FREQUENCY ANALYZER"
-        )
+        spectrum_title = QLabel("REALTIME FREQUENCY ANALYZER")
         spectrum_title.setObjectName("tiny")
-        spectrum_title.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
+        spectrum_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         center.addWidget(spectrum_title)
 
@@ -1403,10 +1540,7 @@ class MusicPlayerWindow(QWidget):
 
         frequency_row = QHBoxLayout()
 
-        for text in (
-            "SUB", "BASS", "LOW",
-            "MID", "HIGH", "AIR"
-        ):
+        for text in ("SUB", "BASS", "LOW", "MID", "HIGH", "AIR"):
 
             label = QLabel(text)
             label.setObjectName("tiny")
@@ -1416,7 +1550,6 @@ class MusicPlayerWindow(QWidget):
 
         center.addLayout(frequency_row)
 
-        # Progress
         self.progress = QSlider(Qt.Orientation.Horizontal)
         self.progress.setRange(0, 1000)
         self.progress.sliderMoved.connect(self._seek)
@@ -1425,13 +1558,11 @@ class MusicPlayerWindow(QWidget):
 
         self.time_label = QLabel("00:00 / 00:00")
         self.time_label.setObjectName("tiny")
-        self.time_label.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         center.addWidget(self.time_label)
 
-        # VU meters
+        # VU METERS
         meter_panel = QFrame()
         meter_panel.setObjectName("glass")
 
@@ -1461,10 +1592,7 @@ class MusicPlayerWindow(QWidget):
 
         layout.addLayout(deck, 1)
 
-        # ----------------------------------------------------
         # TRANSPORT CONTROLS
-        # ----------------------------------------------------
-
         controls_panel = QFrame()
         controls_panel.setObjectName("controlPanel")
 
@@ -1510,10 +1638,7 @@ class MusicPlayerWindow(QWidget):
 
         layout.addWidget(controls_panel)
 
-        # ----------------------------------------------------
         # MASTER VOLUME
-        # ----------------------------------------------------
-
         volume_panel = QFrame()
         volume_panel.setObjectName("glass")
 
@@ -1535,15 +1660,10 @@ class MusicPlayerWindow(QWidget):
         except (TypeError, ValueError):
             initial_volume = 20
 
-        self.volume.setValue(
-            max(0, min(100, initial_volume))
-        )
-
+        self.volume.setValue(max(0, min(100, initial_volume)))
         self.volume.valueChanged.connect(self._set_volume)
 
-        self.volume_label = QLabel(
-            f"{self.volume.value()} %"
-        )
+        self.volume_label = QLabel(f"{self.volume.value()} %")
         self.volume_label.setObjectName("volumeValue")
 
         volume_layout.addWidget(master)
@@ -1552,10 +1672,7 @@ class MusicPlayerWindow(QWidget):
 
         layout.addWidget(volume_panel)
 
-        # ----------------------------------------------------
         # THEME SELECTOR
-        # ----------------------------------------------------
-
         theme_panel = QFrame()
         theme_panel.setObjectName("glass")
 
@@ -1566,17 +1683,12 @@ class MusicPlayerWindow(QWidget):
         theme_label.setObjectName("section")
 
         self.theme_combo = QComboBox()
-        self.theme_combo.setMinimumWidth(210)
+        self.theme_combo.setMinimumWidth(230)
 
         for key, theme in COLOR_THEMES.items():
-            self.theme_combo.addItem(
-                theme["name"],
-                key
-            )
+            self.theme_combo.addItem(theme["name"], key)
 
-        selected_index = self.theme_combo.findData(
-            ACTIVE_THEME
-        )
+        selected_index = self.theme_combo.findData(ACTIVE_THEME)
 
         if selected_index >= 0:
             self.theme_combo.setCurrentIndex(selected_index)
@@ -1585,9 +1697,7 @@ class MusicPlayerWindow(QWidget):
             self._change_theme
         )
 
-        self.theme_combo.setToolTip(
-            "Neon-Farbdesign auswählen"
-        )
+        self.theme_combo.setToolTip("Neon-Farbdesign auswählen")
 
         theme_layout.addWidget(theme_label)
         theme_layout.addStretch()
@@ -1595,10 +1705,7 @@ class MusicPlayerWindow(QWidget):
 
         layout.addWidget(theme_panel)
 
-        # ----------------------------------------------------
         # FOOTER
-        # ----------------------------------------------------
-
         footer = QLabel(
             "RGB NEON ENGINE  •  LIVE DSP  •  "
             "STEREO DRIVER ARRAY  •  OSCAM"
@@ -1623,9 +1730,7 @@ class MusicPlayerWindow(QWidget):
             getattr(self.host, "LANG", "de")
         ).lower().startswith("de")
 
-        self.setWindowTitle(
-            "OSCam • NEON BEAST ULTIMATE"
-        )
+        self.setWindowTitle("OSCam • NEON BEAST ULTIMATE")
 
         self.play_btn.setText(
             "▶ ABSPIELEN" if is_de else "▶ PLAY"
@@ -1686,8 +1791,6 @@ class MusicPlayerWindow(QWidget):
 
             if idx < 0 and wanted:
 
-                from pathlib import Path
-
                 idx = self.track_combo.findText(
                     "🎧 " + Path(wanted).stem
                 )
@@ -1730,9 +1833,7 @@ class MusicPlayerWindow(QWidget):
         ):
 
             self.host._save_music_state(
-                last_track=str(
-                    source.currentData() or ""
-                )
+                last_track=str(source.currentData() or "")
             )
 
         self._sync_state()
@@ -1797,13 +1898,17 @@ class MusicPlayerWindow(QWidget):
         self._buffer_player = player
         self._buffer_output = None
         self._buffer_signal_connected = False
+        self._audio_buffer_received = False
         self._fft_ready = False
 
-        try:
+        self._stereo_levels = [0.0, 0.0]
+        self._audio_bands = [.02] * 32
 
+        try:
             from PyQt6.QtMultimedia import QAudioBufferOutput
 
             if not hasattr(player, "setAudioBufferOutput"):
+                self.signal_label.setText("DSP / BUFFER UNAVAILABLE")
                 return
 
             self._buffer_output = QAudioBufferOutput(self)
@@ -1816,15 +1921,20 @@ class MusicPlayerWindow(QWidget):
 
             self._buffer_signal_connected = True
 
+            self.signal_label.setText("DSP / AUDIO CONNECTED")
+
         except (
             ImportError,
             AttributeError,
             TypeError,
             RuntimeError
-        ):
+        ) as error:
 
             self._buffer_output = None
             self._buffer_signal_connected = False
+
+            self.signal_label.setText("DSP / AUDIO ERROR")
+            print("AudioBufferOutput Fehler:", error)
 
     # ========================================================
     # LIVE AUDIO ANALYSIS
@@ -1921,7 +2031,7 @@ class MusicPlayerWindow(QWidget):
                     min(1.0, l_rms * 3.5),
                     min(1.0, r_rms * 3.5)
                 ]
-
+                self._audio_buffer_received = True
                 length = min(len(left), len(right))
 
                 mono = [
@@ -1941,7 +2051,7 @@ class MusicPlayerWindow(QWidget):
                 self._stereo_levels = [
                     min(1.0, value * 3.5)
                 ] * 2
-
+                self._audio_buffer_received = True
             if not mono:
                 return
 
@@ -1987,7 +2097,6 @@ class MusicPlayerWindow(QWidget):
 
             # Logarithmische Verteilung
             bands = []
-
             max_bin = max(2, n // 2)
 
             for band in range(32):
@@ -2176,13 +2285,6 @@ class MusicPlayerWindow(QWidget):
     def _animate_stereo(self):
 
         self._phase += .22
-        self._hue = (self._hue + 1.1) % 360
-
-        button = getattr(
-            self.host,
-            "music_button",
-            None
-        )
 
         player = getattr(
             self.host,
@@ -2190,108 +2292,92 @@ class MusicPlayerWindow(QWidget):
             None
         )
 
-        playing = bool(
-            button
-            and button.isChecked()
-            and player is not None
-        )
+        # Audioanalyse automatisch verbinden
+        self._attach_audio_analysis(player)
+
+        # Tatsächlichen Player-Status abfragen
+        try:
+            from PyQt6.QtMultimedia import QMediaPlayer
+
+            playing = (
+                player is not None
+                and player.playbackState()
+                == QMediaPlayer.PlaybackState.PlayingState
+            )
+
+        except (AttributeError, RuntimeError):
+            playing = False
 
         if playing:
 
-            if self._buffer_signal_connected and self._fft_ready:
+            if (
+                self._buffer_signal_connected
+                and self._audio_buffer_received
+            ):
+
+                left = self._stereo_levels[0]
+                right = self._stereo_levels[1]
 
                 bands = self._audio_bands
+
+                self.signal_label.setText("DSP / LIVE AUDIO")
+                self.status_label.setText("● AUDIO STREAM ACTIVE")
 
                 sub = sum(bands[:4]) / 4
                 bass = sum(bands[4:9]) / 5
                 mid = sum(bands[9:21]) / 12
                 high = sum(bands[21:]) / 11
 
-                left = max(.02, self._stereo_levels[0])
-                right = max(.02, self._stereo_levels[1])
-
-                self.signal_label.setText("DSP / LIVE FFT")
-
             else:
 
-                # Animierter Fallback ohne Audio-Buffer
-                bands = [
-                    .05 + .85 * abs(
-                        math.sin(
-                            self._phase * (.35 + i*.047)
-                            + i*.63
-                        )
-                    )
-                    for i in range(32)
-                ]
+                # Keine künstliche Animation!
+                left = 0.0
+                right = 0.0
 
-                sub = .15 + .75 * abs(
-                    math.sin(self._phase*.72)
-                )
+                bands = [.02] * 32
 
-                bass = .15 + .7 * abs(
-                    math.sin(self._phase*.91)
-                )
+                sub = 0.0
+                bass = 0.0
+                mid = 0.0
+                high = 0.0
 
-                mid = .12 + .55 * abs(
-                    math.sin(self._phase*1.2)
-                )
+                self.signal_label.setText("DSP / WAITING FOR AUDIO")
+                self.status_label.setText("● WAITING FOR SIGNAL")
 
-                high = .1 + .5 * abs(
-                    math.sin(self._phase*1.8)
-                )
-
-                left = .18 + .62 * abs(
-                    math.sin(self._phase*1.05)
-                )
-
-                right = .18 + .62 * abs(
-                    math.sin(self._phase*1.05 + .8)
-                )
-
-                self.signal_label.setText("DSP / VISUAL MODE")
-
-            # Lautsprecher
-            left_push = min(
-                1.0,
-                left*.7 + sub*.4 + bass*.2
-            )
-
-            right_push = min(
-                1.0,
-                right*.7 + sub*.4 + bass*.2
-            )
-
+            # LEFT SPEAKER
             self.left_speaker.set_level(
-                left_push,
-                self._phase * 1.6,
+                left,
+                self._phase,
                 sub
             )
 
+            # RIGHT SPEAKER
             self.right_speaker.set_level(
-                right_push,
-                self._phase * 1.6 + .8,
+                right,
+                self._phase,
                 sub
             )
 
-            # Stereo VU
-            self.vu_left.set_level(self._stereo_levels[0])
-            self.vu_right.set_level(self._stereo_levels[1])
+            # REAL STEREO VU
+            self.vu_left.set_level(left)
+            self.vu_right.set_level(right)
 
-            # Spectrum
+            # REAL FFT
             self.spectrum.set_bands(bands)
-
-            self.status_label.setText("● AUDIO STREAM ACTIVE")
 
         else:
 
-            self.left_speaker.set_level(
-                .015, self._phase, 0
-            )
+            # Bei Pause und Stopp alles zurücksetzen
+            self._stereo_levels = [0.0, 0.0]
+            self._audio_level = 0.0
+            self._audio_peak = 0.0
 
-            self.right_speaker.set_level(
-                .015, self._phase, 0
-            )
+            self._audio_bands = [.02] * 32
+            self._audio_buffer_received = False
+            self._fft_ready = False
+
+            self.left_speaker.set_level(0.0, self._phase, 0.0)
+            self.right_speaker.set_level(0.0, self._phase, 0.0)
 
             self.vu_left.reset()
             self.vu_right.reset()
@@ -2300,19 +2386,6 @@ class MusicPlayerWindow(QWidget):
 
             self.signal_label.setText("DSP / STANDBY")
             self.status_label.setText("● SYSTEM ONLINE")
-
-            self._audio_level *= .72
-            self._audio_peak *= .72
-
-            self._stereo_levels = [
-                value * .72
-                for value in self._stereo_levels
-            ]
-
-            self._audio_bands = [
-                max(.02, value*.85)
-                for value in self._audio_bands
-            ]
 
         self._sync_state()
 
@@ -2329,11 +2402,11 @@ class MusicPlayerWindow(QWidget):
 
     def closeEvent(self, event):
 
-        # Fenstergröße und Position speichern
+        # Fenstergröße und Position speichern.
         self._save_window_geometry()
 
-        # Nur das Player-Fenster schließen.
-        # Die zentrale OSCam-Wiedergabe bleibt aktiv.
+        # Nur den Visual Player Timer stoppen.
+        # Die OSCam-Wiedergabe bleibt zentral aktiv.
 
         if hasattr(self, "_timer"):
             self._timer.stop()
