@@ -674,7 +674,7 @@ class PatchManagerActionsMixin:
         # --------------------------------------------------
         # 3. Zentrale Schutzprüfung für Backup und Update
         # --------------------------------------------------
-        def is_protected(path):
+        def is_protected(path, *, for_backup=False):
             path = Path(path)
 
             try:
@@ -704,11 +704,14 @@ class PatchManagerActionsMixin:
 
             # Bestimmte Dateien nicht sichern oder überschreiben.
             # config.json wird beim Update geschützt, aber im Backup gesichert.
-            if path.name.casefold() in {
-                name.casefold()
-                for name in protected_files
-                if name.casefold() != "config.json"
-            }:
+            protected_file_names = {
+                name.casefold() for name in protected_files
+            }
+
+            if for_backup:
+                protected_file_names.discard("config.json")
+
+            if path.name.casefold() in protected_file_names:
                 return True
 
             # INI-Dateien grundsätzlich erhalten.
@@ -857,7 +860,7 @@ class PatchManagerActionsMixin:
                             continue
 
                         # Zusätzliche Schutzprüfung, bevor die Datei gelesen wird.
-                        if is_protected(source_file):
+                        if is_protected(source_file, for_backup=True):
                             continue
 
                         relative_path = source_file.relative_to(project_dir)
