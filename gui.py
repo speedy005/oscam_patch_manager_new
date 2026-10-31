@@ -11719,7 +11719,7 @@ class PatchManagerGUI(QWidget):
             "info_button", "btn_s3", "btn_s4", "btn_ncam",
             "header_btn_s3_ncam", "header_btn_s4",
             "header_btn_patch_ncam", "header_btn_patch_s4",
-            "log_button", "telemetry_cb", "oscam_source_button",
+            "log_button", "music_button", "telemetry_cb", "oscam_source_button",
         )
         for name in names:
             button = getattr(self, name, None)
@@ -11731,8 +11731,17 @@ class PatchManagerGUI(QWidget):
                 button.setMaximumWidth(260 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
                 button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
-    
-   
+        # Alle vier Header-Buttons exakt gleich groß halten.
+        for name in (
+            "header_btn_patch_ncam",
+            "header_btn_patch_s4",
+            "log_button",
+            "music_button",
+        ):
+            button = getattr(self, name, None)
+            if button is not None:
+                button.setFixedSize(230, 50)
+
     def _fit_header_logo(self):
         """Skaliert das Banner proportional bis zur maximalen Größe."""
         if (
@@ -13428,7 +13437,7 @@ class PatchManagerGUI(QWidget):
             btn.setText(clean_text)
             btn.setIcon(QApplication.style().standardIcon(standard_pixmap))
             btn.setIconSize(QSize(20, 20))
-            btn.setMinimumSize(200, 50)
+            btn.setMinimumSize(220, 50)
             apply_button_style(btn, "#00FFFF")
 
         # --------------------------------------------------
@@ -14787,10 +14796,10 @@ class PatchManagerGUI(QWidget):
         install_path_container = QWidget()
         install_path_layout = QHBoxLayout(install_path_container)
         install_path_layout.setContentsMargins(0, 0, 0, 0)
-        install_path_layout.setSpacing(8)
+        install_path_layout.setSpacing(3)
         # Patch-Buttons oben bündig mit "Log speichern" / "Musik einschalten"
         install_path_layout.setAlignment(
-            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
         )
 
         path_button_column = QWidget()
@@ -14810,7 +14819,7 @@ class PatchManagerGUI(QWidget):
         )
 
         self.header_btn_s3_ncam = QPushButton(self.TEXT.get("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad"))
-        self.header_btn_s3_ncam.setMinimumSize(200, 50)
+        self.header_btn_s3_ncam.setMinimumSize(220, 50)
         self.header_btn_s3_ncam.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_s3_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s3_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
@@ -14823,7 +14832,7 @@ class PatchManagerGUI(QWidget):
 
         # Player direkt unter dem S3-Patch-Pfad platzieren.
         self.music_player_button = QPushButton("🎚 Player öffnen" if lang == "de" else "🎚 Open player")
-        self.music_player_button.setMinimumSize(200, 50)
+        self.music_player_button.setMinimumSize(220, 50)
         self.music_player_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.music_player_button.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         self.music_player_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -14836,7 +14845,7 @@ class PatchManagerGUI(QWidget):
         
 
         self.header_btn_s4 = QPushButton(self.TEXT.get("patch_folder_s4", "S4-Pfad"))
-        self.header_btn_s4.setMinimumSize(200, 50)
+        self.header_btn_s4.setMinimumSize(220, 50)
         self.header_btn_s4.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
@@ -14849,7 +14858,7 @@ class PatchManagerGUI(QWidget):
         path_button_layout.addWidget(self.music_player_button)
         # Die beiden Patch-Kopieraktionen ebenfalls untereinander.
         self.header_btn_patch_ncam = QPushButton(self.TEXT.get("patch_copy_s3_ncam", "Patch → S3-NCam"))
-        self.header_btn_patch_ncam.setMinimumSize(200, 50)
+        self.header_btn_patch_ncam.setMinimumSize(220, 50)
         self.header_btn_patch_ncam.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_patch_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
@@ -14865,7 +14874,7 @@ class PatchManagerGUI(QWidget):
         patch_button_layout.addWidget(self.header_btn_patch_ncam)
 
         self.header_btn_patch_s4 = QPushButton(self.TEXT.get("patch_copy_s4", "Patch → S4"))
-        self.header_btn_patch_s4.setMinimumSize(200, 50)
+        self.header_btn_patch_s4.setMinimumSize(220, 50)
         self.header_btn_patch_s4.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_patch_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
@@ -14896,8 +14905,7 @@ class PatchManagerGUI(QWidget):
         header_actions_layout.setHorizontalSpacing(3)
         header_actions_layout.setVerticalSpacing(3)
         header_actions_layout.setAlignment(
-            Qt.AlignmentFlag.AlignHCenter |
-            Qt.AlignmentFlag.AlignVCenter
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
         )
 
         # Einheitlicher Stil für ALLE Aktionsbuttons
@@ -14958,6 +14966,11 @@ class PatchManagerGUI(QWidget):
         self.music_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.music_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.music_button.setStyleSheet(action_button_style)
+
+        # Log- und Musikbutton immer exakt gleich groß halten.
+        self.log_button.setFixedSize(230, 50)
+        self.music_button.setFixedSize(230, 50)
+
         self.music_button.setToolTip(
             "Hintergrundmusik aus dem Ordner sounds ein- oder ausschalten."
             if lang == "de" else
@@ -15078,13 +15091,13 @@ class PatchManagerGUI(QWidget):
         # --- OBERE REIHE ---
         header_actions_layout.addWidget(
             self.log_button, 0, 0, 1, 2,
-            alignment=Qt.AlignmentFlag.AlignCenter
+            alignment=Qt.AlignmentFlag.AlignLeft
         ) 
 
         # Musikbutton direkt unter "Log speichern".
         header_actions_layout.addWidget(
             self.music_button, 1, 0, 1, 2,
-            alignment=Qt.AlignmentFlag.AlignCenter
+            alignment=Qt.AlignmentFlag.AlignLeft
         )
         header_actions_layout.addWidget(
             self.music_title_combo, 2, 0, 1, 1,
