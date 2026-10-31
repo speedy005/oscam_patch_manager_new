@@ -8776,8 +8776,17 @@ class PatchManagerGUI(QWidget):
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
         self.info_text.insertHtml(full_html)
 
-        # 4. Scrollen
+        # 4. Automatisch bis ganz nach unten scrollen.
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
+        from PyQt6.QtCore import QTimer
+
+        def _scroll_to_end():
+            widget = getattr(self, "info_text", None)
+            if widget is not None:
+                scrollbar = widget.verticalScrollBar()
+                scrollbar.setValue(scrollbar.maximum())
+
+        QTimer.singleShot(0, _scroll_to_end)
 
     def scroll_to_bottom_smooth(self):
         """Scrollt das Info-Fenster sanft nach unten."""
@@ -11728,7 +11737,7 @@ class PatchManagerGUI(QWidget):
             button.setFont(QFont("Segoe UI", font_size, QFont.Weight.Bold))
             if name != "info_button":
                 button.setMinimumHeight(50 if compact else 50)
-                button.setMaximumWidth(260 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
+                button.setMaximumWidth(280 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
                 button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
         # Alle vier Header-Buttons exakt gleich groß halten.
@@ -11740,7 +11749,7 @@ class PatchManagerGUI(QWidget):
         ):
             button = getattr(self, name, None)
             if button is not None:
-                button.setFixedSize(230, 50)
+                button.setFixedSize(280, 50)
 
     def _fit_header_logo(self):
         """Skaliert das Banner proportional bis zur maximalen Größe."""
@@ -12466,13 +12475,8 @@ class PatchManagerGUI(QWidget):
         if not isinstance(widget, QTextEdit) or widget is None:
             return
 
-        # Vor dem Einfügen merken, ob der Benutzer bereits am Ende liest.
-        # Nur dann später automatisch nach unten scrollen.
+        # Automatisches Scrollen ist immer aktiv.
         scrollbar = widget.verticalScrollBar()
-        was_at_bottom = (
-            scrollbar is None
-            or scrollbar.value() >= scrollbar.maximum() - 2
-        )
 
         # 2. Farben & Variablen
         colors = {
@@ -12557,11 +12561,24 @@ class PatchManagerGUI(QWidget):
         widget.setTextCursor(cursor)
         cursor.insertHtml(html_output)
 
-        # 5. Scroll-Verhalten: nur automatisch folgen, wenn der Benutzer
-        # vor der neuen Meldung bereits am unteren Ende der Konsole war.
-        if was_at_bottom and scrollbar is not None:
-            scrollbar.setValue(scrollbar.maximum())
-            widget.ensureCursorVisible()
+        # 5. Immer bis zur tatsächlich letzten Zeile scrollen.
+        from PyQt6.QtCore import QTimer
+
+        widget.ensureCursorVisible()
+
+        def _force_scroll_to_bottom(target=widget):
+            try:
+                if target is not None:
+                    bar = target.verticalScrollBar()
+                    bar.setValue(bar.maximum())
+                    target.ensureCursorVisible()
+                    bar.setValue(bar.maximum())
+            except RuntimeError:
+                pass
+
+        QTimer.singleShot(0, _force_scroll_to_bottom)
+        QTimer.singleShot(50, _force_scroll_to_bottom)
+        QTimer.singleShot(150, _force_scroll_to_bottom)
 
     def run_background_task(self, fn, *args, **kwargs):
         """Startet eine Funktion im Hintergrund und steuert die Progressbar"""
@@ -13210,8 +13227,18 @@ class PatchManagerGUI(QWidget):
             # Notfall-Fallback falls append_info nicht erreichbar ist
             self.info_text.append(msg)
 
-        # Sicherstellen, dass das Fenster zum Ende scrollt
+        # Nach der Aktualisierung zuverlässig ganz nach unten scrollen.
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
+
+        from PyQt6.QtCore import QTimer
+
+        def _scroll_log_to_end():
+            widget = getattr(self, "info_text", None)
+            if widget is not None:
+                scrollbar = widget.verticalScrollBar()
+                scrollbar.setValue(scrollbar.maximum())
+
+        QTimer.singleShot(0, _scroll_log_to_end)
 
         # GUI aktualisieren, damit der Text sofort erscheint (wichtig bei Prozessen)
         QApplication.processEvents()
@@ -13437,7 +13464,7 @@ class PatchManagerGUI(QWidget):
             btn.setText(clean_text)
             btn.setIcon(QApplication.style().standardIcon(standard_pixmap))
             btn.setIconSize(QSize(20, 20))
-            btn.setMinimumSize(220, 50)
+            btn.setMinimumSize(240, 50)
             apply_button_style(btn, "#00FFFF")
 
         # --------------------------------------------------
@@ -13674,7 +13701,7 @@ class PatchManagerGUI(QWidget):
         matrix_btn = getattr(self, "btn_matrix", None)
         if matrix_btn is not None:
             matrix_btn.setText(tr("🔙 MATRIX Beenden", "🔙 EXIT MATRIX"))
-            matrix_btn.setMinimumSize(220, 50)
+            matrix_btn.setMinimumSize(240, 50)
             matrix_btn.setToolTip(
                 tr("Verlässt den Matrix-Modus.", "Exits Matrix mode.")
             )
@@ -14819,7 +14846,7 @@ class PatchManagerGUI(QWidget):
         )
 
         self.header_btn_s3_ncam = QPushButton(self.TEXT.get("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad"))
-        self.header_btn_s3_ncam.setMinimumSize(220, 50)
+        self.header_btn_s3_ncam.setMinimumSize(240, 50)
         self.header_btn_s3_ncam.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_s3_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s3_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
@@ -14832,7 +14859,7 @@ class PatchManagerGUI(QWidget):
 
         # Player direkt unter dem S3-Patch-Pfad platzieren.
         self.music_player_button = QPushButton("🎚 Player öffnen" if lang == "de" else "🎚 Open player")
-        self.music_player_button.setMinimumSize(220, 50)
+        self.music_player_button.setMinimumSize(240, 50)
         self.music_player_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.music_player_button.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         self.music_player_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -14845,7 +14872,7 @@ class PatchManagerGUI(QWidget):
         
 
         self.header_btn_s4 = QPushButton(self.TEXT.get("patch_folder_s4", "S4-Pfad"))
-        self.header_btn_s4.setMinimumSize(220, 50)
+        self.header_btn_s4.setMinimumSize(240, 50)
         self.header_btn_s4.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_DirOpenIcon))
@@ -14858,7 +14885,7 @@ class PatchManagerGUI(QWidget):
         path_button_layout.addWidget(self.music_player_button)
         # Die beiden Patch-Kopieraktionen ebenfalls untereinander.
         self.header_btn_patch_ncam = QPushButton(self.TEXT.get("patch_copy_s3_ncam", "Patch → S3-NCam"))
-        self.header_btn_patch_ncam.setMinimumSize(220, 50)
+        self.header_btn_patch_ncam.setMinimumSize(240, 50)
         self.header_btn_patch_ncam.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_patch_ncam.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
@@ -14874,7 +14901,7 @@ class PatchManagerGUI(QWidget):
         patch_button_layout.addWidget(self.header_btn_patch_ncam)
 
         self.header_btn_patch_s4 = QPushButton(self.TEXT.get("patch_copy_s4", "Patch → S4"))
-        self.header_btn_patch_s4.setMinimumSize(220, 50)
+        self.header_btn_patch_s4.setMinimumSize(240, 50)
         self.header_btn_patch_s4.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.header_btn_patch_s4.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.header_btn_patch_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
@@ -14936,7 +14963,7 @@ class PatchManagerGUI(QWidget):
         log_text = "Log speichern" if lang == "de" else "Save Log"
 
         self.log_button = QPushButton(log_text)
-        self.log_button.setMinimumSize(120, 32)
+        self.log_button.setMinimumSize(120, 50)
         self.log_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.log_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.log_button.setIcon(
@@ -14961,15 +14988,15 @@ class PatchManagerGUI(QWidget):
         # --- HINTERGRUNDMUSIK (sounds-Ordner im Tool-Verzeichnis) ---
         self.music_button = QPushButton("🎵 Musik einschalten" if lang == "de" else "🎵 Music on")
         self.music_button.setCheckable(True)
-        self.music_button.setMinimumSize(120, 32)
+        self.music_button.setMinimumSize(120, 50)
         self.music_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.music_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.music_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.music_button.setStyleSheet(action_button_style)
 
         # Log- und Musikbutton immer exakt gleich groß halten.
-        self.log_button.setFixedSize(230, 50)
-        self.music_button.setFixedSize(230, 50)
+        self.log_button.setFixedSize(240, 50)
+        self.music_button.setFixedSize(240, 50)
 
         self.music_button.setToolTip(
             "Hintergrundmusik aus dem Ordner sounds ein- oder ausschalten."
@@ -14982,7 +15009,7 @@ class PatchManagerGUI(QWidget):
         self._background_music_player = None
         self._background_music_output = None
         self.music_title_combo = QComboBox()
-        self.music_title_combo.setMinimumWidth(180)
+        self.music_title_combo.setMinimumWidth(200)
         self.music_title_combo.setMaximumWidth(240)
         self.music_title_combo.setToolTip(
             "Musiktitel auswählen" if lang == "de" else "Choose a music track"
@@ -15089,16 +15116,10 @@ class PatchManagerGUI(QWidget):
         self.oscam_source_button.clicked.connect(self.choose_oscam_source)
 
         # --- OBERE REIHE ---
-        header_actions_layout.addWidget(
-            self.log_button, 0, 0, 1, 2,
-            alignment=Qt.AlignmentFlag.AlignLeft
-        ) 
+        header_actions_layout.addWidget(self.log_button, 0, 0, 1, 2) 
 
         # Musikbutton direkt unter "Log speichern".
-        header_actions_layout.addWidget(
-            self.music_button, 1, 0, 1, 2,
-            alignment=Qt.AlignmentFlag.AlignLeft
-        )
+        header_actions_layout.addWidget(self.music_button, 1, 0, 1, 2)
         header_actions_layout.addWidget(
             self.music_title_combo, 2, 0, 1, 1,
             alignment=Qt.AlignmentFlag.AlignCenter
