@@ -2,6 +2,7 @@
 
 # Explicit module imports retained for compatibility with legacy callbacks.
 import ctypes
+import json
 import os
 import platform
 import shlex
@@ -16,6 +17,7 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 from bootstrap import auto_install_emoji_font
 from dialogs_splash import CinematicMatrixSplash
 from gui import PatchManagerGUI
+from paths import CONFIG_FILE
 
 
 def _is_elevated():
@@ -210,12 +212,57 @@ def main():
     def launch_main_gui():
         QTimer.singleShot(200, actually_start)
 
+    # Splash-Einstellungen aus der zentralen config.json laden.
+    splash_config = {}
     try:
-        splash = CinematicMatrixSplash(duration=5000)
-        splash.finished.connect(launch_main_gui)
-        splash.show()
-    except Exception as exc:
-        print(f"[SYSTEM] Splash-Screen übersprungen: {exc}")
-        actually_start()
+        with open(CONFIG_FILE, "r", encoding="utf-8") as handle:
+            loaded_config = json.load(handle)
+        if isinstance(loaded_config, dict):
+            splash_config = loaded_config
+    except (OSError, json.JSONDecodeError, TypeError):
+        pass
+
+    splash_mode = str(splash_config.get("splash_mode", "bot")).lower()
+    if splash_mode not in ("bot", "premium", "minimal", "off"):
+        splash_mode = "bot"
+
+    if splash_mode == "off":
+        print("[SYSTEM] Splash-Screen deaktiviert – starte Hauptfenster direkt.")
+        QTimer.singleShot(0, actually_start)
+    else:
+        try:
+            splash_duration = splash_config.get("splash_duration", 22000)
+            try:
+                splash_duration = max(5000, min(60000, int(splash_duration)))
+            except (TypeError, ValueError):
+                splash_duration = 22000
+            splash_sound_enabled = bool(
+                splash_config.get("splash_sound_enabled", True)
+            )
+            try:
+                splash_volume = max(0, min(100, int(
+                    splash_config.get("splash_volume", 65)
+                )))
+            except (TypeError, ValueError):
+                splash_volume = 65
+            try:
+                splash_speed = max(50, min(200, int(
+                    splash_config.get("splash_speed", 100)
+                )))
+            except (TypeError, ValueError):
+                splash_speed = 100
+
+            splash = CinematicMatrixSplash(
+                duration=splash_duration,
+                sound_enabled=splash_sound_enabled,
+                sound_volume=splash_volume,
+                variant=splash_mode,
+                animation_speed=splash_speed,
+            )
+            splash.finished.connect(launch_main_gui)
+            splash.show()
+        except Exception as exc:
+            print(f"[SYSTEM] Splash-Screen übersprungen: {exc}")
+            actually_start()
 
     return app.exec()

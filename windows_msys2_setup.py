@@ -35,6 +35,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
 import uuid
 
@@ -1004,12 +1005,50 @@ def launch_tool_menu(tool: str, source: Path, log=None) -> None:
     _log(log, f"Startbefehl: {_start_command(canonical)}")
     _log(log, f"Build-Log: {log_path}")
 
-    try:
-        process = subprocess.Popen(
-            command,
-            creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+    wt_exe = shutil.which("wt.exe")
+    if not wt_exe:
+        wt_candidate = (
+            Path(os.environ.get("LOCALAPPDATA", ""))
+            / "Microsoft" / "WindowsApps" / "wt.exe"
         )
+        if wt_candidate.is_file():
+            wt_exe = str(wt_candidate)
+
+    launcher_path = None
+
+    try:
+        if wt_exe:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                newline="\n",
+                suffix=".sh",
+                prefix="oscam_launcher_",
+                delete=False,
+            ) as launcher:
+                launcher.write("#!/usr/bin/env bash\n")
+                launcher.write(shell)
+                launcher_path = Path(launcher.name)
+
+            wsl_launcher = _wsl_path(launcher_path, log)
+
+            launch_command = [
+                wt_exe, "-w", "new",
+                _find_wsl(), "-d", WSL_DISTRO,
+                "--exec", "bash", wsl_launcher,
+            ]
+            _log(log, f"Terminal: Windows Terminal ({wt_exe})")
+            _log(log, f"WSL-Startdatei: {wsl_launcher}")
+            process = subprocess.Popen(launch_command)
+        else:
+            _log(log, "Terminal: klassische Windows-Konsole (Fallback)")
+            process = subprocess.Popen(
+                command,
+                creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+            )
     except OSError as exc:
+        if launcher_path is not None:
+            launcher_path.unlink(missing_ok=True)
         try:
             with log_path.open("a", encoding="utf-8") as file:
                 file.write(f"\nSTARTFEHLER: {exc}\n")

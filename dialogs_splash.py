@@ -55,6 +55,7 @@ from PyQt6.QtGui import (
 
 from PyQt6.QtWidgets import (
     QApplication,
+    QGraphicsDropShadowEffect,
     QWidget,
     QDialog,
     QFormLayout,
@@ -548,12 +549,16 @@ class SplashSoundManager:
         "impact": 350,
     }
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, enabled=True, master_volume=1.0):
         self.parent = parent
+        try:
+            self.master_volume = max(0.0, min(1.0, float(master_volume)))
+        except (TypeError, ValueError):
+            self.master_volume = 0.65
         self.sounds_dir = _find_sounds_dir()
         self.files = []
 
-        self.enabled = bool(MULTIMEDIA_AVAILABLE)
+        self.enabled = bool(MULTIMEDIA_AVAILABLE) and bool(enabled)
         self.players = {}
         self.last_play = {}
 
@@ -670,7 +675,7 @@ class SplashSoundManager:
         try:
             volume = max(0.0, min(1.0, float(volume)))
 
-            self.music_audio.setVolume(volume)
+            self.music_audio.setVolume(volume * self.master_volume)
             self.music_player.setSource(
                 QUrl.fromLocalFile(str(path.resolve()))
             )
@@ -717,7 +722,7 @@ class SplashSoundManager:
             level = 0.65 if volume is None else float(volume)
             level = max(0.0, min(1.0, level))
 
-            audio.setVolume(level)
+            audio.setVolume(level * self.master_volume)
             player.setSource(
                 QUrl.fromLocalFile(str(path.resolve()))
             )
@@ -1047,7 +1052,7 @@ class CinematicMatrixSplash(QWidget):
 
     finished = pyqtSignal()
 
-    MIN_DURATION_MS = 22000
+    MIN_DURATION_MS = 5000
 
     
   
@@ -1119,7 +1124,7 @@ class CinematicMatrixSplash(QWidget):
 
 
 
-    def __init__(self, duration=22000, parent=None):
+    def __init__(self, duration=22000, parent=None, sound_enabled=True, sound_volume=65, variant='bot', animation_speed=100):
         super().__init__(parent)
 
         try:
@@ -1128,6 +1133,11 @@ class CinematicMatrixSplash(QWidget):
             duration = self.MIN_DURATION_MS
 
         self.duration = max(self.MIN_DURATION_MS, duration)
+        self.variant = variant if variant in ('bot', 'premium', 'minimal') else 'bot'
+        try:
+            self.animation_speed = max(50, min(200, int(animation_speed)))
+        except (TypeError, ValueError):
+            self.animation_speed = 100
         self.started_at = time.monotonic()
 
         self.is_closing = False
@@ -1159,7 +1169,11 @@ class CinematicMatrixSplash(QWidget):
             "アイウエオカキクケコサシスセソタチツテト"
         )
 
-        self.sounds = SplashSoundManager(self)
+        self.sounds = SplashSoundManager(
+            self,
+            enabled=sound_enabled,
+            master_volume=max(0, min(100, int(sound_volume))) / 100.0,
+        )
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -1174,6 +1188,7 @@ class CinematicMatrixSplash(QWidget):
         self._center_and_size()
         self._initialize_matrix()
         self._build_ui()
+        self._apply_variant()
 
         self.center_on_screen()
         self.show()
@@ -1249,6 +1264,12 @@ class CinematicMatrixSplash(QWidget):
         """Passt die Schriftgröße für alle Logo-Teile einheitlich an."""
         label = getattr(self, "lbl_logo", None)
         if label is None:
+            return
+        if getattr(self, 'variant', 'bot') != 'bot':
+            font = QFont('DejaVu Sans')
+            font.setBold(True)
+            font.setPixelSize(42 if self.variant == 'premium' else 48)
+            label.setFont(font)
             return
 
         font = QFont("DejaVu Sans Mono")
@@ -1340,6 +1361,81 @@ class CinematicMatrixSplash(QWidget):
         self.lbl_logo_bottom.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_logo_bottom.setWordWrap(False)
         self.lbl_logo_bottom.setContentsMargins(0, 0, 0, 0)
+
+    def _apply_variant(self):
+        if self.variant == "bot":
+            return
+
+        if self.variant == "premium":
+            self.title.setText("◈  OSCAM // PREMIUM START")
+            self.lbl_logo.setText("OSCAM\nPATCH MANAGER")
+            self.lbl_logo.setStyleSheet(
+                "color:#65E6FF;background:transparent;border:none;"
+                "font-weight:800;letter-spacing:5px;"
+            )
+            subtitle_text = "SECURE SYSTEM INITIALIZATION"
+
+            # Dreifarbiger Neon-Pulse nur fuer Premium
+            self._premium_glow = QGraphicsDropShadowEffect(self.lbl_logo)
+            self._premium_glow.setOffset(0, 0)
+            self.lbl_logo.setGraphicsEffect(self._premium_glow)
+            self._update_premium_logo_glow()
+
+            # Premium-Oberfläche leicht transparent, damit der Reaktor
+            # hinter Logo und Statusanzeigen sichtbar bleibt.
+            # Premium: Hintergrund des Kind-Widgets transparent halten,
+            # damit der animierte Cyber-Reactor dahinter sichtbar bleibt.
+            self.ui.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+            self.ui.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+            self.ui.setAutoFillBackground(False)
+            self.ui.setStyleSheet("""
+                QWidget#CyberReactorOverlay {
+                    background: transparent;
+                    border: none;
+                }
+                QLabel {
+                    background: transparent;
+                    border: none;
+                }
+            """)
+            self.ui.setObjectName("CyberReactorOverlay")
+            if getattr(self, "pbar", None) is not None:
+                self.pbar.setStyleSheet("""
+                    QProgressBar {
+                        color: #DDFBFF;
+                        background: rgba(10, 35, 60, 210);
+                        border: 1px solid #36CFF5;
+                        border-radius: 5px;
+                        text-align: center;
+                        min-height: 12px;
+                    }
+                    QProgressBar::chunk {
+                        border-radius: 4px;
+                        background: qlineargradient(
+                            x1:0, y1:0, x2:1, y2:0,
+                            stop:0 #0879C9, stop:0.5 #42E5FF,
+                            stop:1 #D8FFFF
+                        );
+                    }
+                """)
+        else:
+            self.title.setText("OSCAM PATCH MANAGER")
+            self.lbl_logo.setText("OSCAM")
+            self.lbl_logo.setStyleSheet(
+                "color:#D7E2EA;background:transparent;border:none;"
+                "font-weight:600;letter-spacing:3px;"
+            )
+            subtitle_text = "SYSTEM START"
+
+        self.lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_logo.setWordWrap(True)
+
+        for label in self.logo_color_labels:
+            label.hide()
+        self.lbl_logo_bottom.hide()
+
+        if getattr(self, "subtitle", None) is not None:
+            self.subtitle.setText(subtitle_text)
 
     def _build_ui(self):
         main = QVBoxLayout(self)
@@ -1547,29 +1643,28 @@ class CinematicMatrixSplash(QWidget):
         )
 
     def _start_animations(self):
+        speed_factor = 100.0 / self.animation_speed
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
-        self.timer.start(25)
+        self.timer.start(max(1, round(25 * speed_factor)))
 
         self.timer_glitch = QTimer(self)
         self.timer_glitch.timeout.connect(self.glitch)
-        self.timer_glitch.start(100)
+        if self.variant == "bot":
+            self.timer_glitch.start(max(1, round(100 * speed_factor)))
 
         self.timer_scanner = QTimer(self)
         self.timer_scanner.timeout.connect(self._update_scanner)
-        self.timer_scanner.start(16)
+        if self.variant == "bot":
+            self.timer_scanner.start(max(1, round(16 * speed_factor)))
 
         self.completion_timer = QTimer(self)
         self.completion_timer.timeout.connect(self._check_completion)
         self.completion_timer.start(100)
 
-        self.anim = QPropertyAnimation(
-            self,
-            b"corner_factor",
-            self,
-        )
-
-        self.anim.setDuration(1800)
+        self.anim = QPropertyAnimation(self, b"corner_factor", self)
+        self.anim.setDuration(max(1, round(1800 * speed_factor)))
         self.anim.setStartValue(0.0)
         self.anim.setEndValue(1.0)
         self.anim.setEasingCurve(QEasingCurve.Type.OutBack)
@@ -1584,6 +1679,8 @@ class CinematicMatrixSplash(QWidget):
             return
 
         self.pulse += 0.12
+        if self.variant == "premium":
+            self._update_premium_logo_glow()
         self.shake *= 0.78
 
         for index in range(len(self.drops)):
@@ -1626,6 +1723,40 @@ class CinematicMatrixSplash(QWidget):
 
         self.sparks = particles[-1200:]
         self.update()
+
+    def _update_premium_logo_glow(self):
+        if self.variant != "premium":
+            return
+
+        effect = getattr(self, "_premium_glow", None)
+        if effect is None:
+            return
+
+        # Sanfter Farbwechsel: Cyan -> Violett -> Pink -> Cyan
+        colors = (
+            QColor(53, 232, 255),
+            QColor(196, 107, 255),
+            QColor(255, 77, 184),
+        )
+        phase = (self.pulse * 0.12) % 3.0
+        index = int(phase)
+        fraction = phase - index
+
+        first = colors[index]
+        second = colors[(index + 1) % len(colors)]
+
+        r = round(first.red() * (1 - fraction) + second.red() * fraction)
+        g = round(first.green() * (1 - fraction) + second.green() * fraction)
+        b = round(first.blue() * (1 - fraction) + second.blue() * fraction)
+
+        color = QColor(r, g, b)
+        effect.setColor(color)
+        effect.setBlurRadius(18 + 10 * (0.5 + 0.5 * math.sin(self.pulse * 0.18)))
+
+        self.lbl_logo.setStyleSheet(
+            f"color:rgb({r},{g},{b});background:transparent;border:none;"
+            "font-weight:800;letter-spacing:5px;"
+        )
 
     def _trigger_boot_impact(self):
         if self.is_closing:
@@ -1961,6 +2092,156 @@ class CinematicMatrixSplash(QWidget):
 
         width = self.width()
         height = self.height()
+
+        # Alternative Premium- und Minimal-Hintergründe.
+        # Die originale Bot-Matrix bleibt davon unberührt.
+        if self.variant in ("premium", "minimal"):
+            if self.variant == "premium":
+                # OSCAM CYBER REACTOR – animierter Premium-Hintergrund
+                painter.fillRect(self.rect(), QColor(3, 8, 22))
+
+                # Dezente digitale Lichtbahnen
+                line_y = int((self.pulse * 2.4) % max(1, height))
+                painter.fillRect(0, line_y, width, 2, QColor(50, 210, 255, 105))
+                painter.fillRect(0, max(0, line_y - 14), width, 28,
+                                 QColor(20, 130, 220, 18))
+
+                cx, cy = width // 2, height // 2
+                base = max(65, min(width, height) // 5)
+                rotation = self.pulse * 2.2
+
+                # Äußerer Reaktor-Glow
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                for offset, alpha in ((30, 9), (20, 15), (10, 23)):
+                    painter.setPen(QPen(QColor(0, 155, 255, alpha), 3))
+                    painter.drawEllipse(
+                        QPoint(cx, cy), base + offset, int((base + offset) * 0.72)
+                    )
+
+                # Drei rotierende Energieringe
+                ring_specs = (
+                    (base + 18, 0.40, rotation, QColor(35, 205, 255, 155), 2),
+                    (base - 2, 0.29, -rotation * 1.35, QColor(100, 235, 255, 125), 2),
+                    (base - 23, 0.18, rotation * 1.8, QColor(25, 145, 255, 180), 3),
+                )
+                for radius, flatten, angle, color, thickness in ring_specs:
+                    painter.save()
+                    painter.translate(cx, cy)
+                    painter.rotate(angle * 57.2958)
+                    pen = QPen(color, thickness)
+                    painter.setPen(pen)
+                    painter.drawEllipse(
+                        -radius, -int(radius * flatten),
+                        radius * 2, int(radius * flatten * 2)
+                    )
+                    painter.restore()
+
+                # Rotierende Speichen und Energie-Segmente
+                for index in range(12):
+                    angle = rotation + index * (math.tau / 12)
+                    inner = base * 0.58
+                    outer = base + 25
+                    x1 = cx + math.cos(angle) * inner
+                    y1 = cy + math.sin(angle) * inner * 0.72
+                    x2 = cx + math.cos(angle) * outer
+                    y2 = cy + math.sin(angle) * outer * 0.72
+                    alpha = int(75 + 95 * (0.5 + 0.5 * math.sin(self.pulse + index)))
+                    painter.setPen(QPen(QColor(65, 220, 255, alpha), 2))
+                    painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+
+                # Umlaufende leuchtende Partikel
+                for index in range(32):
+                    angle = self.pulse * 0.75 + index * (math.tau / 32)
+                    orbit = base + 35 + 8 * math.sin(self.pulse * 0.7 + index)
+                    px = cx + math.cos(angle) * orbit
+                    py = cy + math.sin(angle) * orbit * 0.72
+                    alpha = int(90 + 150 * (0.5 + 0.5 * math.sin(
+                        self.pulse * 1.8 + index * 0.8
+                    )))
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(QColor(80, 225, 255, alpha))
+                    dot = 2 if index % 3 else 4
+                    painter.drawEllipse(QPoint(int(px), int(py)), dot, dot)
+
+                # Heller Reaktorkern mit pulsierendem Zentrum
+                core_pulse = 0.5 + 0.5 * math.sin(self.pulse * 2.0)
+                core_radius = int(13 + core_pulse * 7)
+                painter.setBrush(QColor(20, 145, 220, 35))
+                painter.setPen(QPen(QColor(80, 225, 255, 175), 2))
+                painter.drawEllipse(QPoint(cx, cy), core_radius + 13, core_radius + 13)
+                painter.setBrush(QColor(50, 205, 255, 35))
+                painter.setPen(QPen(QColor(180, 250, 255, 220), 2))
+                painter.drawEllipse(QPoint(cx, cy), core_radius, core_radius)
+
+                # Kleine HUD-Anzeigen
+                painter.setFont(QFont("Consolas", 9))
+                painter.setPen(QColor(80, 210, 245, 175))
+                painter.drawText(34, height - 34, "OSCAM CORE // REACTOR ONLINE")
+                painter.drawText(
+                    width - 220, height - 34,
+                    f"ENERGY: {int(70 + 25 * core_pulse):02d}%"
+                )
+
+                # Eckrahmen mit pulsierender Neon-Helligkeit
+                accent = QColor(45, 200, 245, int(125 + 90 * core_pulse))
+                margin = 22
+                length = 65
+                painter.setPen(QPen(accent, 2))
+                corners = (
+                    (margin, margin, 1, 1),
+                    (width - margin, margin, -1, 1),
+                    (margin, height - margin, 1, -1),
+                    (width - margin, height - margin, -1, -1),
+                )
+                for x, y, dx, dy in corners:
+                    painter.drawLine(x, y, x + dx * length, y)
+                    painter.drawLine(x, y, x, y + dy * length)
+
+                painter.end()
+                return
+            else:
+                painter.fillRect(self.rect(), QColor(12, 17, 25))
+                accent = QColor(135, 160, 180, 65)
+                glow = QColor(100, 130, 155, 12)
+                line_y = int((self.pulse * 0.8) % max(1, height))
+
+            # Dezente horizontale Lichtfläche
+            painter.fillRect(0, line_y, width, 2, accent)
+            painter.fillRect(0, max(0, line_y - 12), width, 24, glow)
+
+            # Eckrahmen
+            margin = 22
+            length = 65 if self.variant == "premium" else 38
+            pen = QPen(accent)
+            pen.setWidth(2)
+            painter.setPen(pen)
+
+            # Oben links
+            painter.drawLine(margin, margin, margin + length, margin)
+            painter.drawLine(margin, margin, margin, margin + length)
+
+            # Oben rechts
+            painter.drawLine(width - margin - length, margin, width - margin, margin)
+            painter.drawLine(width - margin, margin, width - margin, margin + length)
+
+            # Unten links
+            painter.drawLine(margin, height - margin, margin + length, height - margin)
+            painter.drawLine(margin, height - margin - length, margin, height - margin)
+
+            # Unten rechts
+            painter.drawLine(width - margin - length, height - margin, width - margin, height - margin)
+            painter.drawLine(width - margin, height - margin - length, width - margin, height - margin)
+
+            # Dezente animierte Akzentlinie
+            if self.variant == "premium":
+                pen = QPen(QColor(90, 220, 255, 115))
+                pen.setWidth(1)
+                painter.setPen(pen)
+                center_y = height // 2
+                painter.drawLine(width // 4, center_y + 55, width * 3 // 4, center_y + 55)
+
+            painter.end()
+            return
 
         # Hintergrund abdecken
         painter.fillRect(self.rect(), QColor(0, 0, 0, 248))

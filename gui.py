@@ -16,6 +16,21 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from weather import open_weather_window
 
 
+def _open_cyber_center(gui):
+    from cyber_center import CyberCenterDialog
+
+    colors = getattr(gui, "current_diff_colors", None)
+    if not isinstance(colors, dict):
+        colors = globals().get("current_diff_colors", {})
+
+    dialog = CyberCenterDialog(
+        gui,
+        language=getattr(gui, "LANG", "de"),
+        colors=colors,
+    )
+    dialog.exec()
+
+
 class _PatchCreateBridge(QObject):
     """Thread-safe bridge for create_patch logging/progress callbacks."""
     log_message = pyqtSignal(object, str, str)
@@ -1021,6 +1036,13 @@ class PatchManagerGUI(QWidget):
                             "Nur die sichtbare Konsolenausgabe leeren; Logdateien bleiben unverändert"
                             if is_de else "Clear only the visible console output; log files remain unchanged",
                         )
+                    )
+                if hasattr(self, "cyber_center_button"):
+                    self.cyber_center_button.setText("OSCAM CONTROL CENTER")
+                    self.cyber_center_button.setToolTip(
+                        "Zentrale für alle OSCam-Control-Center-Funktionen"
+                        if is_de else
+                        "Central hub for all OSCam Control Center features"
                     )
                 if hasattr(self, "weather_button"):
                     self.weather_button.setText(
@@ -8378,6 +8400,9 @@ class PatchManagerGUI(QWidget):
             "active": active,
         }
 
+        # Aktive Farbpalette für alle Zusatzfenster bereitstellen.
+        self.current_diff_colors = current_diff_colors
+
         # ============================================================
         # 5. SOUND
         # ============================================================
@@ -15379,7 +15404,18 @@ class PatchManagerGUI(QWidget):
         clear_console_button.clicked.connect(self.info_text.clear)
         self.clear_console_button = clear_console_button
 
-        for tool_button in (copy_log_button, analyze_build_logs_button, diagnostics_button, log_history_button, clear_console_button):
+        cyber_center_button = QPushButton("OSCAM CONTROL CENTER")
+        cyber_center_button.setToolTip(
+            "Zentrale für alle OSCam-Control-Center-Funktionen"
+            if is_de else
+            "Central hub for all OSCam Control Center features"
+        )
+        cyber_center_button.clicked.connect(
+            lambda checked=False: _open_cyber_center(self)
+        )
+        self.cyber_center_button = cyber_center_button
+
+        for tool_button in (copy_log_button, analyze_build_logs_button, diagnostics_button, log_history_button, clear_console_button, cyber_center_button):
             tool_button.setMinimumHeight(30)
             tool_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             console_tools.addWidget(tool_button)
