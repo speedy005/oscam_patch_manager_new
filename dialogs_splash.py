@@ -2176,11 +2176,7 @@ class CinematicMatrixSplash(QWidget):
                 # Kleine HUD-Anzeigen
                 painter.setFont(QFont("Consolas", 9))
                 painter.setPen(QColor(80, 210, 245, 175))
-                painter.drawText(34, height - 34, "OSCAM CORE // REACTOR ONLINE")
-                painter.drawText(
-                    width - 220, height - 34,
-                    f"ENERGY: {int(70 + 25 * core_pulse):02d}%"
-                )
+
 
                 # Eckrahmen mit pulsierender Neon-Helligkeit
                 accent = QColor(45, 200, 245, int(125 + 90 * core_pulse))
