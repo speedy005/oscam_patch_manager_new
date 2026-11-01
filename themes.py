@@ -52,6 +52,13 @@ DIFF_COLORS = {
         "active": "#003B00",
         "window_bg": "#2F2F2F",
     },
+    "Amber": {
+        "bg": "#FFF8E1",
+        "fg": "#795548",
+        "hover": "#FFE082",
+        "active": "#FFCA28",
+        "window_bg": "#2F2F2F",
+    },
     "Amethyst": {
         "bg": "#9C27B0",
         "fg": "#E1BEE7",
@@ -64,6 +71,13 @@ DIFF_COLORS = {
         "fg": "#FFFFFF",
         "hover": "#3D3D3D",
         "active": "#242424",
+        "window_bg": "#2F2F2F",
+    },
+    "Aqua": {
+        "bg": "#E0F7FA",
+        "fg": "#006064",
+        "hover": "#B2EBF2",
+        "active": "#80DEEA",
         "window_bg": "#2F2F2F",
     },
     "Arctic": {
@@ -94,6 +108,13 @@ DIFF_COLORS = {
         "active": "#002420",
         "window_bg": "#2F2F2F",
     },
+    "Beige": {
+        "bg": "#F5F0E6",
+        "fg": "#5D5142",
+        "hover": "#E8DDC8",
+        "active": "#D6C6A8",
+        "window_bg": "#2F2F2F",
+    },
     "Biohazard": {
         "bg": "#003300",
         "fg": "#39FF14",
@@ -120,6 +141,13 @@ DIFF_COLORS = {
         "fg": "#FF0000",
         "hover": "#660000",
         "active": "#000000",
+        "window_bg": "#2F2F2F",
+    },
+    "Blueberry": {
+        "bg": "#E8EAF6",
+        "fg": "#283593",
+        "hover": "#C5CAE9",
+        "active": "#9FA8DA",
         "window_bg": "#2F2F2F",
     },
     "Bordeaux": {
@@ -178,11 +206,25 @@ DIFF_COLORS = {
         "active": "#260E04",
         "window_bg": "#2F2F2F",
     },
+    "Coral": {
+        "bg": "#FFF0EB",
+        "fg": "#BF5B45",
+        "hover": "#FFCCBC",
+        "active": "#FFAB91",
+        "window_bg": "#2F2F2F",
+    },
     "Cosmos": {
         "bg": "#130f40",
         "fg": "#f093fb",
         "hover": "#30336b",
         "active": "#130f40",
+        "window_bg": "#2F2F2F",
+    },
+    "Cream": {
+        "bg": "#FFFDE7",
+        "fg": "#827717",
+        "hover": "#FFF9C4",
+        "active": "#FFF176",
         "window_bg": "#2F2F2F",
     },
     "Crimson": {
@@ -218,6 +260,13 @@ DIFF_COLORS = {
         "fg": "#00D4FF",
         "hover": "#005F73",
         "active": "#001219",
+        "window_bg": "#2F2F2F",
+    },
+    "Denim": {
+        "bg": "#E3F2FD",
+        "fg": "#24527A",
+        "hover": "#BBDEFB",
+        "active": "#90CAF9",
         "window_bg": "#2F2F2F",
     },
     "Dracula": {
@@ -374,6 +423,13 @@ DIFF_COLORS = {
         "active": "#220000",
         "window_bg": "#2F2F2F",
     },
+    "Lavender": {
+        "bg": "#F3E5F5",
+        "fg": "#6A1B9A",
+        "hover": "#E1BEE7",
+        "active": "#CE93D8",
+        "window_bg": "#2F2F2F",
+    },
     "Magma": {
         "bg": "#000000",
         "fg": "#FF0000",
@@ -400,6 +456,13 @@ DIFF_COLORS = {
         "fg": "#C5CAE9",
         "hover": "#283593",
         "active": "#0D1137",
+        "window_bg": "#2F2F2F",
+    },
+    "Mint": {
+        "bg": "#E8F5E9",
+        "fg": "#2E6B45",
+        "hover": "#C8E6C9",
+        "active": "#A5D6A7",
         "window_bg": "#2F2F2F",
     },
     "Misty": {
@@ -444,6 +507,20 @@ DIFF_COLORS = {
         "active": "#222222",
         "window_bg": "#2F2F2F",
     },
+    "Ocean": {
+        "bg": "#E1F5FE",
+        "fg": "#01579B",
+        "hover": "#B3E5FC",
+        "active": "#81D4FA",
+        "window_bg": "#2F2F2F",
+    },
+    "Olive": {
+        "bg": "#F1F8E9",
+        "fg": "#556B2F",
+        "hover": "#DCEDC8",
+        "active": "#C5E1A5",
+        "window_bg": "#2F2F2F",
+    },
     "Overdrive": {
         "bg": "#120000",
         "fg": "#FF8000",
@@ -463,6 +540,34 @@ DIFF_COLORS = {
         "fg": "#19FF19",
         "hover": "#6B00B3",
         "active": "#002200",
+        "window_bg": "#2F2F2F",
+    },
+    "Rose": {
+        "bg": "#FCE4EC",
+        "fg": "#880E4F",
+        "hover": "#F8BBD0",
+        "active": "#F48FB1",
+        "window_bg": "#2F2F2F",
+    },
+    "Ruby": {
+        "bg": "#FCE4EC",
+        "fg": "#AD1457",
+        "hover": "#F8BBD0",
+        "active": "#F06292",
+        "window_bg": "#2F2F2F",
+    },
+    "Sand": {
+        "bg": "#FBE9E7",
+        "fg": "#6D4C41",
+        "hover": "#D7CCC8",
+        "active": "#BCAAA4",
+        "window_bg": "#2F2F2F",
+    },
+    "Silver": {
+        "bg": "#ECEFF1",
+        "fg": "#37474F",
+        "hover": "#CFD8DC",
+        "active": "#B0BEC5",
         "window_bg": "#2F2F2F",
     },
     "Supernova": {
