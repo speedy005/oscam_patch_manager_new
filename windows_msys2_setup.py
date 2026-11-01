@@ -62,12 +62,12 @@ REPOSITORIES = {
 }
 
 TOOL_DIRECTORIES = {
-    "s3": "s3_gorgone",
-    "s3_gorgone": "s3_gorgone",
+    "s3": "s3",
+    "s3_gorgone": "s3",
     "s3_simplebuild": "s3_speedy005",
     "s3_speedy005": "s3_speedy005",
     "s4": "s4",
-    "ncam": "ncam",
+    "ncam": "s3_ncam_bonecrew",
 }
 
 TOOL_ALIASES = {
@@ -373,18 +373,13 @@ def _script_candidates(tool: str):
 
 
 def _find_script(root: Path, tool: str):
-    root = Path(root)
-    folders = ("", "simplebuild4", "s3_ncam_bonecrew", "s3")
-    matches = []
+    root = Path(root).expanduser().resolve()
+    matches = [
+        (root / name).resolve()
+        for name in _script_candidates(tool)
+        if (root / name).is_file()
+    ]
 
-    for folder in folders:
-        base = root / folder if folder else root
-        for name in _script_candidates(tool):
-            candidate = base / name
-            if candidate.is_file():
-                matches.append(candidate.resolve())
-
-    matches = list(dict.fromkeys(matches))
     if len(matches) > 1:
         raise RuntimeError(
             "Mehrere mögliche Startskripte gefunden. Abbruch:\n"
@@ -915,6 +910,7 @@ def _build_shell_command(tool, script_dir, script_name, log_path) -> str:
     # -a erhält den vorhandenen Logkopf. -e liefert den Exit-Code weiter.
     # Die abschließende Shell bleibt offen, ohne den Build-Status zu fälschen.
     return (
+        f"cd {bash_quote(script_dir)} || {{ echo 'Repository-Ordner nicht erreichbar.'; exec bash; }}; "
         "if ! command -v script >/dev/null 2>&1; then "
         "echo 'FEHLER: util-linux script fehlt.'; "
         f"echo {bash_quote('Logdatei: ' + log_path)}; "
