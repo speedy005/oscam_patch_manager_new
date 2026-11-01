@@ -1484,16 +1484,44 @@ class PatchManagerLogsMixin:
 
         def collect_report():
             report = {"created_at": datetime.now().astimezone().isoformat(), "system": {}, "tools": {}, "build_logs": [], "process_monitor": {}}
-            tool_paths = {
+            windows_tools = {
                 "git": shutil.which("git"),
                 "bash": shutil.which("bash"),
                 "wsl": shutil.which("wsl") or shutil.which("wsl.exe"),
-                "make": shutil.which("make") or shutil.which("mingw32-make"),
-                "gcc": shutil.which("gcc"),
-                "g++": shutil.which("g++"),
-                "clang": shutil.which("clang"),
                 "python": shutil.which("python") or shutil.which("python3"),
             }
+            wsl_tools = {name: None for name in ("make", "gcc", "g++", "clang")}
+            wsl_error = None
+            wsl_launcher = windows_tools["wsl"]
+
+            if wsl_launcher:
+                try:
+                    import subprocess
+                    check_script = (
+                        'for tool in make gcc g++ clang; do '
+                        'printf "%s=" "$tool"; '
+                        'command -v "$tool" 2>/dev/null || true; '
+                        'done'
+                    )
+                    result = subprocess.run(
+                        [wsl_launcher, "--exec", "bash", "-lc", check_script],
+                        capture_output=True, text=True, timeout=15
+                    )
+                    for line in result.stdout.splitlines():
+                        name, separator, path = line.partition("=")
+                        if separator and name in wsl_tools and path.strip():
+                            wsl_tools[name] = path.strip()
+                    if result.returncode != 0:
+                        wsl_error = result.stderr.strip() or f"WSL exit code: {result.returncode}"
+                except Exception as exc:
+                    wsl_error = f"{type(exc).__name__}: {exc}"
+            else:
+                wsl_error = "WSL launcher not found"
+
+            tool_paths = {**windows_tools, **wsl_tools}
+            missing_windows = [name for name, value in windows_tools.items() if not value]
+            missing_wsl = [name for name, value in wsl_tools.items() if not value]
+
             report["system"] = {
                 "platform": platform.platform(),
                 "system": platform.system(),
@@ -1501,9 +1529,17 @@ class PatchManagerLogsMixin:
                 "python": sys.version,
                 "executable": sys.executable,
                 "cwd": os.getcwd(),
+                "windows_tools": windows_tools,
+                "wsl_tools": wsl_tools,
+                "wsl_error": wsl_error,
                 "tools_on_path": tool_paths,
                 "available_tool_count": sum(bool(value) for value in tool_paths.values()),
-                "missing_common_tools": [name for name, value in tool_paths.items() if value is None],
+                "missing_windows_tools": missing_windows,
+                "missing_wsl_tools": missing_wsl,
+                "missing_common_tools": (
+                    [f"Windows/{name}" for name in missing_windows]
+                    + [f"WSL/{name}" for name in missing_wsl]
+                ),
             }
             # Read-only process snapshot. A compiler process alone is only an indicator,
             # not proof that it belongs to this application or one of its builds.
@@ -1679,8 +1715,9 @@ class PatchManagerLogsMixin:
             running = [item.get("name", "worker") for item in report.get("process_monitor", {}).get("tracked_gui_workers", []) if item.get("state") == "RUNNING"]
             if is_de:
                 summary_lines = [
-                    f"Werkzeuge: {system.get('available_tool_count', 0)}/{len(system.get('tools_on_path', {}))} gefunden",
-                    "Fehlende Werkzeuge: " + (", ".join(missing) if missing else "keine der geprüften Standardwerkzeuge"),
+                    f"Windows: {len(system.get('windows_tools', {})) - len(system.get('missing_windows_tools', []))}/4 | WSL: {len(system.get('wsl_tools', {})) - len(system.get('missing_wsl_tools', []))}/4",
+                    "Fehlende Windows-Werkzeuge: " + (", ".join(system.get("missing_windows_tools", [])) or "keine"),
+                    "Fehlende WSL-Werkzeuge: " + (", ".join(system.get("missing_wsl_tools", [])) or "keine"),
                     "Repository-/Projektordner gefunden: " + (", ".join(found_repos) if found_repos else "keine der geprüften Ordner"),
                     f"Build-Logs: {len(logs)} gefunden",
                     "Aktive GUI-Worker: " + (", ".join(running) if running else "keine erkannt"),
@@ -1688,8 +1725,9 @@ class PatchManagerLogsMixin:
                 ]
             else:
                 summary_lines = [
-                    f"Tools: {system.get('available_tool_count', 0)}/{len(system.get('tools_on_path', {}))} found",
-                    "Missing tools: " + (", ".join(missing) if missing else "none of the checked common tools"),
+                    f"Windows: {len(system.get('windows_tools', {})) - len(system.get('missing_windows_tools', []))}/4 | WSL: {len(system.get('wsl_tools', {})) - len(system.get('missing_wsl_tools', []))}/4",
+                    "Missing Windows tools: " + (", ".join(system.get("missing_windows_tools", [])) or "none"),
+                    "Missing WSL tools: " + (", ".join(system.get("missing_wsl_tools", [])) or "none"),
                     "Project/repository folders found: " + (", ".join(found_repos) if found_repos else "none of the checked folders"),
                     f"Build logs: {len(logs)} found",
                     "Active GUI workers: " + (", ".join(running) if running else "none detected"),
