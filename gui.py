@@ -1539,6 +1539,28 @@ class PatchManagerGUI(QWidget):
         combo.setToolTip("Musiktitel auswählen" if is_de else "Choose a music track")
         combo.blockSignals(False)
 
+    def _save_music_state(self, **updates):
+        """Speichert Musik-Einstellungen dauerhaft in config.json."""
+        try:
+            if not isinstance(getattr(self, "current_config", None), dict):
+                self.current_config = load_config()
+
+            music_cfg = self.current_config.get("music", {})
+            if not isinstance(music_cfg, dict):
+                music_cfg = {}
+
+            music_cfg = dict(music_cfg)
+            music_cfg.update(updates)
+
+            return save_config(
+                {"music": music_cfg},
+                gui_instance=self,
+                silent=True
+            )
+        except Exception as exc:
+            print(f"[MUSIC] Einstellungen konnten nicht gespeichert werden: {exc}")
+            return False
+
     def on_background_music_selection_changed(self, index):
         """Startet den ausgewählten Titel sofort, falls Musik bereits läuft."""
         combo = getattr(self, "music_title_combo", None)
@@ -1602,7 +1624,18 @@ class PatchManagerGUI(QWidget):
             player = getattr(self, "_background_music_player", None)
             if player is None:
                 output = QAudioOutput(self)
-                output.setVolume(0.20)
+                music_cfg = (
+                    getattr(self, "current_config", {}) or {}
+                ).get("music", {})
+
+                try:
+                    saved_volume = int(music_cfg.get("volume", 20))
+                except (TypeError, ValueError):
+                    saved_volume = 20
+
+                output.setVolume(
+                    max(0, min(100, saved_volume)) / 100.0
+                )
                 player = QMediaPlayer(self)
                 player.setAudioOutput(output)
                 player.mediaStatusChanged.connect(self._on_background_music_status)
