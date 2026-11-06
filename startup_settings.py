@@ -74,6 +74,7 @@ class StartupSettingsDialog(QDialog):
         self.mode.addItem(self._tr("Premium – Cyan Tech", "Premium – Cyan Tech"), "premium")
         self.mode.addItem(self._tr("Matrix Boot Dashboard", "Matrix Boot Dashboard"), "dashboard")
         self.mode.addItem(self._tr("Matrix Reactor 360° – Multicolor", "Matrix Reactor 360° – Multicolor"), "reactor360")
+        self.mode.addItem(self._tr("NEBULA – Quantum Portal", "NEBULA – Quantum Portal"), "nebula")
         self.mode.addItem(self._tr("Minimal – schlicht", "Minimal – clean"), "minimal")
         self.mode.addItem(self._tr("Keine Startanimation", "No splash screen"), "off")
 

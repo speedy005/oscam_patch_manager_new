@@ -223,7 +223,7 @@ def main():
         pass
 
     splash_mode = str(splash_config.get("splash_mode", "bot")).lower()
-    if splash_mode not in ("bot", "premium", "dashboard", "reactor360", "minimal", "off"):
+    if splash_mode not in ("bot", "premium", "dashboard", "reactor360", "nebula", "minimal", "off"):
         splash_mode = "bot"
 
     if splash_mode == "off":

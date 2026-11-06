@@ -1134,7 +1134,7 @@ class CinematicMatrixSplash(QWidget):
             duration = self.MIN_DURATION_MS
 
         self.duration = max(self.MIN_DURATION_MS, duration)
-        self.variant = variant if variant in ('bot', 'premium', 'minimal', 'dashboard', 'reactor360') else 'bot'
+        self.variant = variant if variant in ('bot', 'premium', 'minimal', 'dashboard', 'reactor360', 'nebula') else 'bot'
         try:
             self.animation_speed = max(50, min(200, int(animation_speed)))
         except (TypeError, ValueError):
@@ -1153,6 +1153,7 @@ class CinematicMatrixSplash(QWidget):
         self._dashboard_last_bucket = -1
         self._dashboard_impact_played = False
         self._reactor360_impact_played = False
+        self._nebula_impact_played = False
 
         self.os_type = platform.system()
 
@@ -1465,6 +1466,75 @@ class CinematicMatrixSplash(QWidget):
                             stop:0.5 #A855F7,
                             stop:0.75 #FF35C7,
                             stop:1 #39FF88
+                        );
+                    }
+                """)
+
+        elif self.variant == "nebula":
+            self.title.setText("✦  OSCAM // NEBULA QUANTUM PORTAL")
+            self.lbl_logo.setText("Oscam Patch Manager\nby Speedy005")
+            self.lbl_logo.setFont(
+                QFont("DejaVu Sans", 34, QFont.Weight.Black)
+            )
+            self.lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.lbl_logo.setStyleSheet(
+                "color:#B9C8FF;background:transparent;border:none;"
+                "font-weight:900;letter-spacing:2px;"
+            )
+
+            self._nebula_glow = QGraphicsDropShadowEffect(self.lbl_logo)
+            self._nebula_glow.setOffset(0, 0)
+            self._nebula_glow.setColor(QColor(145, 105, 255))
+            self._nebula_glow.setBlurRadius(30)
+            self.lbl_logo.setGraphicsEffect(self._nebula_glow)
+
+            subtitle_text = "QUANTUM PORTAL  •  SYSTEM INITIALIZATION"
+
+            self.ui.setAttribute(
+                Qt.WidgetAttribute.WA_TranslucentBackground, True
+            )
+            self.ui.setAttribute(
+                Qt.WidgetAttribute.WA_NoSystemBackground, True
+            )
+            self.ui.setAutoFillBackground(False)
+            self.ui.setObjectName("NebulaPortalOverlay")
+            self.ui.setStyleSheet("""
+                QWidget#NebulaPortalOverlay {
+                    background: transparent;
+                    border: none;
+                }
+                QLabel {
+                    background: transparent;
+                    border: none;
+                }
+            """)
+
+            self.title.setStyleSheet(
+                "color:#D8C5FF;background:transparent;border:none;"
+                "font-weight:bold;"
+            )
+            self.host.setStyleSheet(
+                "color:#80DFFF;background:transparent;border:none;"
+            )
+
+            if getattr(self, "pbar", None) is not None:
+                self.pbar.setStyleSheet("""
+                    QProgressBar {
+                        color:#F5F0FF;
+                        background:rgba(8,5,24,225);
+                        border:1px solid #9875FF;
+                        border-radius:6px;
+                        text-align:center;
+                        min-height:12px;
+                    }
+                    QProgressBar::chunk {
+                        border-radius:5px;
+                        background:qlineargradient(
+                            x1:0,y1:0,x2:1,y2:0,
+                            stop:0 #7655FF,
+                            stop:0.35 #62CFFF,
+                            stop:0.7 #D8A7FF,
+                            stop:1 #FFD78A
                         );
                     }
                 """)
@@ -1859,6 +1929,33 @@ class CinematicMatrixSplash(QWidget):
         self.pulse += 0.12
         if self.variant == "premium":
             self._update_premium_logo_glow()
+        elif self.variant == "nebula":
+            colors = (
+                QColor(145, 105, 255),
+                QColor(75, 205, 255),
+                QColor(255, 205, 125),
+                QColor(205, 145, 255),
+            )
+            phase = (self.pulse * 0.025) % len(colors)
+            index = int(phase)
+            fraction = phase - index
+            first = colors[index]
+            second = colors[(index + 1) % len(colors)]
+
+            r = round(first.red() * (1 - fraction) + second.red() * fraction)
+            g = round(first.green() * (1 - fraction) + second.green() * fraction)
+            b = round(first.blue() * (1 - fraction) + second.blue() * fraction)
+
+            self._nebula_glow.setColor(QColor(r, g, b))
+            self._nebula_glow.setBlurRadius(
+                22 + 18 * (0.5 + 0.5 * math.sin(self.pulse * 0.16))
+            )
+            self.lbl_logo.setStyleSheet(
+                f"color:rgb({r},{g},{b});"
+                "background:transparent;border:none;"
+                "font-weight:900;letter-spacing:2px;"
+            )
+
         elif self.variant == "reactor360":
             colors = (
                 QColor(0, 229, 255),
@@ -2139,6 +2236,14 @@ class CinematicMatrixSplash(QWidget):
                 self.sounds.play("impact", 0.55, force=True)
 
         elif (
+            self.variant == "nebula"
+            and self.prog >= 50
+            and not self._nebula_impact_played
+        ):
+            self._nebula_impact_played = True
+            self.sounds.play("impact", 0.70, force=True)
+
+        elif (
             self.variant == "reactor360"
             and self.prog >= 50
             and not self._reactor360_impact_played
@@ -2326,6 +2431,163 @@ class CinematicMatrixSplash(QWidget):
 
         # Alternative Premium- und Minimal-Hintergründe.
         # Die originale Bot-Matrix bleibt davon unberührt.
+        if self.variant == "nebula":
+            # NEBULA – QUANTUM PORTAL
+            painter.fillRect(self.rect(), QColor(3, 4, 18))
+
+            cx = width // 2
+            cy = height // 2 - 8
+            base = max(55, min(width, height) // 5)
+            rotation = self.pulse * 0.018
+
+            # Tiefer Sternenhimmel mit pulsierenden Sternen
+            for i in range(90):
+                sx = (i * 127 + 19) % max(1, width)
+                sy = (i * 71 + 13) % max(1, height)
+                twinkle = 0.5 + 0.5 * math.sin(
+                    self.pulse * 0.12 + i * 1.7
+                )
+                alpha = int(35 + 150 * twinkle)
+                painter.setPen(QColor(160, 195, 255, alpha))
+                painter.drawPoint(sx, sy)
+
+            # Sanfte kosmische Lichtschleier
+            for i, color in enumerate((
+                QColor(95, 45, 190, 22),
+                QColor(30, 125, 205, 20),
+                QColor(190, 125, 65, 16),
+            )):
+                offset = int(math.sin(self.pulse * 0.025 + i) * 24)
+                painter.setPen(QPen(color, max(2, base // 5)))
+                painter.drawLine(
+                    0, cy + offset + i * 22,
+                    width, cy - offset - i * 18
+                )
+
+            # Äußerer Ereignishorizont
+            palette = (
+                QColor(135, 85, 255),
+                QColor(70, 195, 255),
+                QColor(255, 195, 115),
+                QColor(190, 115, 255),
+            )
+
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            for ring in range(7):
+                radius_x = base + ring * 13
+                radius_y = max(24, int(radius_x * 0.57))
+                color = palette[ring % len(palette)]
+                alpha = int(105 + 75 * (
+                    0.5 + 0.5 * math.sin(self.pulse * 0.09 + ring)
+                ))
+                color.setAlpha(alpha)
+                painter.setPen(QPen(color, 2 if ring < 3 else 1))
+                painter.drawEllipse(
+                    QPoint(cx, cy), radius_x, radius_y
+                )
+
+            # Rotierende Lichtbahnen um das Portal
+            for band in range(4):
+                color = QColor(palette[band % len(palette)])
+                color.setAlpha(190)
+                painter.setPen(QPen(color, 2 if band < 2 else 1))
+
+                start = rotation * (1 if band % 2 == 0 else -1)
+                previous = None
+
+                for step in range(65):
+                    angle = start + step * 0.075 + band * 1.55
+                    rx = base + 18 + band * 11
+                    ry = max(25, int(rx * 0.57))
+                    x = cx + int(math.cos(angle) * rx)
+                    y = cy + int(math.sin(angle) * ry)
+
+                    if previous is not None:
+                        painter.drawLine(
+                            previous[0], previous[1], x, y
+                        )
+                    previous = (x, y)
+
+            # Zentrale dunkle Portalöffnung
+            painter.setPen(QPen(QColor(130, 100, 255, 220), 3))
+            painter.setBrush(QColor(2, 3, 15, 245))
+            painter.drawEllipse(
+                QPoint(cx, cy), int(base * 0.64), int(base * 0.39)
+            )
+
+            painter.setPen(QPen(QColor(75, 195, 255, 155), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(
+                QPoint(cx, cy), int(base * 0.48), int(base * 0.29)
+            )
+
+            # Lichtströme, die in den Ereignishorizont gezogen werden
+            streams = (
+                QColor(155, 105, 255),
+                QColor(75, 210, 255),
+                QColor(255, 205, 125),
+            )
+            for i, color in enumerate(streams):
+                angle = rotation * (1.3 + i * 0.25) + i * 2.094
+                outer_x = cx + int(math.cos(angle) * base * 1.8)
+                outer_y = cy + int(math.sin(angle) * base * 1.05)
+                inner_x = cx + int(math.cos(angle + 0.9) * base * 0.55)
+                inner_y = cy + int(math.sin(angle + 0.9) * base * 0.32)
+
+                color.setAlpha(210)
+                painter.setPen(QPen(color, 3))
+                painter.drawLine(outer_x, outer_y, inner_x, inner_y)
+
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(color)
+                painter.drawEllipse(
+                    QPoint(outer_x, outer_y), 4, 4
+                )
+
+            # Partikel auf spiralförmigen Bahnen
+            for i in range(42):
+                angle = rotation * 1.7 + i * 0.47
+                distance = base * (0.65 + (i % 14) * 0.105)
+                x = cx + int(math.cos(angle) * distance)
+                y = cy + int(math.sin(angle) * distance * 0.58)
+                color = QColor(streams[i % 3])
+                color.setAlpha(max(35, 220 - (i % 14) * 12))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(color)
+                radius = 1 + (i % 3)
+                painter.drawEllipse(QPoint(x, y), radius, radius)
+
+            # Pulsierender Kern
+            core = int(5 + 5 * (
+                0.5 + 0.5 * math.sin(self.pulse * 0.22)
+            ))
+            painter.setBrush(QColor(190, 160, 255, 210))
+            painter.drawEllipse(QPoint(cx, cy), core, core)
+
+            # Dezente holografische HUD-Ecken
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(QColor(125, 175, 255, 150), 2))
+            corner = 34
+            for x, y, dx, dy in (
+                (20, 20, 1, 1),
+                (width - 20, 20, -1, 1),
+                (20, height - 20, 1, -1),
+                (width - 20, height - 20, -1, -1),
+            ):
+                painter.drawLine(x, y, x + dx * corner, y)
+                painter.drawLine(x, y, x, y + dy * corner)
+
+            painter.setFont(QFont("Consolas", 9))
+            painter.setPen(QColor(160, 175, 255, 190))
+            painter.drawText(30, height - 30, "NEBULA // QUANTUM CORE")
+            painter.drawText(
+                width - 205, height - 30,
+                f"PORTAL ENERGY: {self.prog:03d}%"
+            )
+
+            painter.end()
+            return
+
         if self.variant == "reactor360":
             # MATRIX REACTOR 360 - MULTICOLOR
             painter.fillRect(self.rect(), QColor(3, 3, 16))
