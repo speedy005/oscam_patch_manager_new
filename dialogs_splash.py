@@ -1084,7 +1084,7 @@ class CinematicMatrixSplash(QWidget):
         " █    |_|   |_||__| |__||_|  |__||__| |__||_______||_______||___|  |_|        █ ",
         " █                                                                            █ ",
         " █  ──────────────────[ SYSTEM: NEURAL_LINK OPERATIONAL ]───────────────────  █ ",
-        " █                     >> OSCAM EMU PATCH MANAGER v1.8.6  <<                  █ ",
+        " █                     >> OSCAM EMU PATCH MANAGER v1.8.5  <<                  █ ",
         " █               >> CODENAME: Speedy_Oscam-_Patch_Manager 2026 <<             █ ",
         " ◥◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢◤ ",
     ]
@@ -1313,7 +1313,7 @@ class CinematicMatrixSplash(QWidget):
         colors = ("#0000FF", "#FFA500", "#FF0000")
         markers = (
             "SYSTEM: NEURAL_LINK OPERATIONAL",
-            "OSCAM EMU PATCH MANAGER v1.8.6",
+            "OSCAM EMU PATCH MANAGER v1.8.5",
             "CODENAME: Speedy Oscam Patch Manager 2026",
         )
         import html
@@ -1479,14 +1479,42 @@ class CinematicMatrixSplash(QWidget):
             self.lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.lbl_logo.setStyleSheet(
                 "color:#B9C8FF;background:transparent;border:none;"
+                "font-weight:900;"
+            )
+
+            # Ursprüngliches Label behält seinen Layout-Platz, wird aber unsichtbar.
+            self.lbl_logo.setGraphicsEffect(None)
+            self.lbl_logo.setStyleSheet(
+                "color:rgba(0,0,0,0);background:transparent;border:none;"
+            )
+
+            # Separates, frei bewegliches NEBULA-Logo.
+            self._nebula_fly_logo = QLabel(
+                "Oscam Patch Manager\nby Speedy005", self.ui
+            )
+            self._nebula_fly_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._nebula_fly_logo.setWordWrap(False)
+
+            # Die endgültige Schriftgröße wird im Timer anhand der
+            # tatsächlichen Fenstergröße berechnet.
+            self._nebula_fly_logo.setFont(
+                QFont("DejaVu Sans", 20, QFont.Weight.Black)
+            )
+            self._nebula_fly_logo.resize(400, 92)
+            self._nebula_logo_width_cache = -1
+            self._nebula_fly_logo.setStyleSheet(
+                "color:#B9C8FF;background:transparent;border:none;"
                 "font-weight:900;letter-spacing:2px;"
             )
 
-            self._nebula_glow = QGraphicsDropShadowEffect(self.lbl_logo)
+            self._nebula_glow = QGraphicsDropShadowEffect(
+                self._nebula_fly_logo
+            )
             self._nebula_glow.setOffset(0, 0)
             self._nebula_glow.setColor(QColor(145, 105, 255))
             self._nebula_glow.setBlurRadius(30)
-            self.lbl_logo.setGraphicsEffect(self._nebula_glow)
+            self._nebula_fly_logo.setGraphicsEffect(self._nebula_glow)
+            self._nebula_fly_logo.raise_()
 
             subtitle_text = "QUANTUM PORTAL  •  SYSTEM INITIALIZATION"
 
@@ -1948,13 +1976,50 @@ class CinematicMatrixSplash(QWidget):
 
             self._nebula_glow.setColor(QColor(r, g, b))
             self._nebula_glow.setBlurRadius(
-                22 + 18 * (0.5 + 0.5 * math.sin(self.pulse * 0.16))
+                24 + 26 * (0.5 + 0.5 * math.sin(self.pulse * 0.16))
             )
-            self.lbl_logo.setStyleSheet(
+            self._nebula_fly_logo.setStyleSheet(
                 f"color:rgb({r},{g},{b});"
                 "background:transparent;border:none;"
                 "font-weight:900;letter-spacing:2px;"
             )
+
+            # Schrift dynamisch an die aktuelle Fensterbreite anpassen.
+            area_width = self.ui.width()
+            area_height = self.ui.height()
+            available_text = max(80, int(area_width * 0.48))
+
+            if self._nebula_logo_width_cache != area_width:
+                logo_font = QFont("DejaVu Sans", QFont.Weight.Black)
+                chosen_width = 0
+
+                for pixel_size in range(44, 7, -1):
+                    logo_font.setPixelSize(pixel_size)
+                    metrics = QFontMetrics(logo_font)
+                    measured = max(
+                        metrics.horizontalAdvance("Oscam Patch Manager"),
+                        metrics.horizontalAdvance("by Speedy005"),
+                    )
+                    if measured <= available_text - 32:
+                        chosen_width = measured
+                        break
+
+                self._nebula_fly_logo.setFont(logo_font)
+                logo_width = max(1, int(area_width * 0.72))
+                self._nebula_fly_logo.setFixedSize(logo_width, 92)
+                self._nebula_logo_width_cache = area_width
+
+            logo_width = self._nebula_fly_logo.width()
+            logo_height = self._nebula_fly_logo.height()
+            travel = max(0, area_width - logo_width - 32)
+            wave = 0.5 + 0.5 * math.sin(self.pulse * 0.075)
+            x = 16 + int(travel * wave)
+            y = int(
+                area_height * 0.52 - logo_height / 2
+                + 16 * math.sin(self.pulse * 0.11)
+            )
+            self._nebula_fly_logo.move(x, y)
+            self._nebula_fly_logo.raise_()
 
         elif self.variant == "reactor360":
             colors = (
@@ -2432,142 +2497,237 @@ class CinematicMatrixSplash(QWidget):
         # Alternative Premium- und Minimal-Hintergründe.
         # Die originale Bot-Matrix bleibt davon unberührt.
         if self.variant == "nebula":
-            # NEBULA – QUANTUM PORTAL
-            painter.fillRect(self.rect(), QColor(3, 4, 18))
+            # NEBULA OVERDRIVE - QUANTUM PORTAL
+            painter.fillRect(self.rect(), QColor(2, 3, 17))
 
             cx = width // 2
             cy = height // 2 - 8
             base = max(55, min(width, height) // 5)
-            rotation = self.pulse * 0.018
+            t = self.pulse * 0.018
+            pulse = 0.5 + 0.5 * math.sin(t * 2.2)
 
-            # Tiefer Sternenhimmel mit pulsierenden Sternen
-            for i in range(90):
-                sx = (i * 127 + 19) % max(1, width)
-                sy = (i * 71 + 13) % max(1, height)
-                twinkle = 0.5 + 0.5 * math.sin(
-                    self.pulse * 0.12 + i * 1.7
-                )
-                alpha = int(35 + 150 * twinkle)
-                painter.setPen(QColor(160, 195, 255, alpha))
-                painter.drawPoint(sx, sy)
-
-            # Sanfte kosmische Lichtschleier
-            for i, color in enumerate((
-                QColor(95, 45, 190, 22),
-                QColor(30, 125, 205, 20),
-                QColor(190, 125, 65, 16),
-            )):
-                offset = int(math.sin(self.pulse * 0.025 + i) * 24)
-                painter.setPen(QPen(color, max(2, base // 5)))
-                painter.drawLine(
-                    0, cy + offset + i * 22,
-                    width, cy - offset - i * 18
-                )
-
-            # Äußerer Ereignishorizont
             palette = (
-                QColor(135, 85, 255),
-                QColor(70, 195, 255),
-                QColor(255, 195, 115),
-                QColor(190, 115, 255),
+                QColor(145, 75, 255),
+                QColor(50, 205, 255),
+                QColor(255, 190, 95),
+                QColor(210, 105, 255),
+                QColor(95, 245, 255),
             )
 
+            # Kosmischer Hintergrund mit Sternen
+            for i in range(150):
+                sx = (i * 127 + 19) % max(1, width)
+                sy = (i * 71 + 13) % max(1, height)
+                twinkle = 0.5 + 0.5 * math.sin(t * 3.0 + i * 1.7)
+                alpha = int(35 + 170 * twinkle)
+                painter.setPen(QColor(155, 195, 255, alpha))
+                painter.drawPoint(sx, sy)
+
+            # Bewegte kosmische Energiebänder
+            for i, color in enumerate(palette[:3]):
+                color.setAlpha(20 + int(18 * pulse))
+                painter.setPen(QPen(color, max(3, base // 7)))
+                offset = math.sin(t * 1.3 + i * 2.1) * 55
+                painter.drawLine(
+                    0, int(cy + offset + i * 35),
+                    width, int(cy - offset - i * 25)
+                )
+
+            # Energetischer Außenbereich
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            for ring in range(7):
-                radius_x = base + ring * 13
-                radius_y = max(24, int(radius_x * 0.57))
-                color = palette[ring % len(palette)]
-                alpha = int(105 + 75 * (
-                    0.5 + 0.5 * math.sin(self.pulse * 0.09 + ring)
+            for i in range(10):
+                radius = base + 18 + i * 12
+                alpha = int(25 + 85 * (
+                    0.5 + 0.5 * math.sin(t * 1.5 + i)
                 ))
+                color = QColor(palette[i % len(palette)])
                 color.setAlpha(alpha)
-                painter.setPen(QPen(color, 2 if ring < 3 else 1))
+                painter.setPen(QPen(color, 2))
+                painter.drawEllipse(
+                    QPoint(cx, cy),
+                    radius,
+                    int(radius * 0.58)
+                )
+
+            # Rotierende Quantum-Ringe
+            ring_specs = (
+                (base + 40, 0.54, 1.0),
+                (base + 27, 0.82, -1.3),
+                (base + 12, 0.42, 1.8),
+                (base - 3, 0.73, -2.1),
+                (base - 18, 0.34, 2.7),
+            )
+
+            for index, (radius, flatten, speed) in enumerate(ring_specs):
+                color = palette[index % len(palette)]
+                painter.save()
+                painter.translate(cx, cy)
+                painter.rotate(math.degrees(t * speed))
+
+                color = QColor(color)
+                color.setAlpha(175)
+                painter.setPen(QPen(color, 3 if index % 2 == 0 else 2))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawEllipse(
+                    -radius, -int(radius * flatten),
+                    radius * 2, int(radius * flatten * 2)
+                )
+
+                # Ring-Segmente
+                for segment in range(24):
+                    angle = segment * math.tau / 24
+                    inner = radius - 5
+                    outer = radius + (13 if segment % 3 == 0 else 5)
+                    x1 = int(math.cos(angle) * inner)
+                    y1 = int(math.sin(angle) * inner * flatten)
+                    x2 = int(math.cos(angle) * outer)
+                    y2 = int(math.sin(angle) * outer * flatten)
+
+                    alpha = int(70 + 175 * (
+                        0.5 + 0.5 * math.sin(t * 4 + segment + index)
+                    ))
+                    segment_color = QColor(palette[index % len(palette)])
+                    segment_color.setAlpha(alpha)
+                    painter.setPen(QPen(segment_color, 2))
+                    painter.drawLine(x1, y1, x2, y2)
+
+                painter.restore()
+
+            # 36 rotierende Energie-Speichen
+            for i in range(36):
+                angle = t * (1.0 if i % 2 else -0.8) + i * math.tau / 36
+                inner = base * 0.48
+                outer = base + 58
+                x1 = cx + int(math.cos(angle) * inner)
+                y1 = cy + int(math.sin(angle) * inner * 0.58)
+                x2 = cx + int(math.cos(angle) * outer)
+                y2 = cy + int(math.sin(angle) * outer * 0.58)
+
+                color = QColor(palette[i % len(palette)])
+                color.setAlpha(int(65 + 130 * (
+                    0.5 + 0.5 * math.sin(t * 3 + i)
+                )))
+                painter.setPen(QPen(color, 2))
+                painter.drawLine(x1, y1, x2, y2)
+
+            # Plasma-Blitze: gezackte, animierte Entladungen
+            for bolt in range(9):
+                angle = t * (0.65 if bolt % 2 else -0.8) + bolt * math.tau / 9
+                previous = None
+
+                for step in range(13):
+                    fraction = step / 12
+                    radius = base * (0.72 + fraction * 0.95)
+                    jitter = math.sin(
+                        t * 8 + bolt * 5.7 + step * 3.1
+                    ) * (5 + fraction * 12)
+
+                    a = angle + jitter / max(1, radius)
+                    x = cx + int(math.cos(a) * radius)
+                    y = cy + int(math.sin(a) * radius * 0.58)
+
+                    if previous is not None:
+                        color = QColor(palette[bolt % len(palette)])
+                        color.setAlpha(int(210 - fraction * 85))
+                        painter.setPen(QPen(color, 2 if step % 3 else 3))
+                        painter.drawLine(previous[0], previous[1], x, y)
+
+                    previous = (x, y)
+
+            # Drei wandernde Shockwaves
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            for wave in range(3):
+                phase = (t * 0.48 + wave / 3) % 1.0
+                radius = int(25 + phase * (base + 125))
+                alpha = int(170 * (1.0 - phase))
+                color = QColor(palette[wave])
+                color.setAlpha(alpha)
+                painter.setPen(QPen(color, 3 if wave == 0 else 2))
+                painter.drawEllipse(
+                    QPoint(cx, cy),
+                    radius,
+                    int(radius * 0.58)
+                )
+
+            # Schwarzes Portal mit mehrschichtigem Energierand
+            painter.setPen(QPen(QColor(160, 105, 255, 240), 4))
+            painter.setBrush(QColor(1, 2, 12, 250))
+            painter.drawEllipse(
+                QPoint(cx, cy),
+                int(base * 0.66),
+                int(base * 0.39)
+            )
+
+            for i in range(5):
+                radius_x = int(base * (0.60 - i * 0.065))
+                radius_y = int(base * (0.35 - i * 0.037))
+                color = QColor(palette[i % len(palette)])
+                color.setAlpha(100 + int(100 * pulse))
+                painter.setPen(QPen(color, 2))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawEllipse(
                     QPoint(cx, cy), radius_x, radius_y
                 )
 
-            # Rotierende Lichtbahnen um das Portal
-            for band in range(4):
-                color = QColor(palette[band % len(palette)])
-                color.setAlpha(190)
-                painter.setPen(QPen(color, 2 if band < 2 else 1))
-
-                start = rotation * (1 if band % 2 == 0 else -1)
-                previous = None
-
-                for step in range(65):
-                    angle = start + step * 0.075 + band * 1.55
-                    rx = base + 18 + band * 11
-                    ry = max(25, int(rx * 0.57))
-                    x = cx + int(math.cos(angle) * rx)
-                    y = cy + int(math.sin(angle) * ry)
-
-                    if previous is not None:
-                        painter.drawLine(
-                            previous[0], previous[1], x, y
-                        )
-                    previous = (x, y)
-
-            # Zentrale dunkle Portalöffnung
-            painter.setPen(QPen(QColor(130, 100, 255, 220), 3))
-            painter.setBrush(QColor(2, 3, 15, 245))
-            painter.drawEllipse(
-                QPoint(cx, cy), int(base * 0.64), int(base * 0.39)
-            )
-
-            painter.setPen(QPen(QColor(75, 195, 255, 155), 2))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawEllipse(
-                QPoint(cx, cy), int(base * 0.48), int(base * 0.29)
-            )
-
-            # Lichtströme, die in den Ereignishorizont gezogen werden
-            streams = (
-                QColor(155, 105, 255),
-                QColor(75, 210, 255),
-                QColor(255, 205, 125),
-            )
-            for i, color in enumerate(streams):
-                angle = rotation * (1.3 + i * 0.25) + i * 2.094
-                outer_x = cx + int(math.cos(angle) * base * 1.8)
-                outer_y = cy + int(math.sin(angle) * base * 1.05)
-                inner_x = cx + int(math.cos(angle + 0.9) * base * 0.55)
-                inner_y = cy + int(math.sin(angle + 0.9) * base * 0.32)
-
-                color.setAlpha(210)
-                painter.setPen(QPen(color, 3))
-                painter.drawLine(outer_x, outer_y, inner_x, inner_y)
-
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(color)
-                painter.drawEllipse(
-                    QPoint(outer_x, outer_y), 4, 4
+            # 120 Partikel im spiralförmigen Sog
+            painter.setPen(Qt.PenStyle.NoPen)
+            for i in range(120):
+                direction = 1 if i % 2 else -1
+                angle = (
+                    t * (1.1 + (i % 7) * 0.09) * direction
+                    + i * 2.399
                 )
+                phase = (i * 0.137 + t * (0.20 + (i % 5) * 0.035)) % 1.0
+                distance = base * (0.52 + phase * 1.45)
 
-            # Partikel auf spiralförmigen Bahnen
-            for i in range(42):
-                angle = rotation * 1.7 + i * 0.47
-                distance = base * (0.65 + (i % 14) * 0.105)
                 x = cx + int(math.cos(angle) * distance)
                 y = cy + int(math.sin(angle) * distance * 0.58)
-                color = QColor(streams[i % 3])
-                color.setAlpha(max(35, 220 - (i % 14) * 12))
-                painter.setPen(Qt.PenStyle.NoPen)
+
+                color = QColor(palette[i % len(palette)])
+                color.setAlpha(int(55 + 190 * (1.0 - phase)))
                 painter.setBrush(color)
-                radius = 1 + (i % 3)
-                painter.drawEllipse(QPoint(x, y), radius, radius)
 
-            # Pulsierender Kern
-            core = int(5 + 5 * (
-                0.5 + 0.5 * math.sin(self.pulse * 0.22)
-            ))
-            painter.setBrush(QColor(190, 160, 255, 210))
-            painter.drawEllipse(QPoint(cx, cy), core, core)
+                size = 2 if i % 4 else 4
+                painter.drawEllipse(QPoint(x, y), size, size)
 
-            # Dezente holografische HUD-Ecken
+            # Heller Quantum-Reaktorkern
+            core_radius = int(9 + pulse * 15)
+
+            for layer in range(7, 0, -1):
+                radius = core_radius + layer * 7
+                color = QColor(palette[layer % len(palette)])
+                color.setAlpha(max(12, 75 - layer * 7))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.setPen(QPen(color, 4))
+                painter.drawEllipse(
+                    QPoint(cx, cy), radius, int(radius * 0.72)
+                )
+
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(215, 190, 255, 230))
+            painter.drawEllipse(
+                QPoint(cx, cy), core_radius, core_radius
+            )
+            painter.setBrush(QColor(100, 225, 255, 220))
+            painter.drawEllipse(
+                QPoint(cx, cy), max(3, core_radius // 2),
+                max(3, core_radius // 2)
+            )
+
+            # Scannerlinien über dem Portal
+            scan_y = int((t * 95) % max(1, height))
+            painter.setPen(QPen(QColor(80, 205, 255, 55), 1))
+            painter.drawLine(0, scan_y, width, scan_y)
+
+            scan_y2 = int((t * 95 + height // 2) % max(1, height))
+            painter.setPen(QPen(QColor(175, 100, 255, 35), 1))
+            painter.drawLine(0, scan_y2, width, scan_y2)
+
+            # Holografisches HUD
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(QPen(QColor(125, 175, 255, 150), 2))
-            corner = 34
+            painter.setPen(QPen(QColor(100, 205, 255, 190), 2))
+            corner = 42
+
             for x, y, dx, dy in (
                 (20, 20, 1, 1),
                 (width - 20, 20, -1, 1),
@@ -2577,12 +2737,33 @@ class CinematicMatrixSplash(QWidget):
                 painter.drawLine(x, y, x + dx * corner, y)
                 painter.drawLine(x, y, x, y + dy * corner)
 
+            # Kleine technische Messskalen
+            for i in range(31):
+                x = 32 + i * max(1, (width - 64) // 30)
+                tick = 12 if i % 5 == 0 else 5
+                painter.setPen(QPen(QColor(100, 190, 255, 125), 1))
+                painter.drawLine(x, 35, x, 35 + tick)
+                painter.drawLine(x, height - 35, x, height - 35 - tick)
+
             painter.setFont(QFont("Consolas", 9))
-            painter.setPen(QColor(160, 175, 255, 190))
-            painter.drawText(30, height - 30, "NEBULA // QUANTUM CORE")
+            painter.setPen(QColor(165, 185, 255, 220))
+            painter.drawText(32, 58, "NEBULA // QUANTUM OVERDRIVE")
+            painter.drawText(32, 76, "EVENT HORIZON: ACTIVE")
+            painter.drawText(
+                width - 220, 58,
+                f"CORE POWER: {int(50 + pulse * 50):03d}%"
+            )
+            painter.drawText(
+                width - 220, 76,
+                f"PORTAL ENERGY: {self.prog:03d}%"
+            )
+            painter.drawText(
+                30, height - 30,
+                "OSC // QUANTUM SYSTEMS"
+            )
             painter.drawText(
                 width - 205, height - 30,
-                f"PORTAL ENERGY: {self.prog:03d}%"
+                "OVERDRIVE SEQUENCE"
             )
 
             painter.end()
