@@ -72,6 +72,8 @@ class StartupSettingsDialog(QDialog):
         self.mode = QComboBox()
         self.mode.addItem(self._tr("Bot-Animation (Matrix)", "Bot animation (Matrix)"), "bot")
         self.mode.addItem(self._tr("Premium – Cyan Tech", "Premium – Cyan Tech"), "premium")
+        self.mode.addItem(self._tr("Matrix Boot Dashboard", "Matrix Boot Dashboard"), "dashboard")
+        self.mode.addItem(self._tr("Matrix Reactor 360° – Multicolor", "Matrix Reactor 360° – Multicolor"), "reactor360")
         self.mode.addItem(self._tr("Minimal – schlicht", "Minimal – clean"), "minimal")
         self.mode.addItem(self._tr("Keine Startanimation", "No splash screen"), "off")
 

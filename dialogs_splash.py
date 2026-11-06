@@ -68,6 +68,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QMessageBox,
     QSizePolicy,
+    QPlainTextEdit,
 )
 
 
@@ -1133,7 +1134,7 @@ class CinematicMatrixSplash(QWidget):
             duration = self.MIN_DURATION_MS
 
         self.duration = max(self.MIN_DURATION_MS, duration)
-        self.variant = variant if variant in ('bot', 'premium', 'minimal') else 'bot'
+        self.variant = variant if variant in ('bot', 'premium', 'minimal', 'dashboard', 'reactor360') else 'bot'
         try:
             self.animation_speed = max(50, min(200, int(animation_speed)))
         except (TypeError, ValueError):
@@ -1149,6 +1150,9 @@ class CinematicMatrixSplash(QWidget):
         self._bootstrap_success = False
         self._restart_pending = False
         self._error_close_scheduled = False
+        self._dashboard_last_bucket = -1
+        self._dashboard_impact_played = False
+        self._reactor360_impact_played = False
 
         self.os_type = platform.system()
 
@@ -1366,7 +1370,106 @@ class CinematicMatrixSplash(QWidget):
         if self.variant == "bot":
             return
 
-        if self.variant == "premium":
+        if self.variant == "dashboard":
+            self.title.setText("◈  OSCAM // MATRIX BOOT DASHBOARD")
+            self.lbl_logo.setText("OSCAM\nBOOT SYSTEM")
+            self.lbl_logo.setStyleSheet(
+                "color:#65E6FF;background:transparent;border:none;"
+                "font-weight:800;letter-spacing:5px;"
+            )
+            subtitle_text = "LIVE DIAGNOSTICS  •  SYSTEM INITIALIZATION"
+
+            if getattr(self, "pbar", None) is not None:
+                self.pbar.setStyleSheet("""
+                    QProgressBar {
+                        color:#DDFBFF;
+                        background:rgba(0,12,20,220);
+                        border:1px solid #20DDF5;
+                        border-radius:5px;
+                        text-align:center;
+                        min-height:12px;
+                    }
+                    QProgressBar::chunk {
+                        border-radius:4px;
+                        background:qlineargradient(
+                            x1:0,y1:0,x2:1,y2:0,
+                            stop:0 #007C91,
+                            stop:0.5 #20DDF5,
+                            stop:1 #9DFFB0
+                        );
+                    }
+                """)
+
+        elif self.variant == "reactor360":
+            self.title.setText("◈  OSCAM PATCH MANAGER // REACTOR 360°")
+            self.lbl_logo.setText("Oscam Patch Manager\nby Speedy005")
+            self.lbl_logo.setFont(
+                QFont("DejaVu Sans", 36, QFont.Weight.Black)
+            )
+            self.lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.lbl_logo.setStyleSheet(
+                "color:#00E5FF;background:transparent;border:none;"
+                "font-weight:900;letter-spacing:2px;"
+            )
+
+            self._reactor360_glow = QGraphicsDropShadowEffect(self.lbl_logo)
+            self._reactor360_glow.setOffset(0, 0)
+            self._reactor360_glow.setColor(QColor(0, 229, 255))
+            self._reactor360_glow.setBlurRadius(24)
+            self.lbl_logo.setGraphicsEffect(self._reactor360_glow)
+            subtitle_text = "MULTICOLOR ENERGY CORE  •  SYSTEM INITIALIZATION"
+
+            self.ui.setAttribute(
+                Qt.WidgetAttribute.WA_TranslucentBackground, True
+            )
+            self.ui.setAttribute(
+                Qt.WidgetAttribute.WA_NoSystemBackground, True
+            )
+            self.ui.setAutoFillBackground(False)
+            self.ui.setObjectName("Reactor360Overlay")
+            self.ui.setStyleSheet("""
+                QWidget#Reactor360Overlay {
+                    background: transparent;
+                    border: none;
+                }
+                QLabel {
+                    background: transparent;
+                    border: none;
+                }
+            """)
+
+            self.title.setStyleSheet(
+                "color:#39FF88;background:transparent;border:none;"
+                "font-weight:bold;"
+            )
+            self.host.setStyleSheet(
+                "color:#A855F7;background:transparent;border:none;"
+            )
+
+            if getattr(self, "pbar", None) is not None:
+                self.pbar.setStyleSheet("""
+                    QProgressBar {
+                        color:#FFFFFF;
+                        background:rgba(8,5,22,220);
+                        border:1px solid #A855F7;
+                        border-radius:5px;
+                        text-align:center;
+                        min-height:12px;
+                    }
+                    QProgressBar::chunk {
+                        border-radius:4px;
+                        background:qlineargradient(
+                            x1:0,y1:0,x2:1,y2:0,
+                            stop:0 #00E5FF,
+                            stop:0.25 #287BFF,
+                            stop:0.5 #A855F7,
+                            stop:0.75 #FF35C7,
+                            stop:1 #39FF88
+                        );
+                    }
+                """)
+
+        elif self.variant == "premium":
             self.title.setText("◈  OSCAM // PREMIUM START")
             self.lbl_logo.setText("OSCAM\nPATCH MANAGER")
             self.lbl_logo.setStyleSheet(
@@ -1584,6 +1687,36 @@ class CinematicMatrixSplash(QWidget):
         """)
         layout.addWidget(self.pbar)
 
+        if self.variant == "dashboard":
+            self.dashboard_metrics = QLabel(
+                "CPU: --%   RAM: --%   DISK: --%   PYTHON: "
+                + platform.python_version()
+            )
+            self.dashboard_metrics.setFont(QFont("Consolas", 9, QFont.Weight.Bold))
+            self.dashboard_metrics.setStyleSheet(
+                "color:#65E6FF;background:rgba(0,18,28,190);"
+                "border:1px solid #087F91;border-radius:4px;padding:6px;"
+            )
+            layout.addWidget(self.dashboard_metrics)
+
+            self.dashboard_log = QPlainTextEdit()
+            self.dashboard_log.setReadOnly(True)
+            self.dashboard_log.setMaximumBlockCount(7)
+            self.dashboard_log.setMinimumHeight(76)
+            self.dashboard_log.setMaximumHeight(100)
+            self.dashboard_log.setFont(QFont("Consolas", 8))
+            self.dashboard_log.setStyleSheet("""
+                QPlainTextEdit {
+                    color:#9DFFB0;
+                    background:rgba(0,8,14,220);
+                    border:1px solid #087F91;
+                    border-radius:4px;
+                    padding:5px;
+                }
+            """)
+            layout.addWidget(self.dashboard_log)
+            self._append_dashboard_log("DASHBOARD INITIALIZED")
+
         footer = QHBoxLayout()
         sound_state = "ON" if self.sounds.enabled else "AUDIO OPTIONAL"
         self.volume_label = QLabel(
@@ -1624,6 +1757,43 @@ class CinematicMatrixSplash(QWidget):
 
         main.addWidget(self.ui)
 
+    def _append_dashboard_log(self, message):
+        if self.variant != "dashboard":
+            return
+
+        log = getattr(self, "dashboard_log", None)
+        if log is None:
+            return
+
+        timestamp = time.strftime("%H:%M:%S")
+        log.appendPlainText(f"[{timestamp}] {message}")
+
+    def _update_dashboard_metrics(self):
+        if self.is_closing or self.variant != "dashboard":
+            return
+
+        label = getattr(self, "dashboard_metrics", None)
+        if label is None:
+            return
+
+        try:
+            import psutil
+
+            cpu = psutil.cpu_percent(interval=None)
+            ram = psutil.virtual_memory().percent
+            disk = psutil.disk_usage(os.path.abspath(os.sep)).percent
+
+            label.setText(
+                f"CPU: {cpu:5.1f}%   "
+                f"RAM: {ram:5.1f}%   "
+                f"DISK: {disk:5.1f}%   "
+                f"PYTHON: {platform.python_version()}"
+            )
+        except Exception as exc:
+            label.setText(
+                f"SYSTEM MONITOR UNAVAILABLE: {type(exc).__name__}"
+            )
+
     def center_on_screen(self):
         app = QApplication.instance()
 
@@ -1663,6 +1833,14 @@ class CinematicMatrixSplash(QWidget):
         self.completion_timer.timeout.connect(self._check_completion)
         self.completion_timer.start(100)
 
+        if self.variant == "dashboard":
+            self.dashboard_timer = QTimer(self)
+            self.dashboard_timer.timeout.connect(
+                self._update_dashboard_metrics
+            )
+            self.dashboard_timer.start(1500)
+            QTimer.singleShot(0, self._update_dashboard_metrics)
+
         self.anim = QPropertyAnimation(self, b"corner_factor", self)
         self.anim.setDuration(max(1, round(1800 * speed_factor)))
         self.anim.setStartValue(0.0)
@@ -1681,6 +1859,34 @@ class CinematicMatrixSplash(QWidget):
         self.pulse += 0.12
         if self.variant == "premium":
             self._update_premium_logo_glow()
+        elif self.variant == "reactor360":
+            colors = (
+                QColor(0, 229, 255),
+                QColor(40, 123, 255),
+                QColor(168, 85, 247),
+                QColor(255, 53, 199),
+                QColor(57, 255, 136),
+            )
+            phase = (self.pulse * 0.035) % len(colors)
+            index = int(phase)
+            fraction = phase - index
+            first = colors[index]
+            second = colors[(index + 1) % len(colors)]
+
+            r = round(first.red() * (1 - fraction) + second.red() * fraction)
+            g = round(first.green() * (1 - fraction) + second.green() * fraction)
+            b = round(first.blue() * (1 - fraction) + second.blue() * fraction)
+
+            self._reactor360_glow.setColor(QColor(r, g, b))
+            self._reactor360_glow.setBlurRadius(
+                18 + 16 * (0.5 + 0.5 * math.sin(self.pulse * 0.22))
+            )
+            self.lbl_logo.setStyleSheet(
+                f"color:rgb({r},{g},{b});"
+                "background:transparent;border:none;"
+                "font-weight:900;letter-spacing:2px;"
+            )
+
         self.shake *= 0.78
 
         for index in range(len(self.drops)):
@@ -1909,6 +2115,7 @@ class CinematicMatrixSplash(QWidget):
     def _on_status(self, message):
         if not self.is_closing:
             self.status.setText("›  " + message)
+            self._append_dashboard_log(message)
 
     def _on_progress(self, value):
         if self.is_closing:
@@ -1916,6 +2123,28 @@ class CinematicMatrixSplash(QWidget):
 
         self.prog = max(0, min(100, int(value)))
         self.pbar.setValue(self.prog)
+
+        if self.variant == "dashboard":
+            bucket = (self.prog // 10) * 10
+
+            if bucket != self._dashboard_last_bucket:
+                self._dashboard_last_bucket = bucket
+                if bucket > 0:
+                    self._append_dashboard_log(
+                        f"BOOT PROGRESS: {bucket}%"
+                    )
+
+            if self.prog >= 50 and not self._dashboard_impact_played:
+                self._dashboard_impact_played = True
+                self.sounds.play("impact", 0.55, force=True)
+
+        elif (
+            self.variant == "reactor360"
+            and self.prog >= 50
+            and not self._reactor360_impact_played
+        ):
+            self._reactor360_impact_played = True
+            self.sounds.play("impact", 0.65, force=True)
 
     
     def _on_bootstrap_complete(self, success, result):
@@ -1931,6 +2160,7 @@ class CinematicMatrixSplash(QWidget):
                 return
 
             self._bootstrap_success = False
+            self._append_dashboard_log("BOOTSTRAP ERROR")
             self.sounds.play("error", 0.70, force=True)
 
             self.status.setText("BOOTSTRAP FAILED:\n" + result)
@@ -1955,6 +2185,7 @@ class CinematicMatrixSplash(QWidget):
             return
 
         self._bootstrap_success = True
+        self._append_dashboard_log("SYSTEM ONLINE — FINAL SEQUENCE")
         self.prog = 100
         self.pbar.setValue(100)
 
@@ -2095,6 +2326,249 @@ class CinematicMatrixSplash(QWidget):
 
         # Alternative Premium- und Minimal-Hintergründe.
         # Die originale Bot-Matrix bleibt davon unberührt.
+        if self.variant == "reactor360":
+            # MATRIX REACTOR 360 - MULTICOLOR
+            painter.fillRect(self.rect(), QColor(3, 3, 16))
+
+            cx, cy = width // 2, height // 2
+            base = max(65, min(width, height) // 5)
+            rotation = self.pulse
+
+            palette = (
+                QColor(0, 229, 255),
+                QColor(40, 123, 255),
+                QColor(168, 85, 247),
+                QColor(255, 53, 199),
+                QColor(57, 255, 136),
+            )
+
+            # Dezentes futuristisches Energieraster
+            grid_step = 42
+            painter.setPen(QPen(QColor(50, 90, 170, 22), 1))
+            for gx in range(0, width, grid_step):
+                painter.drawLine(gx, 0, gx, height)
+            for gy in range(0, height, grid_step):
+                painter.drawLine(0, gy, width, gy)
+
+            # Pulsierender äußerer Energiehof
+            core_pulse = 0.5 + 0.5 * math.sin(self.pulse * 2.0)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+
+            for offset, alpha in ((44, 10), (30, 17), (16, 25)):
+                painter.setPen(QPen(
+                    QColor(90, 80, 255, alpha), 3
+                ))
+                painter.drawEllipse(
+                    QPoint(cx, cy),
+                    base + offset,
+                    int((base + offset) * 0.76),
+                )
+
+            # Fünf gegenläufige, unterschiedlich geneigte Ringe
+            ring_specs = (
+                (base + 34, 0.72, 0.65, 0),
+                (base + 17, 0.48, -0.95, 1),
+                (base, 0.82, 1.35, 2),
+                (base - 17, 0.58, -1.65, 3),
+                (base - 31, 0.34, 2.10, 4),
+            )
+
+            for radius, flatten, speed, color_index in ring_specs:
+                color = palette[color_index]
+                angle = rotation * speed
+
+                painter.save()
+                painter.translate(cx, cy)
+                painter.rotate(math.degrees(angle))
+
+                painter.setPen(QPen(
+                    QColor(color.red(), color.green(), color.blue(), 150),
+                    2 if color_index % 2 else 3,
+                ))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawEllipse(
+                    -radius,
+                    -int(radius * flatten),
+                    radius * 2,
+                    int(radius * flatten * 2),
+                )
+
+                # Leuchtende Segmentmarkierungen entlang jedes Rings
+                for segment in range(12):
+                    a = segment * math.tau / 12
+                    inner = radius - 5
+                    outer = radius + 7
+
+                    x1 = math.cos(a) * inner
+                    y1 = math.sin(a) * inner * flatten
+                    x2 = math.cos(a) * outer
+                    y2 = math.sin(a) * outer * flatten
+
+                    alpha = int(
+                        85 + 140 * (
+                            0.5 + 0.5 * math.sin(
+                                self.pulse * 1.7 + segment + color_index
+                            )
+                        )
+                    )
+                    painter.setPen(QPen(
+                        QColor(
+                            color.red(), color.green(),
+                            color.blue(), alpha
+                        ),
+                        3,
+                    ))
+                    painter.drawLine(
+                        int(x1), int(y1), int(x2), int(y2)
+                    )
+
+                painter.restore()
+
+            # Rotierende Speichen in fünf Neonfarben
+            for index in range(20):
+                angle = rotation * (1.0 if index % 2 else -0.72)
+                angle += index * math.tau / 20
+
+                inner = base * 0.48
+                outer = base + 38
+                color = palette[index % len(palette)]
+
+                x1 = cx + math.cos(angle) * inner
+                y1 = cy + math.sin(angle) * inner * 0.76
+                x2 = cx + math.cos(angle) * outer
+                y2 = cy + math.sin(angle) * outer * 0.76
+
+                alpha = int(
+                    75 + 115 * (
+                        0.5 + 0.5 * math.sin(self.pulse + index)
+                    )
+                )
+                painter.setPen(QPen(
+                    QColor(
+                        color.red(), color.green(),
+                        color.blue(), alpha
+                    ),
+                    2,
+                ))
+                painter.drawLine(
+                    int(x1), int(y1), int(x2), int(y2)
+                )
+
+            # 50 umlaufende Partikel mit wechselnden Farben
+            painter.setPen(Qt.PenStyle.NoPen)
+
+            for index in range(50):
+                direction = 1 if index % 2 else -1
+                angle = (
+                    self.pulse * (0.65 + (index % 5) * 0.13) * direction
+                    + index * math.tau / 50
+                )
+                orbit = (
+                    base + 42
+                    + 10 * math.sin(self.pulse * 0.8 + index)
+                )
+
+                px = cx + math.cos(angle) * orbit
+                py = cy + math.sin(angle) * orbit * 0.76
+
+                color = palette[index % len(palette)]
+                alpha = int(
+                    90 + 155 * (
+                        0.5 + 0.5 * math.sin(
+                            self.pulse * 2.0 + index
+                        )
+                    )
+                )
+                painter.setBrush(QColor(
+                    color.red(), color.green(),
+                    color.blue(), alpha
+                ))
+
+                dot = 2 if index % 4 else 4
+                painter.drawEllipse(
+                    QPoint(int(px), int(py)), dot, dot
+                )
+
+            # Zentraler Energiekern
+            core_radius = int(17 + core_pulse * 12)
+
+            for index, color in enumerate(palette):
+                glow_radius = core_radius + 23 + index * 5
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.setPen(QPen(
+                    QColor(
+                        color.red(), color.green(),
+                        color.blue(), 35 + index * 9
+                    ),
+                    2,
+                ))
+                painter.drawEllipse(
+                    QPoint(cx, cy), glow_radius, glow_radius
+                )
+
+            painter.setBrush(QColor(130, 80, 255, 55))
+            painter.setPen(QPen(QColor(255, 255, 255, 230), 2))
+            painter.drawEllipse(
+                QPoint(cx, cy), core_radius, core_radius
+            )
+
+            painter.setBrush(QColor(255, 255, 255, 230))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(
+                QPoint(cx, cy),
+                max(3, core_radius // 3),
+                max(3, core_radius // 3),
+            )
+
+            # Kurze RGB-Glitch-Linien bei aktiver Glitch-Phase
+            if self.rgb_until > time.monotonic():
+                offset = int(self.pulse * 9) % max(1, height)
+                painter.fillRect(
+                    0, offset, width, 2,
+                    QColor(255, 53, 199, 95)
+                )
+                painter.fillRect(
+                    0, min(height - 2, offset + 7), width, 2,
+                    QColor(0, 229, 255, 85)
+                )
+
+            # Futuristischer HUD-Rahmen
+            margin = 22
+            length = 68
+            accent = QColor(
+                90, 190, 255,
+                int(125 + 90 * core_pulse)
+            )
+            painter.setPen(QPen(accent, 2))
+
+            corners = (
+                (margin, margin, 1, 1),
+                (width - margin, margin, -1, 1),
+                (margin, height - margin, 1, -1),
+                (width - margin, height - margin, -1, -1),
+            )
+
+            for x, y, dx, dy in corners:
+                painter.drawLine(x, y, x + dx * length, y)
+                painter.drawLine(x, y, x, y + dy * length)
+
+            # Kleine farbige Statusmarkierungen
+            painter.setFont(QFont("Consolas", 9, QFont.Weight.Bold))
+            painter.setPen(QColor(57, 255, 136, 185))
+            painter.drawText(
+                margin + 5, margin + 22,
+                "REACTOR 360 // ONLINE"
+            )
+            painter.setPen(QColor(0, 229, 255, 175))
+            painter.drawText(
+                width - margin - 180,
+                height - margin - 8,
+                "MULTICOLOR ENERGY CORE"
+            )
+
+            painter.end()
+            return
+
         if self.variant in ("premium", "minimal"):
             if self.variant == "premium":
                 # OSCAM CYBER REACTOR – animierter Premium-Hintergrund
