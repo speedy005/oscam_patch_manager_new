@@ -13,7 +13,7 @@ from datetime import datetime
 # APP CONFIG
 # ============================================================
 
-APP_VERSION = "1.8.6"
+APP_VERSION = "1.8.7"
 
 # ============================================================
 # PLUGIN / WORKING DIRECTORY
