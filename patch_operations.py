@@ -3859,6 +3859,13 @@ def create_patch(
 
         play_patch_sound("success")
 
+        # Achievement unabhängig von der GUI und thread-sicher registrieren.
+        try:
+            from achievement_system import record_event
+            record_event("patch_created", "Patch erfolgreich erstellt")
+        except Exception as achievement_error:
+            log(f"[ACHIEVEMENT] Registrierung fehlgeschlagen: {achievement_error}")
+
         return True
 
     # ============================================================

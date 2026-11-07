@@ -31,6 +31,27 @@ def _open_cyber_center(gui):
     dialog.exec()
 
 
+
+def _open_patch_diff_viewer(gui):
+    from patch_diff_viewer import PatchDiffViewer
+
+    dialog = PatchDiffViewer(
+        gui,
+        language=getattr(gui, "LANG", "de"),
+    )
+    dialog.exec()
+
+
+def _open_achievement_system(gui):
+    from achievement_system import AchievementDialog
+
+    dialog = AchievementDialog(
+        gui,
+        language=getattr(gui, "LANG", "de"),
+    )
+    dialog.exec()
+
+
 class _PatchCreateBridge(QObject):
     """Thread-safe bridge for create_patch logging/progress callbacks."""
     log_message = pyqtSignal(object, str, str)
@@ -113,7 +134,6 @@ class _PatchCreateWorker(QThread):
     
     
     def run(self):
-        print("[WORKER-DEBUG] run() gestartet", flush=True)
         try:
             def progress(value=None, text=None):
                 if value is not None:
@@ -123,14 +143,11 @@ class _PatchCreateWorker(QThread):
                 if text is not None:
                     self.bridge.progress_text.emit(str(text))
 
-            print("[WORKER-DEBUG] Rufe create_patch() auf", flush=True)
             result = self.create_patch_func(self.bridge, None, progress)
-            print(f"[WORKER-DEBUG] create_patch() beendet: {result!r}", flush=True)
             self.done.emit(result)
 
         except Exception as exc:
             import traceback
-            print(f"[WORKER-DEBUG] Ausnahme: {exc!r}", flush=True)
             traceback.print_exc()
             self.failed.emit(str(exc))
 
@@ -466,6 +483,25 @@ class PatchManagerGUI(QWidget):
         except OSError as log_setup_error:
             self.build_log_dir = None
             print(f"[BUILD-LOG] Verzeichnis konnte nicht angelegt werden: {log_setup_error}")
+
+        # Neue Build-Logs dieser Sitzung auf erfolgreiche Abschlüsse prüfen.
+        self._achievement_seen_build_logs = set()
+        try:
+            if self.build_log_dir and os.path.isdir(self.build_log_dir):
+                self._achievement_seen_build_logs = {
+                    os.path.abspath(os.path.join(self.build_log_dir, name))
+                    for name in os.listdir(self.build_log_dir)
+                    if name.lower().endswith(".log")
+                }
+        except OSError as exc:
+            print(f"[ACHIEVEMENT] Log-Baseline fehlgeschlagen: {exc}")
+
+        self._achievement_log_timer = QTimer()
+        self._achievement_log_timer.setInterval(1500)
+        self._achievement_log_timer.timeout.connect(
+            self._check_build_achievement_logs
+        )
+        self._achievement_log_timer.start()
 
         self.is_loading = True  # Schutz vor Timer während Setup
 
@@ -822,9 +858,7 @@ class PatchManagerGUI(QWidget):
 
         self.is_loading = False  # Initialisierung abgeschlossen
 
-        # Beim Start direkt den gesamten verfügbaren Bildschirm nutzen.
-        # singleShot stellt sicher, dass Qt das Fenster erst nach dem Aufbau
-        # der Widgets und Layouts maximiert/vollflächig anzeigt.
+        # Hauptfenster bei jedem Start im echten Vollbild anzeigen.
         QTimer.singleShot(0, self.showFullScreen)
 
     # =====================================================================
@@ -1043,6 +1077,24 @@ class PatchManagerGUI(QWidget):
                         "Zentrale für alle OSCam-Control-Center-Funktionen"
                         if is_de else
                         "Central hub for all OSCam Control Center features"
+                    )
+                if hasattr(self, "patch_diff_button"):
+                    self.patch_diff_button.setText(
+                        "PATCH VERGLEICHEN" if is_de else "COMPARE PATCHES"
+                    )
+                    self.patch_diff_button.setToolTip(
+                        "Zwei Patch-Dateien oder Git-Commits vergleichen"
+                        if is_de else
+                        "Compare two patch files or Git commits"
+                    )
+                if hasattr(self, "achievement_button"):
+                    self.achievement_button.setText(
+                        "🏆 ERFOLGE" if is_de else "🏆 ACHIEVEMENTS"
+                    )
+                    self.achievement_button.setToolTip(
+                        "Deine OSCam-Erfolge und Fortschritte anzeigen"
+                        if is_de else
+                        "View your OSCam achievements and progress"
                     )
                 if hasattr(self, "weather_button"):
                     self.weather_button.setText(
@@ -3209,14 +3261,12 @@ class PatchManagerGUI(QWidget):
     def _run_grid_action(self, key, func):
         """Führt eine Grid-Aktion nach einem echten Button-Klick aus."""
 
-        print(f"[GRID CLICK] START: {key}", flush=True)
 
         # ---------------------------------------------------------
         # Aktiven Button setzen
         # ---------------------------------------------------------
         try:
             self.set_active_button(key)
-            print(f"[GRID CLICK] set_active_button OK: {key}", flush=True)
         except Exception as e:
             print(
                 f"[GRID CLICK] set_active_button Fehler bei {key}: {e}",
@@ -3227,16 +3277,8 @@ class PatchManagerGUI(QWidget):
         # Callback prüfen
         # ---------------------------------------------------------
         if func is None:
-            print(
-                f"[GRID CLICK] FEHLER: Kein Callback für {key}",
-                flush=True
-            )
             return
 
-        print(
-            f"[GRID CLICK] Callback: {getattr(func, '__name__', repr(func))}",
-            flush=True
-        )
 
         # ---------------------------------------------------------
         # Aktion ausführen
@@ -3244,18 +3286,10 @@ class PatchManagerGUI(QWidget):
         try:
             result = func()
 
-            print(
-                f"[GRID CLICK] ENDE: {key} -> {result!r}",
-                flush=True
-            )
 
             return result
 
         except Exception as e:
-            print(
-                f"[GRID CLICK] Aktion {key} fehlgeschlagen: {e}",
-                flush=True
-            )
 
             import traceback
             traceback.print_exc()
@@ -9777,6 +9811,84 @@ class PatchManagerGUI(QWidget):
             overlay.setGeometry(self.rect())
 
 
+    def _save_window_state(self):
+        """Speichert Fenstergröße, Position und Maximierungszustand."""
+        try:
+            settings = getattr(
+                self, "_window_settings",
+                QSettings("speedy005", "OSCamPatchManager")
+            )
+            settings.setValue("window/geometry", self.saveGeometry())
+            settings.setValue("window/maximized", self.isMaximized())
+            settings.sync()
+            print("[WINDOW] Fensterzustand gespeichert:", settings.fileName())
+        except Exception as exc:
+            print(f"[WINDOW] Speichern fehlgeschlagen: {exc}")
+
+    def _restore_window_state_after_show(self):
+        """Startet das Hauptfenster immer im echten Vollbildmodus."""
+        try:
+            self.showFullScreen()
+            self.updateGeometry()
+            print("[WINDOW] Echtes Vollbild aktiviert.", flush=True)
+        except Exception as exc:
+            print(f"[WINDOW] Vollbild fehlgeschlagen: {exc}", flush=True)
+
+    def closeEvent(self, event):
+        self._save_window_state()
+        super().closeEvent(event)
+
+
+    def _check_build_achievement_logs(self):
+        """Zählt neue erfolgreiche SimpleBuild-Läufe genau einmal."""
+        import os
+        import re
+
+        log_dir = getattr(self, "build_log_dir", None)
+        if not log_dir or not os.path.isdir(log_dir):
+            return
+
+        seen = getattr(self, "_achievement_seen_build_logs", set())
+        try:
+            filenames = os.listdir(log_dir)
+        except OSError as exc:
+            print(f"[ACHIEVEMENT] Build-Logs nicht lesbar: {exc}")
+            return
+
+        for filename in filenames:
+            if not filename.lower().endswith(".log"):
+                continue
+
+            log_path = os.path.abspath(os.path.join(log_dir, filename))
+            if log_path in seen:
+                continue
+
+            try:
+                with open(log_path, "r", encoding="utf-8", errors="replace") as handle:
+                    handle.seek(0, os.SEEK_END)
+                    size = handle.tell()
+                    handle.seek(max(0, size - 16384), os.SEEK_SET)
+                    tail = handle.read()
+
+                match = re.search(r"SIMPLEBUILD_FINISHED:exit=(-?\d+)", tail)
+                if not match:
+                    continue
+
+                seen.add(log_path)
+                if int(match.group(1)) == 0:
+                    try:
+                        from achievement_system import record_event
+                        record_event("build_success", filename)
+                        print(f"[ACHIEVEMENT] Erfolgreicher Build gezählt: {filename}")
+                    except Exception as exc:
+                        print(f"[ACHIEVEMENT] Registrierung fehlgeschlagen: {exc}")
+
+            except OSError as exc:
+                print(f"[ACHIEVEMENT] Logdatei nicht lesbar ({filename}): {exc}")
+
+        self._achievement_seen_build_logs = seen
+
+
     def open_terminal(self, **kwargs):
         """Öffnet Terminal (S3, S4 oder NCam) mit Sudo-Support, Regenbogen-Progress und Sound."""
         if hasattr(self, "hide_final_label"):
@@ -9958,6 +10070,7 @@ class PatchManagerGUI(QWidget):
                         f"echo 'FEHLER: MSYS2-Programm script fehlt; Build-Ausgabe wird nicht mitgeschnitten.' >> {log_path_bash_q}; "
                         f"{s3_cmd}; result=$?; "
                         "fi; "
+                        f"printf '\\nSIMPLEBUILD_FINISHED:exit=%s\\n' \"$result\" >> {log_path_bash_q}; "
                         'echo; echo "Simplebuild beendet (Exit-Code: $result)"; '
                         f'echo "Protokoll: {log_path_bash}"; '
                         "exec bash -i"
@@ -10040,6 +10153,7 @@ class PatchManagerGUI(QWidget):
                         "echo 'Hinweis: util-linux script nicht gefunden; kein Log-Mitschnitt.'; "
                         f"echo 'FEHLER: util-linux script fehlt; Build-Ausgabe wird nicht mitgeschnitten.' >> {quoted_log_path}; "
                         "fi; "
+                        f"printf '\\nSIMPLEBUILD_FINISHED:exit=%s\\n' \"$result\" >> {quoted_log_path}; "
                         f"echo; echo \"Simplebuild beendet (Exit-Code: $result)\"; "
                         f"echo \"Protokoll: {build_log_path}\"; "
                         "exec bash"
@@ -15456,7 +15570,33 @@ class PatchManagerGUI(QWidget):
         )
         self.cyber_center_button = cyber_center_button
 
-        for tool_button in (copy_log_button, analyze_build_logs_button, diagnostics_button, log_history_button, clear_console_button, cyber_center_button):
+        patch_diff_button = QPushButton(
+            "PATCH VERGLEICHEN" if is_de else "COMPARE PATCHES"
+        )
+        patch_diff_button.setToolTip(
+            "Zwei Patch-Dateien oder Git-Commits vergleichen"
+            if is_de else
+            "Compare two patch files or Git commits"
+        )
+        patch_diff_button.clicked.connect(
+            lambda checked=False: _open_patch_diff_viewer(self)
+        )
+        self.patch_diff_button = patch_diff_button
+
+        achievement_button = QPushButton(
+            "🏆 ERFOLGE" if is_de else "🏆 ACHIEVEMENTS"
+        )
+        achievement_button.setToolTip(
+            "Deine OSCam-Erfolge und Fortschritte anzeigen"
+            if is_de else
+            "View your OSCam achievements and progress"
+        )
+        achievement_button.clicked.connect(
+            lambda checked=False: _open_achievement_system(self)
+        )
+        self.achievement_button = achievement_button
+
+        for tool_button in (copy_log_button, analyze_build_logs_button, diagnostics_button, log_history_button, clear_console_button, cyber_center_button, patch_diff_button, achievement_button):
             tool_button.setMinimumHeight(30)
             tool_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             console_tools.addWidget(tool_button)
@@ -16438,11 +16578,14 @@ class PatchManagerGUI(QWidget):
             f"OSCam Toolkit v{APP_VERSION} | {getattr(self, 'patch_modifier', 'speedy005')}"
         )
 
-        # 3. Maximiert starten, damit die GUI die verfügbare Bildschirmfläche nutzt.
-        # Die Mindestgröße ist oben bereits an die Auflösung angepasst.
-        self.showMaximized()
-        QApplication.processEvents()  # WICHTIG: Berechnet die 60px Höhe vor dem ersten Klick
-        self.updateGeometry()  # Stabilisiert das FlowLayout
+        # Fenstereinstellungen laden; Wiederherstellung erfolgt nach show().
+        self._window_settings = QSettings("speedy005", "OSCamPatchManager")
+
+        app = QApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self._save_window_state)
+
+        self.updateGeometry()
 
         # 4. Signale sind bereits an den jeweiligen Handlern verbunden:
         #    Farbe -> change_colors(), Commits -> commit_value_changed().
@@ -17792,7 +17935,6 @@ class PatchManagerGUI(QWidget):
                         # Qt-Objekt wurde bereits freigegeben.
                         self._patch_create_worker = None
                     except Exception as exc:
-                        print(f"[WORKER-DEBUG] Alte Worker-Referenz ungültig: {exc!r}", flush=True)
                         self._patch_create_worker = None
                 self.progress_bar.setValue(0)
                 print(
@@ -17914,11 +18056,9 @@ class PatchManagerGUI(QWidget):
                 return worker
 
             def callback_patch_create():
-                print("[GRID CALLBACK] patch_create START", flush=True)
                 return _start_patch_create()
 
             def callback_patch_renew():
-                print("[GRID CALLBACK] patch_renew START", flush=True)
                 return _start_patch_create()
 
             def callback_patch_check():
@@ -17933,40 +18073,9 @@ class PatchManagerGUI(QWidget):
                     flush=True
                 )
 
-                print(
-                    "[PATCH CHECK BUTTON] CLICK EMPFANGEN",
-                    flush=True
-                )
 
-                print(
-                    "[PATCH CHECK BUTTON] self.check_patch =",
-                    getattr(
-                        self,
-                        "check_patch",
-                        None
-                    ),
-                    flush=True
-                )
 
-                print(
-                    "[PATCH CHECK BUTTON] info_text =",
-                    getattr(
-                        self,
-                        "info_text",
-                        None
-                    ),
-                    flush=True
-                )
 
-                print(
-                    "[PATCH CHECK BUTTON] progress_bar =",
-                    getattr(
-                        self,
-                        "progress_bar",
-                        None
-                    ),
-                    flush=True
-                )
 
                 try:
 
@@ -18004,12 +18113,6 @@ class PatchManagerGUI(QWidget):
                     check_function
                 ):
 
-                    print(
-                        "[PATCH CHECK BUTTON] "
-                        "FEHLER: self.check_patch ist "
-                        "nicht aufrufbar!",
-                        flush=True
-                    )
 
                     try:
 
@@ -18049,11 +18152,6 @@ class PatchManagerGUI(QWidget):
                 # check_patch aufrufen
                 # -----------------------------------------------------
 
-                print(
-                    "[PATCH CHECK BUTTON] "
-                    "Rufe self.check_patch() auf...",
-                    flush=True
-                )
 
                 try:
 
@@ -18062,11 +18160,6 @@ class PatchManagerGUI(QWidget):
                         progress_callback
                     )
 
-                    print(
-                        "[PATCH CHECK BUTTON] "
-                        f"check_patch() Ergebnis: {result!r}",
-                        flush=True
-                    )
 
                     print(
                         "==================================================",
@@ -18077,12 +18170,6 @@ class PatchManagerGUI(QWidget):
 
                 except Exception as exc:
 
-                    print(
-                        "[PATCH CHECK BUTTON] "
-                        "check_patch() EXCEPTION:",
-                        repr(exc),
-                        flush=True
-                    )
 
                     import traceback
 
@@ -18107,10 +18194,6 @@ class PatchManagerGUI(QWidget):
 
             def callback_patch_apply():
 
-                print(
-                    "[GRID CALLBACK] patch_apply START",
-                    flush=True
-                )
 
                 is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
                 confirm = QMessageBox(self)
@@ -18172,10 +18255,6 @@ class PatchManagerGUI(QWidget):
 
             def callback_patch_zip():
 
-                print(
-                    "[GRID CALLBACK] patch_zip START",
-                    flush=True
-                )
 
                 return self.zip_patch(
                     self.info_text,
@@ -18184,10 +18263,6 @@ class PatchManagerGUI(QWidget):
 
             def callback_backup_old():
 
-                print(
-                    "[GRID CALLBACK] backup_old START",
-                    flush=True
-                )
 
                 return backup_old_patch(
                     self,
@@ -18198,10 +18273,6 @@ class PatchManagerGUI(QWidget):
 
             def callback_clean_folder():
 
-                print(
-                    "[GRID CALLBACK] clean_folder START",
-                    flush=True
-                )
 
                 is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
                 confirm = QMessageBox(self)
@@ -18260,10 +18331,6 @@ class PatchManagerGUI(QWidget):
 
             def callback_change_old_dir():
 
-                print(
-                    "[GRID CALLBACK] change_old_dir START",
-                    flush=True
-                )
 
                 return self.change_old_patch_dir(
                     self.info_text,
@@ -18271,18 +18338,10 @@ class PatchManagerGUI(QWidget):
                 )
 
             def callback_emu_revision():
-                print(
-                    "[GRID CALLBACK] oscam_emu_revision START",
-                    flush=True
-                )
                 return self.checkout_emu_revision()
 
             def callback_exit():
 
-                print(
-                    "[GRID CALLBACK] exit START",
-                    flush=True
-                )
 
                 return self.close_with_confirm()
 

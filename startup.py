@@ -168,9 +168,22 @@ def main():
         nonlocal main_window
         try:
             main_window = PatchManagerGUI()
+
             main_window.setWindowTitle("OSCam Emu Patch Manager new - by speedy005")
-            main_window.showMaximized()
+            main_window.show()
             main_window.raise_()
+
+            # Fenstergeometrie nach dem Anzeigen wiederherstellen.
+
+            def restore_main_window():
+                try:
+                    main_window._restore_window_state_after_show()
+                except Exception:
+                    traceback.print_exc()
+
+            QTimer.singleShot(1000, restore_main_window)
+
+
             if "--perform-update" in sys.argv:
                 sys.argv.remove("--perform-update")
                 if hasattr(main_window, "plugin_update_action"):
