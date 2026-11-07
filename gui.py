@@ -7988,6 +7988,14 @@ class PatchManagerGUI(QWidget):
             self.on_update_check_finished(False, self.current_rev)
 
     def on_update_check_finished(self, update_available=False, new_rev=None, refresh_only=False):
+        # Animationen ausschließlich beim ersten regulären Start-Check ausführen.
+        run_startup_animation = (
+            not refresh_only
+            and not getattr(self, "_startup_animation_done", False)
+        )
+        if run_startup_animation:
+            self._startup_animation_done = True
+
         """
         Aktualisiert das UI:
         - Status Label (Update / aktuell)
@@ -8001,9 +8009,9 @@ class PatchManagerGUI(QWidget):
         from PyQt6.QtWidgets import QLabel
 
         # Hide final label if exists
-        if hasattr(self, "hide_final_label"):
+        if not refresh_only and hasattr(self, "hide_final_label"):
             self.hide_final_label()
-        elif hasattr(self, "final_label") and self.final_label:
+        elif not refresh_only and hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
 
         txt = getattr(self, "TEXT", {})
@@ -8117,7 +8125,7 @@ class PatchManagerGUI(QWidget):
                 "transparent",
                 C_BLINK,
             ]
-            for i, delay in enumerate(delays):
+            for i, delay in enumerate(delays if run_startup_animation else []):
                 QTimer.singleShot(
                     delay,
                     lambda c=blink_colors[i]: blink_revision(c)
@@ -8130,7 +8138,7 @@ class PatchManagerGUI(QWidget):
             try:
                 pbar = getattr(self, "progress_bar", None)
 
-                if pbar is not None:
+                if pbar is not None and run_startup_animation:
                     is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
                     final_text = (
                         "🛠️ Was bauen wir heute?"
@@ -8267,7 +8275,7 @@ class PatchManagerGUI(QWidget):
                 "transparent",
                 C_BLINK,
             ]
-            for i, delay in enumerate(delays):
+            for i, delay in enumerate(delays if run_startup_animation else []):
                 QTimer.singleShot(
                     delay,
                     lambda c=blink_colors[i]: blink_revision(c)
@@ -17769,15 +17777,23 @@ class PatchManagerGUI(QWidget):
             def _start_patch_create():
                 # Keep a strong reference so Qt does not collect the worker.
                 current = getattr(self, "_patch_create_worker", None)
-                if current is not None and current.isRunning():
-                    is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
-                    self.append_info(
-                        self.info_text,
-                        "Patch-Erstellung läuft bereits."
-                        if is_de else "Patch creation is already running.",
-                        "warning"
-                    )
-                    return current
+                if current is not None:
+                    try:
+                        if current.isRunning():
+                            is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+                            self.append_info(
+                                self.info_text,
+                                "Patch-Erstellung läuft bereits."
+                                if is_de else "Patch creation is already running.",
+                                "warning"
+                            )
+                            return current
+                    except RuntimeError:
+                        # Qt-Objekt wurde bereits freigegeben.
+                        self._patch_create_worker = None
+                    except Exception as exc:
+                        print(f"[WORKER-DEBUG] Alte Worker-Referenz ungültig: {exc!r}", flush=True)
+                        self._patch_create_worker = None
                 self.progress_bar.setValue(0)
                 print(
                     f"[GUI-LANG-DEBUG] self.LANG={getattr(self, 'LANG', None)!r}",
@@ -17885,6 +17901,13 @@ class PatchManagerGUI(QWidget):
                         )
 
                 worker.done.connect(_patch_create_done)
+
+                def _clear_patch_worker():
+                    # Nur die Referenz des gerade beendeten Workers zurücksetzen.
+                    if getattr(self, "_patch_create_worker", None) is worker:
+                        self._patch_create_worker = None
+
+                worker.finished.connect(_clear_patch_worker)
                 worker.finished.connect(worker.deleteLater)
                 self._patch_create_worker = worker
                 worker.start()

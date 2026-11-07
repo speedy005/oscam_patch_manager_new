@@ -3822,6 +3822,17 @@ def create_patch(
         log(f"Streamboard Remote-HEAD: {stream_commit}")
         log(f"OSCam-Emu Commit:        {emu_commit}")
 
+        # ========================================================
+        # Patch-Größe anzeigen
+        # ========================================================
+
+        size_kb = final_size / 1024
+
+        log(
+            f"📦 Patch-Größe: {size_kb:,.2f} KB"
+            .replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+
         # Revisions-Buttons auf der eigentlichen GUI aktualisieren
         if gui_instance is not None:
             try:
