@@ -550,13 +550,16 @@ class SplashSoundManager:
         "impact": 350,
     }
 
-    def __init__(self, parent=None, enabled=True, master_volume=1.0):
+    def __init__(self, parent=None, enabled=True, master_volume=1.0, sound_profile=None):
         self.parent = parent
         try:
             self.master_volume = max(0.0, min(1.0, float(master_volume)))
         except (TypeError, ValueError):
             self.master_volume = 0.65
         self.sounds_dir = _find_sounds_dir()
+        self.sound_profile = (
+            dict(sound_profile) if isinstance(sound_profile, dict) else {}
+        )
         self.files = []
 
         self.enabled = bool(MULTIMEDIA_AVAILABLE) and bool(enabled)
@@ -627,6 +630,18 @@ class SplashSoundManager:
             self.files = []
 
     def _match(self, event):
+        selected = self.sound_profile.get(event, "__auto__")
+
+        if selected == "__none__":
+            return None
+
+        if selected not in (None, "", "__auto__"):
+            wanted = Path(str(selected)).name.lower()
+            for path in self.files:
+                if path.name.lower() == wanted:
+                    return path
+            return None
+
         by_name = {
             path.name.lower(): path
             for path in self.files
@@ -1125,7 +1140,7 @@ class CinematicMatrixSplash(QWidget):
 
 
 
-    def __init__(self, duration=22000, parent=None, sound_enabled=True, sound_volume=65, variant='bot', animation_speed=100):
+    def __init__(self, duration=22000, parent=None, sound_enabled=True, sound_volume=65, variant='bot', animation_speed=100, sound_profile=None):
         super().__init__(parent)
 
         try:
@@ -1178,6 +1193,7 @@ class CinematicMatrixSplash(QWidget):
             self,
             enabled=sound_enabled,
             master_volume=max(0, min(100, int(sound_volume))) / 100.0,
+            sound_profile=sound_profile,
         )
 
         self.setWindowFlags(

@@ -252,12 +252,20 @@ def main():
             except (TypeError, ValueError):
                 splash_speed = 100
 
+            splash_profiles = splash_config.get("splash_sound_profiles", {})
+            if not isinstance(splash_profiles, dict):
+                splash_profiles = {}
+            selected_sound_profile = splash_profiles.get(splash_mode, {})
+            if not isinstance(selected_sound_profile, dict):
+                selected_sound_profile = {}
+
             splash = CinematicMatrixSplash(
                 duration=splash_duration,
                 sound_enabled=splash_sound_enabled,
                 sound_volume=splash_volume,
                 variant=splash_mode,
                 animation_speed=splash_speed,
+                sound_profile=selected_sound_profile,
             )
             splash.finished.connect(launch_main_gui)
             splash.show()
