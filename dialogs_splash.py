@@ -2757,12 +2757,13 @@ class CinematicMatrixSplash(QWidget):
                 width - 220, 76,
                 f"PORTAL ENERGY: {self.prog:03d}%"
             )
+            # Untere HUD-Texte oberhalb der Messskala platzieren.
             painter.drawText(
-                30, height - 30,
+                30, height - 65,
                 "OSC // QUANTUM SYSTEMS"
             )
             painter.drawText(
-                width - 205, height - 30,
+                width - 205, height - 65,
                 "OVERDRIVE SEQUENCE"
             )
 
