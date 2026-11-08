@@ -52,6 +52,16 @@ def _open_achievement_system(gui):
     dialog.exec()
 
 
+def _open_ai_assistant(gui):
+    from ai_assistant import AIAssistantDialog
+
+    dialog = AIAssistantDialog(
+        gui,
+        language=getattr(gui, "LANG", "de"),
+    )
+    dialog.exec()
+
+
 class _PatchCreateBridge(QObject):
     """Thread-safe bridge for create_patch logging/progress callbacks."""
     log_message = pyqtSignal(object, str, str)
@@ -1095,6 +1105,15 @@ class PatchManagerGUI(QWidget):
                         "Deine OSCam-Erfolge und Fortschritte anzeigen"
                         if is_de else
                         "View your OSCam achievements and progress"
+                    )
+                if hasattr(self, "ai_assistant_button"):
+                    self.ai_assistant_button.setText(
+                        "🤖 KI-ASSISTENT" if is_de else "🤖 AI ASSISTANT"
+                    )
+                    self.ai_assistant_button.setToolTip(
+                        "KI-Chat für Patch-Analyse und Fehlersuche öffnen"
+                        if is_de else
+                        "Open AI chat for patch analysis and troubleshooting"
                     )
                 if hasattr(self, "weather_button"):
                     self.weather_button.setText(
@@ -15596,7 +15615,20 @@ class PatchManagerGUI(QWidget):
         )
         self.achievement_button = achievement_button
 
-        for tool_button in (copy_log_button, analyze_build_logs_button, diagnostics_button, log_history_button, clear_console_button, cyber_center_button, patch_diff_button, achievement_button):
+        ai_assistant_button = QPushButton(
+            "🤖 KI-ASSISTENT" if is_de else "🤖 AI ASSISTANT"
+        )
+        ai_assistant_button.setToolTip(
+            "KI-Chat für Patch-Analyse und Fehlersuche öffnen"
+            if is_de else
+            "Open AI chat for patch analysis and troubleshooting"
+        )
+        ai_assistant_button.clicked.connect(
+            lambda checked=False: _open_ai_assistant(self)
+        )
+        self.ai_assistant_button = ai_assistant_button
+
+        for tool_button in (copy_log_button, analyze_build_logs_button, diagnostics_button, log_history_button, clear_console_button, cyber_center_button, patch_diff_button, achievement_button, ai_assistant_button):
             tool_button.setMinimumHeight(30)
             tool_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             console_tools.addWidget(tool_button)
