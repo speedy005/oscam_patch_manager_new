@@ -54,8 +54,11 @@ def save_config(cfg_updates, gui_instance=None, silent=False):
             try:
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                     current_cfg = json.load(f)
-            except Exception:
-                current_cfg = {}
+            except Exception as exc:
+                raise ValueError(
+                    "Vorhandene config.json ist ungültig und wurde nicht überschrieben: "
+                    + str(exc)
+                ) from exc
 
         # --- OS-SCHUTZ: Pfade vor dem Mergen plattformunabhängig säubern ---
         is_win = platform.system() == "Windows"
