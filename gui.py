@@ -15525,10 +15525,10 @@ class PatchManagerGUI(QWidget):
                 padding: 10px; selection-background-color: #176b80;
             }
         """)
-        # Kleine Werkzeugleiste für die Live-Konsole; ändert keine gespeicherten Logs.
-        console_tools = QHBoxLayout()
+        # Werkzeugleiste: zwei Reihen mit 5 und 4 Buttons.
+        console_tools = QVBoxLayout()
         console_tools.setContentsMargins(0, 0, 0, 0)
-        console_tools.setSpacing(6)
+        console_tools.setSpacing(8)
 
         is_de = str(getattr(self, "LANG", LANG)).lower() == "de"
         copy_log_button = QPushButton("LOG KOPIEREN" if is_de else "COPY LOG")
@@ -15628,12 +15628,91 @@ class PatchManagerGUI(QWidget):
         )
         self.ai_assistant_button = ai_assistant_button
 
-        for tool_button in (copy_log_button, analyze_build_logs_button, diagnostics_button, log_history_button, clear_console_button, cyber_center_button, patch_diff_button, achievement_button, ai_assistant_button):
-            tool_button.setMinimumHeight(30)
-            tool_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-            console_tools.addWidget(tool_button)
+        tool_buttons = (
+            copy_log_button,
+            analyze_build_logs_button,
+            diagnostics_button,
+            log_history_button,
+            clear_console_button,
+            cyber_center_button,
+            patch_diff_button,
+            achievement_button,
+            ai_assistant_button,
+        )
 
-        console_tools.addStretch(1)
+        from PyQt6.QtCore import QSize
+        from PyQt6.QtWidgets import QStyle
+
+        # Echte Qt-Symbole statt Emoji: funktionieren unabhängig von Emoji-Schriften.
+        icon_labels = (
+            ("LOG KOPIEREN", "COPY LOG"),
+            ("BUILD-LOG ANALYSIEREN", "ANALYZE BUILD LOG"),
+            ("SYSTEM-DIAGNOSE", "SYSTEM DIAGNOSTICS"),
+            ("BUILD-LOG-VERLAUF", "BUILD LOG HISTORY"),
+            ("KONSOLE LEEREN", "CLEAR CONSOLE"),
+            ("OSCAM CONTROL CENTER", "OSCAM CONTROL CENTER"),
+            ("PATCH VERGLEICHEN", "COMPARE PATCHES"),
+            ("ERFOLGE", "ACHIEVEMENTS"),
+            ("KI-ASSISTENT", "AI ASSISTANT"),
+        )
+
+        icon_names = (
+            "SP_FileIcon",
+            "SP_FileDialogContentsView",
+            "SP_ComputerIcon",
+            "SP_FileDialogDetailedView",
+            "SP_TrashIcon",
+            "SP_ComputerIcon",
+            "SP_FileDialogDetailedView",
+            "SP_DialogApplyButton",
+            "SP_MessageBoxInformation",
+        )
+
+        for tool_button, labels, icon_name in zip(
+            tool_buttons, icon_labels, icon_names
+        ):
+            tool_button.setText(labels[0] if is_de else labels[1])
+
+            pixmap = getattr(
+                QStyle.StandardPixmap,
+                icon_name,
+                QStyle.StandardPixmap.SP_FileIcon
+            )
+            tool_button.setIcon(self.style().standardIcon(pixmap))
+            tool_button.setIconSize(QSize(20, 20))
+
+            tool_font = tool_button.font()
+            tool_font.setPointSizeF(13.0)
+            tool_font.setBold(True)
+            tool_button.setFont(tool_font)
+
+            tool_button.setMinimumHeight(38)
+            tool_button.setSizePolicy(
+                QSizePolicy.Policy.Fixed,
+                QSizePolicy.Policy.Fixed
+            )
+
+            # Automatische natürliche Breite inklusive echtem Qt-Icon.
+            tool_button.ensurePolished()
+            tool_button.adjustSize()
+
+        # Dynamische Reihen mit maximal acht Buttons pro Reihe.
+        # Erfolge steht am Ende der ersten Reihe, KI-Assistent beginnt Reihe zwei.
+        buttons_per_row = 8
+
+        for row_start in range(0, len(tool_buttons), buttons_per_row):
+            button_row = QHBoxLayout()
+            button_row.setSpacing(8)
+
+            row_buttons = tool_buttons[
+                row_start:row_start + buttons_per_row
+            ]
+
+            for tool_button in row_buttons:
+                button_row.addWidget(tool_button)
+
+            button_row.addStretch(1)
+            console_tools.addLayout(button_row)
         console_layout.addLayout(console_tools)
         console_layout.addWidget(self.info_text, 1)
         main_layout.addWidget(console_panel, 10)
@@ -16599,13 +16678,42 @@ class PatchManagerGUI(QWidget):
         # Mindestgröße an die tatsächlich verfügbare Bildschirmfläche anpassen.
         # So verhindert die GUI auf kleineren Displays keine passende Fenstergröße.
         screen = QApplication.primaryScreen()
+
+        # Benötigte Breite der neun Konsolen-Buttons dynamisch berechnen.
+        toolbar_buttons = (
+            self.copy_log_button,
+            self.analyze_build_logs_button,
+            self.diagnostics_button,
+            self.log_history_button,
+            self.clear_console_button,
+            self.cyber_center_button,
+            self.patch_diff_button,
+            self.achievement_button,
+            self.ai_assistant_button,
+        )
+        toolbar_required_width = (
+            sum(button.minimumWidth() for button in toolbar_buttons)
+            + 8 * 5
+            + 40
+        )
+
         if screen is not None:
-            available = screen.availableGeometry()  # ohne Taskleiste/Dock
-            min_width = min(1200, max(640, available.width() - 50))
+            available = screen.availableGeometry()
+            screen_width = max(640, available.width() - 50)
+            min_width = min(
+                screen_width,
+                max(1200, toolbar_required_width)
+            )
             min_height = min(850, max(480, available.height() - 80))
         else:
-            min_width, min_height = 800, 600
+            min_width = max(1200, toolbar_required_width)
+            min_height = 600
+
         self.setMinimumSize(min_width, min_height)
+        self.resize(
+            max(self.width(), min_width),
+            max(self.height(), min_height)
+        )
         self.setWindowTitle(
             f"OSCam Toolkit v{APP_VERSION} | {getattr(self, 'patch_modifier', 'speedy005')}"
         )

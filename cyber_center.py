@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt
 
 
 class CyberCenterDialog(QDialog):
-    """Central launcher for the seven OSCam Control Center modules."""
+    """Central launcher for the OSCam Control Center modules."""
 
     MODULES = [
         ("dashboard", "Live-System-Dashboard", "Live system dashboard",
@@ -25,6 +25,8 @@ class CyberCenterDialog(QDialog):
          "Backups durchsuchen und wiederherstellen", "Browse and restore backups"),
         ("startup", "Premium-Startanimation", "Premium startup animation",
          "Animierter Systemstart und Systemcheck", "Animated startup and system check"),
+        ("compatibility", "Patch-Kompatibilitätsprüfung", "Patch Compatibility Scanner",
+         "Patches auf doppelte Änderungen und Konflikte prüfen", "Check patches for duplicate changes and conflicts"),
     ]
 
     def __init__(self, parent=None, language="de", colors=None):
@@ -181,6 +183,20 @@ class CyberCenterDialog(QDialog):
         """)
 
     def _open_module(self, module_key):
+        if module_key == "compatibility":
+            from patch_compatibility_scanner import PatchCompatibilityDialog
+
+            if not hasattr(self, "_compatibility_window") or self._compatibility_window is None:
+                self._compatibility_window = PatchCompatibilityDialog(
+                    self,
+                    language=self.language,
+                    colors=self.colors,
+                )
+
+            self._compatibility_window.show()
+            self._compatibility_window.raise_()
+            self._compatibility_window.activateWindow()
+            return
         if module_key == "startup":
             from startup_settings import StartupSettingsDialog
 
