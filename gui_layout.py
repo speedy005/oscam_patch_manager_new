@@ -4,6 +4,7 @@ This module contains a focused mixin. Runtime dependencies and shared helpers
 are imported from gui_support to keep behavior consistent across modules.
 """
 from gui_support import *  # noqa: F401,F403 - legacy GUI methods use shared names via globals()
+from gui_helpers import _PatchCreateWorker
 
 
 class PatchManagerLayoutMixin:
@@ -252,7 +253,7 @@ class PatchManagerLayoutMixin:
             "info_button", "btn_s3", "btn_s4", "btn_ncam",
             "header_btn_s3_ncam", "header_btn_s4",
             "header_btn_patch_ncam", "header_btn_patch_s4",
-            "log_button", "telemetry_cb", "oscam_source_button",
+            "log_button", "music_button", "telemetry_cb", "oscam_source_button",
         )
         for name in names:
             button = getattr(self, name, None)
@@ -261,8 +262,20 @@ class PatchManagerLayoutMixin:
             button.setFont(QFont("Segoe UI", font_size, QFont.Weight.Bold))
             if name != "info_button":
                 button.setMinimumHeight(50 if compact else 50)
-                button.setMaximumWidth(260 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
+                button.setMaximumWidth(280 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
                 button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+
+        # Alle vier Header-Buttons exakt gleich groß halten.
+        for name in (
+            "header_btn_patch_ncam",
+            "header_btn_patch_s4",
+            "log_button",
+            "music_button",
+            "weather_button",
+        ):
+            button = getattr(self, name, None)
+            if button is not None:
+                button.setFixedSize(280, 50)
 
     def _fit_header_logo(self):
         """Skaliert das Banner proportional bis zur maximalen Größe."""
@@ -443,12 +456,12 @@ class PatchManagerLayoutMixin:
         # selbst bleibt unverändert erhalten.
         set_revision(
             "streamboard_checkout",
-            "Streamboard Rev.",
+            "Streamboard Revision",
             stream_revision,
         )
         set_revision(
             "oscam_emu_revision",
-            "OSCam-Emu Rev.",
+            "OSCam-Emu Revision",
             emu_revision,
         )
 
@@ -1133,31 +1146,151 @@ class PatchManagerLayoutMixin:
             # BUTTON CALLBACKS
             # =========================================================
 
-            def callback_patch_create():
-
+            def _start_patch_create():
+                # Keep a strong reference so Qt does not collect the worker.
+                current = getattr(self, "_patch_create_worker", None)
+                if current is not None:
+                    try:
+                        if current.isRunning():
+                            is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+                            self.append_info(
+                                self.info_text,
+                                "Patch-Erstellung läuft bereits."
+                                if is_de else "Patch creation is already running.",
+                                "warning"
+                            )
+                            return current
+                    except RuntimeError:
+                        # Qt-Objekt wurde bereits freigegeben.
+                        self._patch_create_worker = None
+                    except Exception as exc:
+                        self._patch_create_worker = None
+                self.progress_bar.setValue(0)
                 print(
-                    "[GRID CALLBACK] patch_create START",
+                    f"[GUI-LANG-DEBUG] self.LANG={getattr(self, 'LANG', None)!r}",
                     flush=True
                 )
-
-                return create_patch(
-                    self,
-                    self.info_text,
-                    self.progress_bar.setValue
+                worker = _PatchCreateWorker(self, create_patch)
+                worker.failed.connect(
+                    lambda message: self.append_info(
+                        self.info_text,
+                        (
+                            f"Patch-Erstellung fehlgeschlagen: {message}"
+                            if str(getattr(self, "LANG", "de")).lower().startswith("de")
+                            else f"Patch creation failed: {message}"
+                        ),
+                        "error"
+                    )
                 )
+                def _patch_create_done(_result):
+                    print(
+                        f"[PATCH-PROGRESS] done callback: result={_result!r}",
+                        flush=True
+                    )
+
+                    try:
+                        pbar = getattr(self, "progress_bar", None)
+                        if pbar is not None:
+                            print(
+                                f"[PATCH-PROGRESS] before 100: "
+                                f"value={pbar.value()}, format={pbar.format()!r}",
+                                flush=True
+                            )
+                            pbar.setValue(100)
+                            pbar.setFormat("%p%")
+                            print(
+                                f"[PATCH-PROGRESS] after 100: "
+                                f"value={pbar.value()}, format={pbar.format()!r}",
+                                flush=True
+                            )
+                    except Exception as exc:
+                        print(
+                            f"[PATCH-PROGRESS] Could not set 100%: {exc!r}",
+                            flush=True
+                        )
+
+                    lang = str(getattr(self, "LANG", "de")).lower()[:2]
+                    T = TEXTS.get(lang, TEXTS.get("de", {}))
+
+                    self.append_info(
+                        self.info_text,
+                        T.get(
+                            "patch_creation_finished",
+                            "Patch-Erstellung beendet."
+                            if lang == "de"
+                            else "Patch creation finished."
+                        ),
+                        "success"
+                    )
+
+                    try:
+                        import re
+
+                        with open(
+                            PATCH_FILE,
+                            "r",
+                            encoding="utf-8",
+                            errors="replace"
+                        ) as patch_file:
+                            for line in patch_file:
+                                match = re.match(
+                                    r"^\s*patch version:\s*(.*?)\s*$",
+                                    line,
+                                    re.IGNORECASE
+                                )
+                                if match:
+                                    self.append_info(
+                                        self.info_text,
+                                        (
+                                f"Patch-Revision: {match.group(1)}"
+                                if lang == "de"
+                                else f"Patch revision: {match.group(1)}"
+                            ),
+                                        "success"
+                                    )
+                                    break
+                            else:
+                                self.append_info(
+                                    self.info_text,
+                                    (
+                                    "Keine Patch-Version im Header gefunden."
+                                    if lang == "de"
+                                    else "No patch version found in the header."
+                                ),
+                                    "warning"
+                                )
+
+                    except OSError as exc:
+                        self.append_info(
+                            self.info_text,
+                            (
+                            f"Patch-Revision konnte nicht gelesen werden: {exc}"
+                            if lang == "de"
+                            else f"Could not read patch revision: {exc}"
+                        ),
+                            "warning"
+                        )
+
+                worker.done.connect(_patch_create_done)
+
+                def _clear_patch_worker():
+                    # Nur die Referenz des gerade beendeten Workers zurücksetzen.
+                    if getattr(self, "_patch_create_worker", None) is worker:
+                        self._patch_create_worker = None
+
+                worker.finished.connect(_clear_patch_worker)
+                worker.finished.connect(worker.deleteLater)
+                self._patch_create_worker = worker
+                worker.start()
+                return worker
+
+            def callback_patch_create():
+                print("[GRID CALLBACK] patch_create START", flush=True)
+                return _start_patch_create()
 
             def callback_patch_renew():
-
-                print(
-                    "[GRID CALLBACK] patch_renew START",
-                    flush=True
-                )
-
-                return create_patch(
-                    self,
-                    self.info_text,
-                    self.progress_bar.setValue
-                )
+                print("[GRID CALLBACK] patch_renew START", flush=True)
+                return _start_patch_create()
 
             def callback_patch_check():
 

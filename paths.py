@@ -35,6 +35,9 @@ STREAMREPO = TEMP_REPO
 PATCH_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-git")
 EMUREPO = PATCH_EMU_GIT_DIR
 
+# Separates Ziel für das fertig gepatchte Repository
+PATCHED_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-patched")
+
 
 # ============================================================
 # FILES

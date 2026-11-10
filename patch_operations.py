@@ -29,6 +29,7 @@ from paths import (
     PLUGIN_DIR,
     STREAMREPO,
     PATCH_EMU_GIT_DIR,
+    PATCHED_EMU_GIT_DIR,
     PATCH_FILE,
     get_selected_stream_repo_url,
 )
@@ -2194,7 +2195,7 @@ def create_patch(
             board_url = m.group(1) + "/discussions"
 
         try:
-            with open(globals_file, "r", encoding="utf-8", errors="replace") as f:
+            with open(globals_file, "r", encoding="utf-8", errors="replace", newline="") as f:
                 content = f.read()
         except Exception:
             return False
@@ -2452,6 +2453,56 @@ def create_patch(
             )
 
             try:
+                # CS_VERSION im erwarteten Zielzustand genauso
+                # angleichen wie im Ziel-Worktree der Patch-Erstellung.
+                stream_globals = subprocess.run(
+                    [
+                        find_git_executable(),
+                        "show",
+                        f"{stream_commit}:globals.h"
+                    ],
+                    cwd=emu_repo_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=True,
+                    timeout=60
+                ).stdout
+
+                version_match = re.search(
+                    rb'(?m)^#define\s+CS_VERSION\s+"([^"]+)"',
+                    stream_globals
+                )
+
+                if not version_match:
+                    raise RuntimeError(
+                        "CS_VERSION konnte im Streamboard-Basis-Commit "
+                        "während der Validierung nicht gefunden werden."
+                    )
+
+                expected_globals = os.path.join(
+                    expected_worktree,
+                    "globals.h"
+                )
+
+                with open(expected_globals, "rb") as f:
+                    expected_data = f.read()
+
+                expected_data, replacements = re.subn(
+                    rb'(?m)^(#define\s+CS_VERSION\s+")[^"]+(")',
+                    lambda m: m.group(1) + version_match.group(1) + m.group(2),
+                    expected_data,
+                    count=1
+                )
+
+                if replacements != 1:
+                    raise RuntimeError(
+                        "CS_VERSION konnte im erwarteten "
+                        "Validierungs-Worktree nicht ersetzt werden."
+                    )
+
+                with open(expected_globals, "wb") as f:
+                    f.write(expected_data)
+
                 run_git(["add", "-A"], cwd=temp_worktree, check=True, timeout=1200)
                 run_git(["add", "-A"], cwd=expected_worktree, check=True, timeout=1200)
 
@@ -3508,6 +3559,65 @@ def create_patch(
             )
             log(
                 f"        {target_worktree_for_patch}"
+            )
+
+            # ========================================================
+            # OSCAM-VERSION VOM STREAMBOARD-BASIS-COMMIT ÜBERNEHMEN
+            # ========================================================
+
+            stream_globals = subprocess.run(
+                [
+                    find_git_executable(),
+                    "show",
+                    f"{stream_commit}:globals.h"
+                ],
+                cwd=stream_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                timeout=60
+            ).stdout
+
+            version_match = re.search(
+                rb'(?m)^#define\s+CS_VERSION\s+"([^"]+)"',
+                stream_globals
+            )
+
+            if not version_match:
+                raise RuntimeError(
+                    "CS_VERSION konnte in globals.h "
+                    "des Streamboard-Basis-Commits nicht gefunden werden."
+                )
+
+            stream_version = version_match.group(1)
+
+            globals_file = os.path.join(
+                target_worktree_for_patch,
+                "globals.h"
+            )
+
+            with open(globals_file, "rb") as f:
+                globals_data = f.read()
+
+            globals_data, replacements = re.subn(
+                rb'(?m)^(#define\s+CS_VERSION\s+")[^"]+(")',
+                lambda m: m.group(1) + stream_version + m.group(2),
+                globals_data,
+                count=1
+            )
+
+            if replacements != 1:
+                raise RuntimeError(
+                    "CS_VERSION konnte im temporären "
+                    "Emu-Ziel-Worktree nicht eindeutig ersetzt werden."
+                )
+
+            with open(globals_file, "wb") as f:
+                f.write(globals_data)
+
+            log(
+                f"[PATCH] OSCam-Version übernommen: "
+                f"{stream_version.decode('ascii')}"
             )
 
             git_executable = find_git_executable()
@@ -5835,9 +5945,7 @@ def patch_oscam_emu_git(
         # GLOBALE PFADE
         # ========================================================
 
-        patch_dir = globals().get(
-            "PATCH_EMU_GIT_DIR"
-        )
+        patch_dir = PATCHED_EMU_GIT_DIR
 
         stream_url = get_selected_stream_repo_url()
 
@@ -5848,7 +5956,7 @@ def patch_oscam_emu_git(
         if not patch_dir:
 
             raise RuntimeError(
-                "PATCH_EMU_GIT_DIR ist nicht definiert."
+                "PATCHED_EMU_GIT_DIR ist nicht definiert."
             )
 
         if not patch_file:
@@ -6016,6 +6124,27 @@ def patch_oscam_emu_git(
 
         log(
             "✓ Streamboard erfolgreich geklont.",
+            "success"
+        )
+
+        # ========================================================
+        # GIT-ZEILENENDEN NORMALISIEREN
+        # ========================================================
+
+        # Das gepatchte Repository wird später nach
+        # PATCHED_EMU_GIT_DIR verschoben. Die lokale Git-
+        # Einstellung wird dabei mit übernommen.
+        run_git(
+            [
+                "config",
+                "core.autocrlf",
+                "true"
+            ],
+            cwd=temp_dir
+        )
+
+        log(
+            "✓ Git-Zeilenenden: core.autocrlf=true",
             "success"
         )
 
@@ -6354,7 +6483,7 @@ def patch_oscam_emu_git(
 
                 raise RuntimeError(
                     "Das vorhandene "
-                    "PATCH_EMU_GIT_DIR konnte nicht "
+                    "PATCHED_EMU_GIT_DIR konnte nicht "
                     "gesichert werden.\n\n"
                     f"{patch_dir}\n\n"
                     f"Fehler:\n{exc}"
@@ -6399,7 +6528,7 @@ def patch_oscam_emu_git(
 
                 raise RuntimeError(
                     "Das fertige Patch-Repository konnte "
-                    "nicht nach PATCH_EMU_GIT_DIR "
+                    "nicht nach PATCHED_EMU_GIT_DIR "
                     "übernommen werden.\n\n"
                     f"Quelle:\n{temp_dir}\n\n"
                     f"Ziel:\n{patch_dir}\n\n"
@@ -6449,7 +6578,7 @@ def patch_oscam_emu_git(
         ):
 
             raise RuntimeError(
-                "PATCH_EMU_GIT_DIR wurde nicht erstellt:\n"
+                "PATCHED_EMU_GIT_DIR wurde nicht erstellt:\n"
                 f"{patch_dir}"
             )
 

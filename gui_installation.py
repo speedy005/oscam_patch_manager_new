@@ -2371,6 +2371,7 @@ class PatchManagerInstallationMixin:
                         f"echo 'FEHLER: MSYS2-Programm script fehlt; Build-Ausgabe wird nicht mitgeschnitten.' >> {log_path_bash_q}; "
                         f"{s3_cmd}; result=$?; "
                         "fi; "
+                        f"printf '\\nSIMPLEBUILD_FINISHED:exit=%s\\n' \"$result\" >> {log_path_bash_q}; "
                         'echo; echo "Simplebuild beendet (Exit-Code: $result)"; '
                         f'echo "Protokoll: {log_path_bash}"; '
                         "exec bash -i"
@@ -2453,6 +2454,7 @@ class PatchManagerInstallationMixin:
                         "echo 'Hinweis: util-linux script nicht gefunden; kein Log-Mitschnitt.'; "
                         f"echo 'FEHLER: util-linux script fehlt; Build-Ausgabe wird nicht mitgeschnitten.' >> {quoted_log_path}; "
                         "fi; "
+                        f"printf '\\nSIMPLEBUILD_FINISHED:exit=%s\\n' \"$result\" >> {quoted_log_path}; "
                         f"echo; echo \"Simplebuild beendet (Exit-Code: $result)\"; "
                         f"echo \"Protokoll: {build_log_path}\"; "
                         "exec bash"

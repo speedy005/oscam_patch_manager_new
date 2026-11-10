@@ -303,7 +303,7 @@ class PatchManagerActionsMixin:
         func_names = {
             "btn_check_tools": "run_full_system_check",
             "restart_tool_button": "restart_app",
-            "clean_emu_button": "clean_emu_data",
+            "clean_emu_button": "oscam_emu_git_clear",
             "patch_emu_git_button": "run_patch_process",
             "btn_edit_patch": "edit_patch_header",
         }
@@ -324,173 +324,317 @@ class PatchManagerActionsMixin:
                     f"Fehler: Methode '{method_name}' fehlt!"
                 )
 
-    def on_update_check_finished(self, update_available=False, new_rev=None):
-        """
-        Aktualisiert das UI:
-        - Status Label (Update / aktuell)
-        - Neongrün-Blinken der Revision (3 Mal)
-        - ProgressBar bleibt unverändert
-        - Am Ende: Label "Was bauen wir heute?" in Kasten
-        """
-
-        from datetime import datetime
-        from PyQt6.QtCore import QTimer, Qt
-        from PyQt6.QtWidgets import QLabel
-
-        # Hide final label if exists
-        if hasattr(self, "hide_final_label"):
-            self.hide_final_label()
-        elif hasattr(self, "final_label") and self.final_label:
-            self.final_label.hide()
-
-        txt = getattr(self, "TEXT", {})
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.last_timestamp = timestamp  # Für Sprachwechsel speichern!
-
-        # 1. Die alte Revision für die Anzeige zwischenspeichern
-        old_rev = getattr(self, "current_rev", "11943")
-
-        # --- Revisions-Sound nur beim roten Aufblinken ---
-        sound_manager = getattr(self, "sound_manager", None)
-
-        def blink_revision(color):
-            set_status_ui(color)
-
-            if color == C_BLINK and sound_manager and sound_manager.enabled:
-                
-                sound_manager.play_revision()
-
-        # 2. Die neue Revision für die Zukunft speichern
-        if update_available and new_rev:
-            self.current_rev = new_rev
-
-        self.last_remote_rev = new_rev
-
-        # --- Zentrale Farben & Schriftarten ---
-        C_TIME = "#FF0000"
-        F_TIME = "Arial, Segoe UI, sans-serif"
-        F_TIME_SIZE = "26px"
-        F_TIME_WEIGHT = "bold"
-
-        C_REV = "#00FF00"
-        F_REV = "Arial, Segoe UI, sans-serif"
-        F_REV_SIZE = "26px"
-        F_REV_WEIGHT = "bold"
-
-        C_BLINK = "#F70606"
-        C_FINAL_COLOR = "cyan"
-        BG_FINAL_LABEL = "black"
-        F_FINAL_LABEL = "Arial, Segoe UI, sans-serif"
-        F_FINAL_LABEL_SIZE = "26px"
-        F_FINAL_LABEL_WEIGHT = "bold"
-        FINAL_LABEL_BORDER_RADIUS = 6
-
-        # Nachrichten
-        MSG_UPTODATE_COLOR = "#00FF00"
-        MSG_UPTODATE_FONT = "Arial, Segoe UI, sans-serif"
-        MSG_UPTODATE_SIZE = "26px"
-        MSG_UPTODATE_WEIGHT = "bold"
-
-        MSG_UPDATE_COLOR = "#FFAA00"
-        MSG_UPDATE_FONT = "Arial, Segoe UI, sans-serif"
-        MSG_UPDATE_SIZE = "26px"
-        MSG_UPDATE_WEIGHT = "bold"
-
-        # --- System Sound Helper ---
-        def play_system_sound(sound_type="info"):
-            safe_play = globals().get("safe_play")
-            if safe_play:
-                sounds = {
-                    "update": "dialog-information.oga",
-                    "uptodate": "complete.oga",
-                    "beep": "bell.oga",
-                }
-                safe_play(sounds.get(sound_type, "complete.oga"))
-
-        # --- Status Label ---
-        status_label = getattr(self, "status_label", None)
-        msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
-
-        def set_status_ui(rev_color=C_REV, opacity=1.0):
-            """Aktualisiert Status Label mit Farben, Fonts und optional Blink"""
-            if status_label:
-                html = (
-                    f"✅ <span style='font-size:{F_TIME_SIZE}; font-family:{F_TIME}; color:{C_TIME}; font-weight:{F_TIME_WEIGHT};'>[{timestamp}]</span> "
-                    f"<span style='font-size:{MSG_UPTODATE_SIZE}; font-family:{MSG_UPTODATE_FONT}; font-weight:{MSG_UPTODATE_WEIGHT}; color:{MSG_UPTODATE_COLOR};'>{msg}</span> "
-                    f"<span style='color:{rev_color}; opacity:{opacity}; font-size:{F_REV_SIZE}; font-family:{F_REV}; font-weight:{F_REV_WEIGHT};'>(r{old_rev})</span>"
-                )
-                status_label.setText(html)
-                status_label.show()
-
-        if update_available:
-            title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
-            
-            # Update-Meldung zusätzlich im großen Infoscreen anzeigen
-            self.append_info(
-                self.info_text,
-                f"🚀 [{timestamp}] {title} "
-                f"(r{old_rev} → r{new_rev})",
-                "warning",
+    def on_update_check_finished(self, update_available=False, new_rev=None, refresh_only=False):
+            # Animationen ausschließlich beim ersten regulären Start-Check ausführen.
+            run_startup_animation = (
+                not refresh_only
+                and not getattr(self, "_startup_animation_done", False)
             )
+            if run_startup_animation:
+                self._startup_animation_done = True
 
-            if status_label:
-                html = (
-                    f"🚀 <span style='font-size:{F_TIME_SIZE}; font-family:{F_TIME}; color:{C_TIME}; font-weight:{F_TIME_WEIGHT};'>[{timestamp}]</span> "
-                    f"<span style='font-size:{MSG_UPDATE_SIZE}; font-family:{MSG_UPDATE_FONT}; font-weight:{MSG_UPDATE_WEIGHT}; color:{MSG_UPDATE_COLOR};'><b>{title}</b></span> "
-                    f"<span style='color:{C_REV}; font-size:{F_REV_SIZE}; font-family:{F_REV}; font-weight:{F_REV_WEIGHT};'>(r{old_rev} ➔ r{new_rev})</span>"
-                )
-                status_label.setText(html)
-            play_system_sound("update")
+            """
+            Aktualisiert das UI:
+            - Status Label (Update / aktuell)
+            - Neongrün-Blinken der Revision (3 Mal)
+            - ProgressBar bleibt unverändert
+            - Am Ende: Label "Was bauen wir heute?" in Kasten
+            """
 
-            # --- Blink-Sequenz 3x ---
-            delays = [300, 600, 900, 1200, 1500, 1800]
-            blink_colors = [
-                "transparent",
-                C_BLINK,
-                "transparent",
-                C_BLINK,
-                "transparent",
-                C_BLINK,
-            ]
-            for i, delay in enumerate(delays):
-                QTimer.singleShot(
-                    delay,
-                    lambda c=blink_colors[i]: blink_revision(c)
-                )
+            from datetime import datetime
+            from PyQt6.QtCore import QTimer, Qt
+            from PyQt6.QtWidgets import QLabel
+
+            # Hide final label if exists
+            if not refresh_only and hasattr(self, "hide_final_label"):
+                self.hide_final_label()
+            elif not refresh_only and hasattr(self, "final_label") and self.final_label:
+                self.final_label.hide()
+
+            txt = getattr(self, "TEXT", {})
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            self.last_timestamp = timestamp  # Für Sprachwechsel speichern!
+
+            # 1. Die alte Revision für die Anzeige zwischenspeichern
+            old_rev = getattr(self, "current_rev", "11943")
+
+            # --- Revisions-Sound nur beim roten Aufblinken ---
+            sound_manager = getattr(self, "sound_manager", None)
+
+            def blink_revision(color):
+                set_status_ui(color)
+
+                if color == C_BLINK and sound_manager and sound_manager.enabled:
+                
+                    sound_manager.play_revision()
+
+            # 2. Die neue Revision für die Zukunft speichern
+            if update_available and new_rev:
+                self.current_rev = new_rev
+
+            self.last_remote_rev = new_rev
+
+            # --- Zentrale Farben & Schriftarten ---
+            C_TIME = "#FF0000"
+            F_TIME = "Arial, Segoe UI, sans-serif"
+            F_TIME_SIZE = "26px"
+            F_TIME_WEIGHT = "bold"
+
+            C_REV = "#00FF00"
+            F_REV = "Arial, Segoe UI, sans-serif"
+            F_REV_SIZE = "26px"
+            F_REV_WEIGHT = "bold"
+
+            C_BLINK = "#F70606"
+            C_FINAL_COLOR = "cyan"
+            BG_FINAL_LABEL = "black"
+            F_FINAL_LABEL = "Arial, Segoe UI, sans-serif"
+            F_FINAL_LABEL_SIZE = "26px"
+            F_FINAL_LABEL_WEIGHT = "bold"
+            FINAL_LABEL_BORDER_RADIUS = 6
+
+            # Nachrichten
+            MSG_UPTODATE_COLOR = "#00FF00"
+            MSG_UPTODATE_FONT = "Arial, Segoe UI, sans-serif"
+            MSG_UPTODATE_SIZE = "26px"
+            MSG_UPTODATE_WEIGHT = "bold"
+
+            MSG_UPDATE_COLOR = "#FFAA00"
+            MSG_UPDATE_FONT = "Arial, Segoe UI, sans-serif"
+            MSG_UPDATE_SIZE = "26px"
+            MSG_UPDATE_WEIGHT = "bold"
+
+            # --- System Sound Helper ---
+            def play_system_sound(sound_type="info"):
+                safe_play = globals().get("safe_play")
+                if safe_play:
+                    sounds = {
+                        "update": "dialog-information.oga",
+                        "uptodate": "complete.oga",
+                        "beep": "bell.oga",
+                    }
+                    safe_play(sounds.get(sound_type, "complete.oga"))
+
+            # --- Status Label ---
+            status_label = getattr(self, "status_label", None)
+            msg = txt.get("oscam_uptodate", "OSCam ist aktuell.")
+
+            def set_status_ui(rev_color=C_REV, opacity=1.0):
+                """Aktualisiert Status Label mit Farben, Fonts und optional Blink"""
+                if status_label:
+                    html = (
+                        f"✅ <span style='font-size:{F_TIME_SIZE}; font-family:{F_TIME}; color:{C_TIME}; font-weight:{F_TIME_WEIGHT};'>[{timestamp}]</span> "
+                        f"<span style='font-size:{MSG_UPTODATE_SIZE}; font-family:{MSG_UPTODATE_FONT}; font-weight:{MSG_UPTODATE_WEIGHT}; color:{MSG_UPTODATE_COLOR};'>{msg}</span> "
+                        f"<span style='color:{rev_color}; opacity:{opacity}; font-size:{F_REV_SIZE}; font-family:{F_REV}; font-weight:{F_REV_WEIGHT};'>(r{old_rev})</span>"
+                    )
+                    status_label.setText(html)
+                    status_label.show()
+
+            if update_available:
+                title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
+            
+                # Update-Meldung zusätzlich im großen Infoscreen anzeigen
+                if not refresh_only:
+                    self.append_info(
+                        self.info_text,
+                        f"🚀 [{timestamp}] {title} "
+                        f"(r{old_rev} → r{new_rev})",
+                        "warning",
+                    )
+
+                if status_label:
+                    html = (
+                        f"🚀 <span style='font-size:{F_TIME_SIZE}; font-family:{F_TIME}; color:{C_TIME}; font-weight:{F_TIME_WEIGHT};'>[{timestamp}]</span> "
+                        f"<span style='font-size:{MSG_UPDATE_SIZE}; font-family:{MSG_UPDATE_FONT}; font-weight:{MSG_UPDATE_WEIGHT}; color:{MSG_UPDATE_COLOR};'><b>{title}</b></span> "
+                        f"<span style='color:{C_REV}; font-size:{F_REV_SIZE}; font-family:{F_REV}; font-weight:{F_REV_WEIGHT};'>(r{old_rev} ➔ r{new_rev})</span>"
+                    )
+                    status_label.setText(html)
+                if not refresh_only:
+                    play_system_sound("update")
+
+                # --- Blink-Sequenz 3x ---
+                delays = [300, 600, 900, 1200, 1500, 1800]
+                blink_colors = [
+                    "transparent",
+                    C_BLINK,
+                    "transparent",
+                    C_BLINK,
+                    "transparent",
+                    C_BLINK,
+                ]
+                for i, delay in enumerate(delays if run_startup_animation else []):
+                    QTimer.singleShot(
+                        delay,
+                        lambda c=blink_colors[i]: blink_revision(c)
+                    )
 
         
-        else:
-            # --- Up-to-date ---
-            set_status_ui()
+            else:
+                # --- Up-to-date ---
+                # --- Finale Meldung parallel zum Revisions-Blinken anzeigen ---
+                try:
+                    pbar = getattr(self, "progress_bar", None)
 
-            # Status zusätzlich im großen Infoscreen anzeigen
-            self.append_info(
-                self.info_text,
-                (
-                    f'<span style="font-size:24px; font-weight:bold; color:#00FF00;">'
-                    f'✅ [{timestamp}] {msg} </span>'
-                    f'<span style="font-size:24px; font-weight:bold; color:#FF0000;">(r{old_rev})</span>'
-                ),
-                "html",
-            )
+                    if pbar is not None and run_startup_animation:
+                        is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+                        final_text = (
+                            "🛠️ Was bauen wir heute?"
+                            if is_de
+                            else "🛠️ What are we building today?"
+                        )
 
-            play_system_sound("uptodate" if new_rev else "error")
+                        # Label sicher erstellen und über dem Fortschrittsbalken anzeigen
+                        label = getattr(self, "final_label", None)
+                        if label is None:
+                            label = QLabel(self)
+                            label.setObjectName("final_label")
+                            label.setAlignment(
+                                Qt.AlignmentFlag.AlignCenter
+                            )
+                            self.final_label = label
 
-            # --- Blink-Sequenz für Revision ---
-            delays = [300, 600, 900, 1200, 1500, 1800]
-            blink_colors = [
-                "transparent",
-                C_BLINK,
-                "transparent",
-                C_BLINK,
-                "transparent",
-                C_BLINK,
-            ]
-            for i, delay in enumerate(delays):
-                QTimer.singleShot(
-                    delay,
-                    lambda c=blink_colors[i]: blink_revision(c)
-                )
+                        label.setText(final_text)
+                        pbar_pos = pbar.mapTo(self, pbar.rect().topLeft())
+                        label.setGeometry(
+                            pbar_pos.x(),
+                            pbar_pos.y(),
+                            pbar.width(),
+                            pbar.height(),
+                        )
+                        label.setStyleSheet(
+                            "QLabel {"
+                            " background-color: black;"
+                            " color: cyan;"
+                            " border: 2px solid cyan;"
+                            " border-radius: 6px;"
+                            " font-family: Arial, Segoe UI, sans-serif;"
+                            " font-size: 20px;"
+                            " font-weight: bold;"
+                            "}"
+                        )
+                        label.show()
+                        label.raise_()
+
+                        # Meldung synchron mit der Revisionsnummer exakt 3x blinken lassen
+                        old_timer = getattr(self, "_final_message_blink_timer", None)
+                        if old_timer is not None:
+                            old_timer.stop()
+                            old_timer.deleteLater()
+                            self._final_message_blink_timer = None
+
+                        # Gleiche Zeitpunkte und Farben wie bei der Revisionsanimation
+                        blink_delays = [300, 600, 900, 1200, 1500, 1800]
+                        blink_colors = [
+                            "transparent",
+                            "cyan",
+                            "transparent",
+                            "cyan",
+                            "transparent",
+                            "cyan",
+                        ]
+
+                        def set_final_message_color(color):
+                            label = getattr(self, "final_label", None)
+                            if label is None or not label.isVisible():
+                                return
+
+                            label.setStyleSheet(
+                                "QLabel {"
+                                " background-color: black;"
+                                f" color: {color};"
+                                " border: 2px solid cyan;"
+                                " border-radius: 6px;"
+                                " font-family: Arial, Segoe UI, sans-serif;"
+                                " font-size: 20px;"
+                                " font-weight: bold;"
+                                "}"
+                            )
+
+                        # Blinkphase mit der Revisionsnummer synchronisieren
+                        set_final_message_color("transparent")
+                        for delay, color in zip(blink_delays, blink_colors):
+                            QTimer.singleShot(
+                                delay,
+                                lambda c=color: set_final_message_color(c),
+                            )
+                        # Nach der Animation die Meldung dauerhaft sichtbar lassen
+                        QTimer.singleShot(
+                            1900,
+                            lambda: set_final_message_color("cyan"),
+                        )
+
+                except Exception as exc:
+                    print(
+                        f"[FINAL-MESSAGE-BLINK] Fehler: {exc!r}",
+                        flush=True,
+                    )
+
+                set_status_ui()
+
+                # Status und aktuell ausgewählte OSCam-Git-URL im großen Infoscreen anzeigen.
+                # Nicht die Origin-URL von TEMP_REPO verwenden: Diese kann von der
+                # in der GUI ausgewählten OSCam-Quelle abweichen.
+                git_url = "unbekannt"
+
+                try:
+                    selected_url = get_selected_stream_repo_url()
+                    if selected_url:
+                        git_url = str(selected_url).strip() or "unbekannt"
+                except Exception:
+                    pass
+
+                # Fallback: URL des lokalen Streamboard-Repositories, falls die
+                # GUI-Konfiguration keine ausgewählte Quelle liefern konnte.
+                if git_url == "unbekannt":
+                    try:
+                        result = git_command(
+                            ["remote", "get-url", "origin"],
+                            cwd=TEMP_REPO,
+                            allowed_returncodes=(0, 1),
+                        )
+                        git_url = (result.stdout or "").strip() or "unbekannt"
+                    except Exception:
+                        pass
+
+                import html
+
+                # Status zusätzlich im großen Infoscreen anzeigen.
+                # HTML-Inhalte sicher maskieren; die Git-URL bleibt erhalten.
+                if not refresh_only:
+                    self.append_info(
+                        getattr(self, "info_text", None),
+                        (
+                            f'<span style="font-size:24px; font-weight:bold; color:#00FF00;">'
+                            f'✅ [{html.escape(str(timestamp))}] '
+                            f'{html.escape(str(msg))} </span>'
+                            f'<span style="font-size:24px; font-weight:bold; color:#FF0000;">'
+                            f'(r{html.escape(str(old_rev))})</span><br>'
+                            f'<span style="font-size:16px; color:#00FFFF;">'
+                            f'Git-URL: {html.escape(str(git_url))}</span>'
+                        ),
+                        "html",
+                    )
+
+
+                if not refresh_only:
+                    play_system_sound("uptodate" if new_rev else "error")
+
+                # --- Blink-Sequenz für Revision ---
+                delays = [300, 600, 900, 1200, 1500, 1800]
+                blink_colors = [
+                    "transparent",
+                    C_BLINK,
+                    "transparent",
+                    C_BLINK,
+                    "transparent",
+                    C_BLINK,
+                ]
+                for i, delay in enumerate(delays if run_startup_animation else []):
+                    QTimer.singleShot(
+                        delay,
+                        lambda c=blink_colors[i]: blink_revision(c)
+                    )
+
 
     def trigger_alert_animation(self, widget):
         """Lässt ein Widget dezent rot pulsieren."""
@@ -1008,11 +1152,6 @@ class PatchManagerActionsMixin:
                     # Geschützte Verzeichnisse und Dateien nie aktualisieren.
                     if is_protected(target):
                         continue
-
-                    if target.exists() and not target.is_file():
-                        raise RuntimeError(
-                            f"Zielpfad ist keine Datei: {target}"
-                        )
 
                     if target.exists() and not target.is_file():
                         raise RuntimeError(
@@ -1555,39 +1694,38 @@ class PatchManagerActionsMixin:
 
             # Config sicher aktualisieren: aktuelle Datei laden und nur
             # den geänderten Wert ergänzen.
-            if hasattr(self, "cfg"):
-                try:
-                    config_path = CONFIG_FILE
-                    current_cfg = {}
+            try:
+                config_path = CONFIG_FILE
+                current_cfg = {}
 
-                    if os.path.isfile(config_path):
-                        with open(config_path, "r", encoding="utf-8") as f:
-                            loaded = json.load(f)
-                        if isinstance(loaded, dict):
-                            current_cfg = loaded
+                if os.path.isfile(config_path):
+                    with open(config_path, "r", encoding="utf-8") as f:
+                        loaded = json.load(f)
+                    if isinstance(loaded, dict):
+                        current_cfg = loaded
 
-                    current_cfg["s3_patch_path"] = new_dir
+                current_cfg["s3_patch_path"] = new_dir
 
-                    with open(config_path, "w", encoding="utf-8") as f:
-                        json.dump(current_cfg, f, indent=4, ensure_ascii=False)
-                        f.write("\n")
+                with open(config_path, "w", encoding="utf-8") as f:
+                    json.dump(current_cfg, f, indent=4, ensure_ascii=False)
+                    f.write("\n")
 
-                    self.cfg = current_cfg
-                    self.current_config = current_cfg
+                self.cfg = current_cfg
+                self.current_config = current_cfg
 
-                    success_msg = f"✅ Ordner geändert: {new_dir}" if is_de else f"✅ Folder changed: {new_dir}"
-                    log(success_msg, "success")
-                    if pbar:
-                        finalize_pbar("✅ " + ("Gespeichert!" if is_de else "Saved!"))
-                    if "safe_play" in globals():
-                        safe_play("complete.oga")
+                success_msg = f"✅ Ordner geändert: {new_dir}" if is_de else f"✅ Folder changed: {new_dir}"
+                log(success_msg, "success")
+                if pbar:
+                    finalize_pbar("✅ " + ("Gespeichert!" if is_de else "Saved!"))
+                if "safe_play" in globals():
+                    safe_play("complete.oga")
 
-                except Exception as e:
-                    log(f"❌ Fehler: {e}", "error")
-                    if pbar:
-                        finalize_pbar("❌ " + str(e))
-                    if "safe_play" in globals():
-                        safe_play("dialog-error.oga")
+            except Exception as e:
+                log(f"❌ Fehler: {e}", "error")
+                if pbar:
+                    finalize_pbar("❌ " + str(e))
+                if "safe_play" in globals():
+                    safe_play("dialog-error.oga")
         else:
             log("ℹ️ Abgebrochen" if is_de else "ℹ️ Cancelled", "info")
             if pbar:
@@ -2017,6 +2155,35 @@ class PatchManagerActionsMixin:
                 f'<div style="color:{C_LINE}; text-align:left;">{"-" * 45}</div>'
             )
 
+            # Ausgewählte Streamboard-Git-URL anzeigen
+            import html
+
+            git_url = "unbekannt"
+            try:
+                selected_url = get_selected_stream_repo_url()
+                if selected_url:
+                    git_url = str(selected_url).strip() or "unbekannt"
+            except Exception:
+                pass
+
+            if git_url == "unbekannt":
+                try:
+                    result = git_command(
+                        ["remote", "get-url", "origin"],
+                        cwd=TEMP_REPO,
+                        allowed_returncodes=(0, 1),
+                    )
+                    git_url = (result.stdout or "").strip() or "unbekannt"
+                except Exception:
+                    pass
+
+            output.append(
+                '<div style="font-size:30px; font-weight:bold; text-align:left;">'
+                '<span style="color:#FF0000;">🔗 Git-URL: </span>'
+                f'<span style="color:#00BFFF;">{html.escape(git_url)}</span>'
+                '</div>'
+            )
+
             # Log ausgeben
             if hasattr(self, "append_info") and hasattr(self, "info_text"):
                 self.append_info(self.info_text, "\n".join(output), "html")
@@ -2047,25 +2214,6 @@ class PatchManagerActionsMixin:
                 1000, lambda: setattr(self, "_update_dialog_active", False)
             )
 
-    def on_clean_emu_clicked(self):
-        """Bereinigt das Emu-/Patch-Arbeitsverzeichnis über die zentrale Funktion."""
-        self.update_language()
-        cleaner = getattr(self, "oscam_emu_git_clear", None)
-        if not callable(cleaner):
-            message = "Die Bereinigungsfunktion ist nicht verfügbar."
-            if hasattr(self, "append_info") and hasattr(self, "info_text"):
-                self.append_info(self.info_text, message, "error")
-            else:
-                print(f"[CLEAN] {message}")
-            return False
-        return cleaner(
-            info_widget=getattr(self, "info_text", None),
-            progress_callback=(
-                self.progress_bar.setValue
-                if getattr(self, "progress_bar", None) is not None
-                else None
-            ),
-        )
 
     def on_button_clicked(self, key, func):
         self.set_active_button(key)

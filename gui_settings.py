@@ -515,152 +515,6 @@ class PatchManagerSettingsMixin:
         if "save_config" in globals():
             save_config({"led_enabled": enable}, gui_instance=self, silent=True)
 
-    def show_language_animation(self, lang_code, callback=None):
-        from PyQt6.QtWidgets import (
-            QLabel,
-            QGraphicsOpacityEffect,
-            QGraphicsDropShadowEffect,
-        )
-        from PyQt6.QtCore import (
-            QPropertyAnimation,
-            QRect,
-            QEasingCurve,
-            QTimer,
-            QVariantAnimation,
-        )
-        from PyQt6.QtGui import QFont, QFontInfo, QColor
-        from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve, QTimer
-        from PyQt6.QtGui import QFont, QColor
-
-        # 1. Cleanup
-        if hasattr(self, "text_label") and self.text_label:
-            self.text_label.deleteLater()
-        if hasattr(self, "flag_label") and self.flag_label:
-            self.flag_label.deleteLater()
-        if hasattr(self, "final_label") and self.final_label:
-            self.final_label.hide()
-
-        is_de = lang_code.lower() == "de"
-        text_msg = "Sprache wird umgestellt..." if is_de else "Switching language..."
-        flag_char = "🇩🇪" if is_de else "🇺🇸"
-
-        # 2. Text Label Setup (Neon Glow vorbereitet)
-        self.text_label = QLabel(text_msg, self)
-        self.text_label.setFont(QFont("Segoe UI", 32, QFont.Weight.Bold))
-        self.text_label.setStyleSheet(
-            "color: rgba(255, 111, 0, 0); background: transparent;"
-        )
-        self.text_label.adjustSize()
-        t_x, t_y = (self.width() - self.text_label.width()) // 2, (
-            self.height() - self.text_label.height()
-        ) // 2 + 30
-        self.text_label.move(t_x, t_y)
-
-        self.shadow = QGraphicsDropShadowEffect(self.text_label)
-        self.shadow.setColor(QColor("#FF6F00"))
-        self.shadow.setOffset(0, 0)
-        self.shadow.setBlurRadius(0)
-        self.text_label.setGraphicsEffect(self.shadow)
-        self.text_label.show()
-
-        # 3. Flag Label Setup (Slide & Fade)
-        from PyQt6.QtGui import QFont
-
-        self.flag_label = QLabel(flag_char, self)
-
-        font = QFont("Noto Color Emoji", 64)
-        font.setFamily("NotoColorEmoji")
-        font.setPointSize(64)
-
-        self.flag_label.setFont(font)
-        self.flag_label.adjustSize()
-
-        self.flag_label.adjustSize()
-        f_x, f_y = (
-            self.width() - self.flag_label.width()
-        ) // 2, t_y - self.flag_label.height() - 20
-
-        flag_opacity = QGraphicsOpacityEffect(self.flag_label)
-        flag_opacity.setOpacity(0)
-        self.flag_label.setGraphicsEffect(flag_opacity)
-        self.flag_label.show()
-
-        # 4. Animationen: Neon-Puls & Fade-Out
-        def fade_out():
-            # Text und Flagge sanft ausblenden
-            self.out_anim = QVariantAnimation(self)
-            self.out_anim.setDuration(600)
-            self.out_anim.setStartValue(QColor(255, 111, 0, 255))
-            self.out_anim.setEndValue(QColor(255, 111, 0, 0))
-            self.out_anim.valueChanged.connect(
-                lambda c: self.text_label.setStyleSheet(
-                    f"color: {c.name(QColor.NameFormat.HexArgb)}; background: transparent;"
-                )
-            )
-
-            self.f_out = QPropertyAnimation(flag_opacity, b"opacity")
-            self.f_out.setDuration(600)
-            self.f_out.setStartValue(1)
-            self.f_out.setEndValue(0)
-
-            self.f_out.finished.connect(
-                lambda: (
-                    self.text_label.hide(),
-                    self.flag_label.hide(),
-                    callback() if callback else None,
-                )
-            )
-            self.out_anim.start()
-            self.f_out.start()
-
-        def start_glow_pulse(times=6):
-            state = {"i": 0}
-
-            def toggle():
-                val = 5 + (state["i"] % 2) * 25
-                self.shadow.setBlurRadius(val)
-                state["i"] += 1
-                if state["i"] < times * 2:
-                    QTimer.singleShot(180, toggle)
-                else:
-                    fade_out()
-
-            toggle()
-
-        # 5. Start: Text-Farbe Animation (Echter Fade-In)
-        self.text_fade_in = QVariantAnimation(self)
-        self.text_fade_in.setDuration(900)
-        self.text_fade_in.setStartValue(QColor(255, 111, 0, 0))
-        self.text_fade_in.setEndValue(QColor(255, 111, 0, 255))
-        self.text_fade_in.valueChanged.connect(
-            lambda c: self.text_label.setStyleSheet(
-                f"color: {c.name(QColor.NameFormat.HexArgb)}; background: transparent;"
-            )
-        )
-
-        # Flagge Fade & Slide
-        self.flag_fade_in = QPropertyAnimation(flag_opacity, b"opacity")
-        self.flag_fade_in.setDuration(900)
-        self.flag_fade_in.setStartValue(0)
-        self.flag_fade_in.setEndValue(1)
-
-        self.flag_slide = QPropertyAnimation(self.flag_label, b"geometry")
-        self.flag_slide.setDuration(900)
-        self.flag_slide.setStartValue(
-            QRect(f_x, f_y + 50, self.flag_label.width(), self.flag_label.height())
-        )
-        self.flag_slide.setEndValue(
-            QRect(f_x, f_y, self.flag_label.width(), self.flag_label.height())
-        )
-        self.flag_slide.setEasingCurve(QEasingCurve.Type.OutBack)
-
-        self.flag_fade_in.finished.connect(
-            lambda: QTimer.singleShot(100, start_glow_pulse)
-        )
-
-        self.text_fade_in.start()
-        self.flag_fade_in.start()
-        self.flag_slide.start()
 
     def show_tool_help(self, tool_id):
         """Zeigt Status-Infos (Grün) oder Hilfe (Rot) für System-Tools an."""
@@ -1572,7 +1426,7 @@ class PatchManagerSettingsMixin:
             btn.setText(clean_text)
             btn.setIcon(QApplication.style().standardIcon(standard_pixmap))
             btn.setIconSize(QSize(20, 20))
-            btn.setMinimumSize(200, 50)
+            btn.setMinimumSize(240, 50)
             apply_button_style(btn, "#00FFFF")
 
         # --------------------------------------------------
@@ -1809,7 +1663,7 @@ class PatchManagerSettingsMixin:
         matrix_btn = getattr(self, "btn_matrix", None)
         if matrix_btn is not None:
             matrix_btn.setText(tr("🔙 MATRIX Beenden", "🔙 EXIT MATRIX"))
-            matrix_btn.setMinimumSize(220, 50)
+            matrix_btn.setMinimumSize(240, 50)
             matrix_btn.setToolTip(
                 tr("Verlässt den Matrix-Modus.", "Exits Matrix mode.")
             )

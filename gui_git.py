@@ -45,7 +45,6 @@ class PatchManagerGitMixin:
         # Imports
         # ------------------------------------------------------------
         from PyQt6.QtWidgets import QTextEdit, QApplication
-        from PyQt6.QtCore import QTimer
 
         import os
         import tempfile
@@ -761,7 +760,32 @@ class PatchManagerGitMixin:
     def oscam_emu_git_clear(self, info_widget=None, progress_callback=None):
         """Zentrales Logging für die Emu-Git Bereinigung – mit Neon-Regenbogen & Abschluss-Puls."""
 
-        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+        from PyQt6.QtCore import QTimer
+
+        # Sicherheitsabfrage vor jeder Änderung
+        lang_confirm = str(getattr(self, "LANG", "de")).lower()[:2]
+        confirm_box = QMessageBox(self)
+        confirm_box.setWindowTitle("OSCam-Emu Git")
+        confirm_box.setText(
+            "Möchtest du das OSCam-Emu-Git wirklich leeren?"
+            if lang_confirm == "de"
+            else "Do you really want to clear the OSCam-Emu Git?"
+        )
+        yes_button = confirm_box.addButton(
+            "Ja" if lang_confirm == "de" else "Yes",
+            QMessageBox.ButtonRole.YesRole,
+        )
+        no_button = confirm_box.addButton(
+            "Nein" if lang_confirm == "de" else "No",
+            QMessageBox.ButtonRole.NoRole,
+        )
+        confirm_box.setDefaultButton(no_button)
+        confirm_box.exec()
+
+        if confirm_box.clickedButton() != yes_button:
+            return
+
         from PyQt6.QtCore import QTimer
 
         # --- Final Label verstecken ---
@@ -858,7 +882,6 @@ class PatchManagerGitMixin:
 
                 pulse_green()
                 update_p(100)
-                if "safe_play" in globals(): safe_play("complete.oga")
 
             elif result == "not_found":
                 msg = "ℹ️ " + ("Ordner bereits leer." if lang == "de" else "Folder already empty.")
@@ -867,7 +890,6 @@ class PatchManagerGitMixin:
             
                 bar_txt = "ℹ️ Bereits leer" if lang == "de" else "ℹ️ Already empty"
                 update_p(100, text=bar_txt)
-                if "safe_play" in globals(): safe_play("dialog-information.oga")
 
             else:
                 raise Exception("Deletion failed")
@@ -877,7 +899,6 @@ class PatchManagerGitMixin:
                 self.append_info(info_widget, f"❌ Fehler: {e}", "error")
             bar_txt = "❌ Fehler" if lang == "de" else "❌ Error"
             update_p(100, is_err=True, text=bar_txt)
-            if "safe_play" in globals(): safe_play("dialog-error.oga")
 
         finally:
             QApplication.processEvents()
@@ -1277,11 +1298,17 @@ class PatchManagerGitMixin:
             try:
                 # Prüfen ob die Online-Nummer größer als die lokale ist
                 update_available = int(remote_rev) > int(self.current_rev)
+                self._oscam_update_available = update_available
+                self._oscam_check_completed = True
                 self.on_update_check_finished(update_available, remote_rev)
             except ValueError:
+                self._oscam_update_available = False
+                self._oscam_check_completed = True
                 self.on_update_check_finished(False, self.current_rev)
         else:
             # Fehlerfall: Nur lokalen Stand zeigen
+            self._oscam_update_available = False
+            self._oscam_check_completed = True
             self.on_update_check_finished(False, self.current_rev)
 
     def change_modifier_name(self):
@@ -1484,117 +1511,58 @@ class PatchManagerGitMixin:
         self.infoscreen.moveCursor(QTextCursor.MoveOperation.End)
 
     def check_for_new_commit(self):
-        """
-        Prüft den aktuellsten Commit von Streamboard.
+            """
+            Prüft den aktuellsten Commit von Streamboard.
 
-        Der Netzwerk/Git-Check läuft in einem QThread,
-        damit die PyQt-Oberfläche nicht einfriert.
+            Der Netzwerk/Git-Check läuft in einem QThread,
+            damit die PyQt-Oberfläche nicht einfriert.
 
-        Repository:
-            https://git.streamboard.tv/common/oscam.git
-        Branch:
-            master
-        """
+            Repository:
+                https://git.streamboard.tv/common/oscam.git
+            Branch:
+                master
+            """
 
-        from PyQt6.QtCore import QThread, pyqtSignal
-        from PyQt6.QtWidgets import QMessageBox, QApplication
-        import subprocess
+            from PyQt6.QtCore import QThread, pyqtSignal
+            from PyQt6.QtWidgets import QMessageBox, QApplication
+            import subprocess
 
-        # ---------------------------------------------------------
-        # Final Label verstecken
-        # ---------------------------------------------------------
-        if hasattr(self, "hide_final_label"):
-            self.hide_final_label()
+            # ---------------------------------------------------------
+            # Final Label verstecken
+            # ---------------------------------------------------------
+            if hasattr(self, "hide_final_label"):
+                self.hide_final_label()
 
-        # ---------------------------------------------------------
-        # Sprache
-        # ---------------------------------------------------------
-        lang = getattr(self, "LANG", "de").lower()
-        self.TEXT = globals().get("TEXTS", {}).get(lang, {})
-        is_de = lang.startswith("de")
+            # ---------------------------------------------------------
+            # Sprache
+            # ---------------------------------------------------------
+            lang = getattr(self, "LANG", "de").lower()
+            self.TEXT = globals().get("TEXTS", {}).get(lang, {})
+            is_de = lang.startswith("de")
 
-        # ---------------------------------------------------------
-        # ProgressBar
-        # ---------------------------------------------------------
-        pbar = getattr(self, "progress_bar", None)
+            # ---------------------------------------------------------
+            # ProgressBar
+            # ---------------------------------------------------------
+            pbar = getattr(self, "progress_bar", None)
 
-        rainbow = (
-            "qlineargradient("
-            "x1:0, y1:0, x2:1, y2:0, "
-            "stop:0 #FF0000, "
-            "stop:0.2 #FF7F00, "
-            "stop:0.4 #FFFF00, "
-            "stop:0.6 #00FF00, "
-            "stop:0.8 #0000FF, "
-            "stop:1 #8B00FF)"
-        )
-
-        def set_progress(value, text=None):
-            if pbar is None:
-                return
-
-            pbar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    text-align: center;
-                    font-weight: bold;
-                    border: 2px solid #222;
-                    border-radius: 6px;
-                    background-color: #111;
-                    color: black;
-                    font-size: 15pt;
-                }}
-
-                QProgressBar::chunk {{
-                    background-color: {rainbow};
-                    border-radius: 4px;
-                }}
-                """
+            rainbow = (
+                "qlineargradient("
+                "x1:0, y1:0, x2:1, y2:0, "
+                "stop:0 #FF0000, "
+                "stop:0.2 #FF7F00, "
+                "stop:0.4 #FFFF00, "
+                "stop:0.6 #00FF00, "
+                "stop:0.8 #0000FF, "
+                "stop:1 #8B00FF)"
             )
 
-            pbar.setValue(value)
-
-            if text is not None:
-                pbar.setFormat(text)
-
-            pbar.show()
-            QApplication.processEvents()
-
-        def finalize_pbar(text, visible_seconds=3):
-            if pbar is None:
-                return
-
-            pbar.setStyleSheet(
-                f"""
-                QProgressBar {{
-                    text-align: center;
-                    font-weight: bold;
-                    border: 2px solid #222;
-                    border-radius: 6px;
-                    background-color: #111;
-                    color: black;
-                    font-size: 15pt;
-                }}
-
-                QProgressBar::chunk {{
-                    background-color: {rainbow};
-                    border-radius: 4px;
-                }}
-                """
-            )
-
-            pbar.setValue(100)
-            pbar.setFormat(text)
-
-            from PyQt6.QtCore import QTimer
-
-            def clear_bar():
+            def set_progress(value, text=None):
                 if pbar is None:
                     return
 
                 pbar.setStyleSheet(
-                    """
-                    QProgressBar {
+                    f"""
+                    QProgressBar {{
                         text-align: center;
                         font-weight: bold;
                         border: 2px solid #222;
@@ -1602,320 +1570,468 @@ class PatchManagerGitMixin:
                         background-color: #111;
                         color: black;
                         font-size: 15pt;
-                    }
+                    }}
 
-                    QProgressBar::chunk {
-                        background-color: transparent;
-                    }
+                    QProgressBar::chunk {{
+                        background-color: {rainbow};
+                        border-radius: 4px;
+                    }}
                     """
                 )
 
-                pbar.setValue(0)
-                pbar.setFormat("")
+                pbar.setValue(value)
 
-            QTimer.singleShot(
-                visible_seconds * 1000,
-                clear_bar
-            )
+                if text is not None:
+                    pbar.setFormat(text)
 
-        # ---------------------------------------------------------
-        # Git Worker
-        # ---------------------------------------------------------
-        class CommitWorker(QThread):
+                pbar.show()
+                QApplication.processEvents()
 
-            success = pyqtSignal(str)
-            error = pyqtSignal(str)
+            def finalize_pbar(text, visible_seconds=3):
+                if pbar is None:
+                    return
 
-            def run(self):
-                try:
-                    repo_url = (
-                        "https://git.streamboard.tv/"
-                        "common/oscam.git"
+                pbar.setStyleSheet(
+                    f"""
+                    QProgressBar {{
+                        text-align: center;
+                        font-weight: bold;
+                        border: 2px solid #222;
+                        border-radius: 6px;
+                        background-color: #111;
+                        color: black;
+                        font-size: 15pt;
+                    }}
+
+                    QProgressBar::chunk {{
+                        background-color: {rainbow};
+                        border-radius: 4px;
+                    }}
+                    """
+                )
+
+                pbar.setValue(100)
+                pbar.setFormat(text)
+
+                from PyQt6.QtCore import QTimer
+
+                def clear_bar():
+                    if pbar is None:
+                        return
+
+                    pbar.setStyleSheet(
+                        """
+                        QProgressBar {
+                            text-align: center;
+                            font-weight: bold;
+                            border: 2px solid #222;
+                            border-radius: 6px;
+                            background-color: #111;
+                            color: black;
+                            font-size: 15pt;
+                        }
+
+                        QProgressBar::chunk {
+                            background-color: transparent;
+                        }
+                        """
                     )
 
-                    result = subprocess.run(
-                        [
-                            "git",
-                            "ls-remote",
-                            repo_url,
-                            "refs/heads/master"
-                        ],
-                        capture_output=True,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace",
-                        timeout=20
-                    )
+                    pbar.setValue(0)
+                    pbar.setFormat("")
 
-                    if result.returncode != 0:
-                        error_text = (
-                            result.stderr.strip()
-                            or "git ls-remote fehlgeschlagen."
-                        )
+                QTimer.singleShot(
+                    visible_seconds * 1000,
+                    clear_bar
+                )
 
-                        self.error.emit(error_text)
-                        return
+            # ---------------------------------------------------------
+            # Git Worker
+            # ---------------------------------------------------------
+            class CommitWorker(QThread):
 
-                    output = result.stdout.strip()
+                success = pyqtSignal(str)
+                error = pyqtSignal(str)
 
-                    if not output:
-                        self.error.emit(
-                            "Keine Antwort von Streamboard."
-                        )
-                        return
+            
+                def run(self):
+                    sources = [
+                        (
+                            "Streamboard",
+                            "https://git.streamboard.tv/common/oscam.git"
+                        ),
+                        (
+                            "GitHub-Fallback",
+                            "https://github.com/speedy005/oscam-git"
+                        ),
+                    ]
 
-                    # Erwartet:
-                    # HASH<TAB>refs/heads/master
-                    parts = output.split()
+                    errors = []
 
-                    if not parts:
-                        self.error.emit(
-                            "Kein Commit-Hash erhalten."
-                        )
-                        return
+                    for source_name, repo_url in sources:
+                        try:
+                            print(
+                                f"[COMMIT] Prüfe Quelle: {repo_url}",
+                                flush=True
+                            )
 
-                    commit_hash = parts[0].strip().lower()
+                            result = subprocess.run(
+                                [
+                                    "git",
+                                    "ls-remote",
+                                    repo_url,
+                                    "refs/heads/master"
+                                ],
+                                capture_output=True,
+                                text=True,
+                                encoding="utf-8",
+                                errors="replace",
+                                timeout=10
+                            )
 
-                    # SHA-1 muss 40 Zeichen haben
-                    if len(commit_hash) != 40:
-                        self.error.emit(
-                            f"Ungültiger Commit-Hash: {commit_hash}"
-                        )
-                        return
+                            if result.returncode != 0:
+                                error_text = (
+                                    result.stderr.strip()
+                                    or "git ls-remote fehlgeschlagen."
+                                )
 
-                    self.success.emit(commit_hash)
+                                errors.append(
+                                    f"{source_name}: {error_text}"
+                                )
 
-                except subprocess.TimeoutExpired:
+                                print(
+                                    f"[COMMIT] Quelle fehlgeschlagen: "
+                                    f"{source_name}: {error_text}",
+                                    flush=True
+                                )
+                                continue
+
+                            output = result.stdout.strip()
+                            parts = output.split()
+
+                            if not parts:
+                                errors.append(
+                                    f"{source_name}: Kein Commit-Hash erhalten."
+                                )
+                                continue
+
+                            commit_hash = parts[0].strip().lower()
+
+                            if (
+                                len(commit_hash) != 40
+                                or any(
+                                    c not in "0123456789abcdef"
+                                    for c in commit_hash
+                                )
+                            ):
+                                errors.append(
+                                    f"{source_name}: Ungültiger Commit-Hash."
+                                )
+                                continue
+
+                            print(
+                                f"[COMMIT] Erfolgreiche Quelle: {source_name}",
+                                flush=True
+                            )
+                            print(
+                                f"[COMMIT] Remote-HEAD: {commit_hash}",
+                                flush=True
+                            )
+
+                            if source_name != "Streamboard":
+                                print(
+                                    "[COMMIT] Streamboard nicht erreichbar. "
+                                    "Ersatzquelle wurde verwendet.",
+                                    flush=True
+                                )
+
+                            self.success.emit(commit_hash)
+                            return
+
+                        except subprocess.TimeoutExpired:
+                            error_text = (
+                                f"{source_name}: Zeitlimit von 10 Sekunden "
+                                "überschritten."
+                            )
+
+                            errors.append(error_text)
+
+                            print(
+                                f"[COMMIT] TIMEOUT: {repo_url}",
+                                flush=True
+                            )
+
+                        except FileNotFoundError:
+                            self.error.emit(
+                                "Git wurde nicht gefunden. "
+                                "Bitte prüfen, ob Git installiert ist."
+                            )
+                            return
+
+                        except Exception as e:
+                            errors.append(f"{source_name}: {e}")
+
+                            print(
+                                f"[COMMIT] Fehler bei {source_name}: {e}",
+                                flush=True
+                            )
+
                     self.error.emit(
-                        "Zeitüberschreitung bei der Verbindung."
+                        "Keine OSCam-Quelle konnte abgefragt werden:\n"
+                        + "\n".join(errors)
                     )
 
-                except FileNotFoundError:
-                    self.error.emit(
-                        "Git wurde nicht gefunden. "
-                        "Bitte prüfen, ob Git installiert ist."
-                    )
 
-                except Exception as e:
-                    self.error.emit(str(e))
+            # ---------------------------------------------------------
+            # Progress starten
+            # ---------------------------------------------------------
+            if pbar:
+                set_progress(
+                    10,
+                    "🔍 Prüfe Streamboard..."
+                    if is_de
+                    else
+                    "Checking Streamboard..."
+                )
 
-        # ---------------------------------------------------------
-        # Progress starten
-        # ---------------------------------------------------------
-        if pbar:
-            set_progress(
-                10,
-                "🔍 Prüfe Streamboard..."
-                if is_de
-                else
-                "Checking Streamboard..."
-            )
+                set_progress(
+                    30,
+                    "🌐 Verbinde mit Streamboard..."
+                    if is_de
+                    else
+                    "🌐 Connecting to Streamboard..."
+                )
 
-            set_progress(
-                30,
-                "🌐 Verbinde mit Streamboard..."
-                if is_de
-                else
-                "🌐 Connecting to Streamboard..."
-            )
+            # ---------------------------------------------------------
+            # Worker erzeugen
+            # ---------------------------------------------------------
+            worker = CommitWorker(self)
 
-        # ---------------------------------------------------------
-        # Worker erzeugen
-        # ---------------------------------------------------------
-        worker = CommitWorker(self)
+            # Referenz behalten, damit Python den Thread nicht
+            # vorzeitig freigibt.
+            self._commit_check_worker = worker
 
-        # Referenz behalten, damit Python den Thread nicht
-        # vorzeitig freigibt.
-        self._commit_check_worker = worker
-
-        # ---------------------------------------------------------
-        # Erfolgreicher Check
-        # ---------------------------------------------------------
+            # ---------------------------------------------------------
+            # Erfolgreicher Check
+            # ---------------------------------------------------------
         
       
-        def commit_received(newest_hash):
+            def commit_received(newest_hash):
 
-            try:
-                if pbar:
-                    set_progress(75)
+                try:
+                    if pbar:
+                        set_progress(75)
 
-                # -------------------------------------------------
-                # NEUER COMMIT VON STREAMBOARD
-                # -------------------------------------------------
-                new_hash = str(
-                    newest_hash
-                ).strip().lower()
+                    # -------------------------------------------------
+                    # NEUER COMMIT VON STREAMBOARD
+                    # -------------------------------------------------
+                    new_hash = str(
+                        newest_hash
+                    ).strip().lower()
 
-                # -------------------------------------------------
-                # BISHERIGER AKTUELLER COMMIT AUS CONFIG
-                # -------------------------------------------------
-                old_hash = str(
-                    self.cfg.get(
-                        "last_stream_commit",
-                        ""
-                    )
-                ).strip().lower()
+                    # -------------------------------------------------
+                    # BISHERIGER AKTUELLER COMMIT AUS CONFIG
+                    # -------------------------------------------------
+                    old_hash = str(
+                        self.cfg.get(
+                            "last_stream_commit",
+                            ""
+                        )
+                    ).strip().lower()
 
-                # -------------------------------------------------
-                # ANZEIGE
-                # -------------------------------------------------
-                new_display = (
-                    new_hash[:8]
-                    if new_hash
-                    else "---"
-                )
-
-                old_display = (
-                    old_hash[:8]
-                    if old_hash
-                    else "---"
-                )
-
-                # -------------------------------------------------
-                # TEXTE
-                # -------------------------------------------------
-                msg_new = self.TEXT.get(
-                    "check_commit_new_found",
-                    "Neuer Commit gefunden!"
-                )
-
-                msg_up = self.TEXT.get(
-                    "check_commit_up_to_date",
-                    "Kein neuer Commit vorhanden."
-                )
-
-                lbl_new = self.TEXT.get(
-                    "check_commit_new_hash",
-                    "Neu:"
-                )
-
-                lbl_old = self.TEXT.get(
-                    "check_commit_old_hash",
-                    "Alt:"
-                )
-
-                # -------------------------------------------------
-                # PRÜFEN
-                # -------------------------------------------------
-                is_new_commit = (
-                    new_hash != old_hash
-                )
-
-                print(
-                    "[COMMIT] Streamboard:",
-                    new_hash,
-                    flush=True
-                )
-
-                print(
-                    "[COMMIT] bisher last_stream_commit:",
-                    old_hash,
-                    flush=True
-                )
-
-                print(
-                    "[COMMIT] neuer Commit:",
-                    is_new_commit,
-                    flush=True
-                )
-
-                # =================================================
-                # NEUER COMMIT
-                # =================================================
-                if is_new_commit:
-
-                    safe_play(
-                        "complete.oga"
+                    # -------------------------------------------------
+                    # ANZEIGE
+                    # -------------------------------------------------
+                    new_display = (
+                        new_hash[:8]
+                        if new_hash
+                        else "---"
                     )
 
-                    self.log_message(
-                        "<span style='color:cyan;'>"
-                        f"🆕 {msg_new} "
-                        f"({new_display})"
-                        "</span>"
-                    )
-
-                    info_text = (
-                        f"{msg_new}\n\n"
-                        f"{lbl_new} {new_display}\n"
-                        f"{lbl_old} {old_display}"
-                    )
-
-                # =================================================
-                # KEIN NEUER COMMIT
-                # =================================================
-                else:
-
-                    safe_play(
-                        "dialog-information.oga"
-                    )
-
-                    self.log_message(
-                        "<span style='color:cyan;'>"
-                        f"ℹ️ {msg_up} "
-                        f"({new_display})"
-                        "</span>"
-                    )
-
-                    info_text = (
-                        f"{msg_up}\n\n"
-                        f"{lbl_new} {new_display}\n"
-                        f"{lbl_old} {old_display}"
-                    )
-
-                # -------------------------------------------------
-                # DIALOG
-                # -------------------------------------------------
-                QMessageBox.information(
-                    self,
-                    self.TEXT.get(
-                        "check_commit_title",
-                        "OSCam Commit-Check"
-                    ),
-                    info_text
-                )
-
-                
-                # =================================================
-                # COMMIT-HISTORIE AKTUALISIEREN
-                # NUR wenn tatsächlich ein neuer Commit vorhanden ist
-                # =================================================
-
-                if is_new_commit:
-
-                    # Bisheriger aktueller Commit wird zum vorherigen
-                    self.cfg[
-                        "previous_stream_commit"
-                    ] = old_hash
-
-                    # Neuer Streamboard-Commit wird aktuell
-                    self.cfg[
-                        "last_stream_commit"
-                    ] = new_hash
-
-                    print(
-                        "[COMMIT] Neuer Commit erkannt",
-                        flush=True
-                    )
-
-                    print(
-                        "[COMMIT] previous_stream_commit:",
-                        self.cfg[
-                            "previous_stream_commit"
-                        ],
-                        flush=True
-                    )
-
-                    print(
-                        "[COMMIT] last_stream_commit:",
-                        self.cfg[
-                            "last_stream_commit"
-                        ],
-                        flush=True
+                    old_display = (
+                        old_hash[:8]
+                        if old_hash
+                        else "---"
                     )
 
                     # -------------------------------------------------
-                    # CONFIG NUR BEI NEUEM COMMIT SPEICHERN
+                    # TEXTE
+                    # -------------------------------------------------
+                    msg_new = self.TEXT.get(
+                        "check_commit_new_found",
+                        "Neuer Commit gefunden!"
+                    )
+
+                    msg_up = self.TEXT.get(
+                        "check_commit_up_to_date",
+                        "Kein neuer Commit vorhanden."
+                    )
+
+                    lbl_new = self.TEXT.get(
+                        "check_commit_new_hash",
+                        "Neu:"
+                    )
+
+                    lbl_old = self.TEXT.get(
+                        "check_commit_old_hash",
+                        "Alt:"
+                    )
+
+                    # -------------------------------------------------
+                    # PRÜFEN
+                    # -------------------------------------------------
+                    is_new_commit = (
+                        new_hash != old_hash
+                    )
+
+                    print(
+                        "[COMMIT] Streamboard:",
+                        new_hash,
+                        flush=True
+                    )
+
+                    print(
+                        "[COMMIT] bisher last_stream_commit:",
+                        old_hash,
+                        flush=True
+                    )
+
+                    print(
+                        "[COMMIT] neuer Commit:",
+                        is_new_commit,
+                        flush=True
+                    )
+
+                    # =================================================
+                    # NEUER COMMIT
+                    # =================================================
+                    if is_new_commit:
+
+                        safe_play(
+                            "complete.oga"
+                        )
+
+                        self.log_message(
+                            "<span style='color:cyan;'>"
+                            f"🆕 {msg_new} "
+                            f"({new_display})"
+                            "</span>"
+                        )
+
+                        info_text = (
+                            f"{msg_new}\n\n"
+                            f"{lbl_new} {new_display}\n"
+                            f"{lbl_old} {old_display}"
+                        )
+
+                    # =================================================
+                    # KEIN NEUER COMMIT
+                    # =================================================
+                    else:
+
+                        safe_play(
+                            "dialog-information.oga"
+                        )
+
+                        self.log_message(
+                            "<span style='color:cyan;'>"
+                            f"ℹ️ {msg_up} "
+                            f"({new_display})"
+                            "</span>"
+                        )
+
+                        info_text = (
+                            f"{msg_up}\n\n"
+                            f"{lbl_new} {new_display}\n"
+                            f"{lbl_old} {old_display}"
+                        )
+
+                    # -------------------------------------------------
+                    # DIALOG
+                    # -------------------------------------------------
+                    QMessageBox.information(
+                        self,
+                        self.TEXT.get(
+                            "check_commit_title",
+                            "OSCam Commit-Check"
+                        ),
+                        info_text
+                    )
+
+                
+                    # =================================================
+                    # COMMIT-HISTORIE AKTUALISIEREN
+                    # NUR wenn tatsächlich ein neuer Commit vorhanden ist
+                    # =================================================
+
+                    if is_new_commit:
+
+                        # Bisheriger aktueller Commit wird zum vorherigen
+                        self.cfg[
+                            "previous_stream_commit"
+                        ] = old_hash
+
+                        # Neuer Streamboard-Commit wird aktuell
+                        self.cfg[
+                            "last_stream_commit"
+                        ] = new_hash
+
+                        print(
+                            "[COMMIT] Neuer Commit erkannt",
+                            flush=True
+                        )
+
+                        print(
+                            "[COMMIT] previous_stream_commit:",
+                            self.cfg[
+                                "previous_stream_commit"
+                            ],
+                            flush=True
+                        )
+
+                        print(
+                            "[COMMIT] last_stream_commit:",
+                            self.cfg[
+                                "last_stream_commit"
+                            ],
+                            flush=True
+                        )
+
+                        # -------------------------------------------------
+                        # CONFIG NUR BEI NEUEM COMMIT SPEICHERN
+                        # -------------------------------------------------
+                        save_config_func = globals().get(
+                            "save_config"
+                        )
+
+                        if not save_config_func:
+                            raise RuntimeError(
+                                "save_config wurde nicht gefunden."
+                            )
+
+                        result = save_config_func(
+                            self.cfg,
+                            gui_instance=self,
+                            silent=True
+                        )
+
+                        print(
+                            "[COMMIT] save_config:",
+                            result,
+                            flush=True
+                        )
+
+                    else:
+
+                        print(
+                            "[COMMIT] Kein neuer Commit - "
+                            "Historie bleibt unverändert.",
+                            flush=True
+                        )
+
+
+                    # -------------------------------------------------
+                    # CONFIG SPEICHERN
                     # -------------------------------------------------
                     save_config_func = globals().get(
                         "save_config"
@@ -1938,69 +2054,75 @@ class PatchManagerGitMixin:
                         flush=True
                     )
 
-                else:
+                    # -------------------------------------------------
+                    # PROGRESS
+                    # -------------------------------------------------
+                    if pbar:
 
-                    print(
-                        "[COMMIT] Kein neuer Commit - "
-                        "Historie bleibt unverändert.",
-                        flush=True
+                        if is_new_commit:
+
+                            finalize_pbar(
+                                f"🆕 {msg_new}",
+                                3
+                            )
+
+                        else:
+
+                            finalize_pbar(
+                                f"✅ {msg_up}",
+                                3
+                            )
+
+                except Exception as e:
+
+                    safe_play(
+                        "dialog-error.oga"
                     )
 
+                    error_text = str(e)
 
-                # -------------------------------------------------
-                # CONFIG SPEICHERN
-                # -------------------------------------------------
-                save_config_func = globals().get(
-                    "save_config"
-                )
-
-                if not save_config_func:
-                    raise RuntimeError(
-                        "save_config wurde nicht gefunden."
+                    self.log_message(
+                        "<span style='color:red;'>"
+                        f"❌ {error_text}"
+                        "</span>"
                     )
 
-                result = save_config_func(
-                    self.cfg,
-                    gui_instance=self,
-                    silent=True
-                )
+                    QMessageBox.critical(
+                        self,
+                        self.TEXT.get(
+                            "check_commit_title",
+                            "OSCam Commit-Check"
+                        ),
+                        error_text
+                    )
 
-                print(
-                    "[COMMIT] save_config:",
-                    result,
-                    flush=True
-                )
-
-                # -------------------------------------------------
-                # PROGRESS
-                # -------------------------------------------------
-                if pbar:
-
-                    if is_new_commit:
-
+                    if pbar:
                         finalize_pbar(
-                            f"🆕 {msg_new}",
-                            3
+                            "❌ Fehler"
                         )
 
-                    else:
 
-                        finalize_pbar(
-                            f"✅ {msg_up}",
-                            3
-                        )
 
-            except Exception as e:
+
+
+
+            # ---------------------------------------------------------
+            # Fehler vom Worker
+            # ---------------------------------------------------------
+            def commit_error(error_text):
 
                 safe_play(
                     "dialog-error.oga"
                 )
 
-                error_text = str(e)
+                err_lbl = self.TEXT.get(
+                    "check_commit_error",
+                    "Fehler beim Check:"
+                )
 
                 self.log_message(
                     "<span style='color:red;'>"
-                    f"❌ {error_text}"
+                    f"❌ {err_lbl} {error_text}"
                     "</span>"
                 )
 
@@ -2010,7 +2132,7 @@ class PatchManagerGitMixin:
                         "check_commit_title",
                         "OSCam Commit-Check"
                     ),
-                    error_text
+                    f"{err_lbl}\n{error_text}"
                 )
 
                 if pbar:
@@ -2018,70 +2140,31 @@ class PatchManagerGitMixin:
                         "❌ Fehler"
                     )
 
-
-
-
-
-
-        # ---------------------------------------------------------
-        # Fehler vom Worker
-        # ---------------------------------------------------------
-        def commit_error(error_text):
-
-            safe_play(
-                "dialog-error.oga"
+            # ---------------------------------------------------------
+            # Signale verbinden
+            # ---------------------------------------------------------
+            worker.success.connect(
+                commit_received
             )
 
-            err_lbl = self.TEXT.get(
-                "check_commit_error",
-                "Fehler beim Check:"
+            worker.error.connect(
+                commit_error
             )
 
-            self.log_message(
-                "<span style='color:red;'>"
-                f"❌ {err_lbl} {error_text}"
-                "</span>"
+            # ---------------------------------------------------------
+            # Thread nach Ende aufräumen
+            # ---------------------------------------------------------
+            def worker_finished():
+                self._commit_check_worker = None
+
+            worker.finished.connect(
+                worker_finished
             )
 
-            QMessageBox.critical(
-                self,
-                self.TEXT.get(
-                    "check_commit_title",
-                    "OSCam Commit-Check"
-                ),
-                f"{err_lbl}\n{error_text}"
-            )
-
-            if pbar:
-                finalize_pbar(
-                    "❌ Fehler"
-                )
-
-        # ---------------------------------------------------------
-        # Signale verbinden
-        # ---------------------------------------------------------
-        worker.success.connect(
-            commit_received
-        )
-
-        worker.error.connect(
-            commit_error
-        )
-
-        # ---------------------------------------------------------
-        # Thread nach Ende aufräumen
-        # ---------------------------------------------------------
-        def worker_finished():
-            self._commit_check_worker = None
-
-        worker.finished.connect(
-            worker_finished
-        )
-
-        # ---------------------------------------------------------
-        # Start
-        # ---------------------------------------------------------
-        worker.start()
+            # ---------------------------------------------------------
+            # Start
+            # ---------------------------------------------------------
+            worker.start()
 
     def check_emu_credentials(self):
         cfg = load_github_config()

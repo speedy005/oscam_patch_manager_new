@@ -76,7 +76,13 @@ class PatchManagerLogsMixin:
                 # Erfolgsmeldung im Log-Fenster
                 if hasattr(self, "append_info"):
                     self.append_info(
-                        self.info_text, f"✅ Log gespeichert: {file_path}", "success"
+                        self.info_text,
+                        (
+                            f"✅ Log gespeichert: {file_path}"
+                            if is_de
+                            else f"✅ Log saved: {file_path}"
+                        ),
+                        "success",
                     )
 
                 # --- 4. ORIGINAL SOUND BEIM ERFOLG ---
@@ -99,7 +105,11 @@ class PatchManagerLogsMixin:
 
             except Exception as e:
                 if hasattr(self, "append_info"):
-                    self.append_info(self.info_text, f"❌ Fehler: {e}", "error")
+                    self.append_info(
+                        self.info_text,
+                        f"❌ {'Fehler' if is_de else 'Error'}: {e}",
+                        "error",
+                    )
         else:
             # Abgebrochen
             if pbar:
@@ -118,6 +128,7 @@ class PatchManagerLogsMixin:
     def log_message(self, message):
         """Zentrale Funktion: Zeit in ROT, Inhalt in CYAN - sauber untereinander."""
         from datetime import datetime
+        from PyQt6.QtCore import QTimer
 
         now = datetime.now().strftime("%H:%M:%S")
 
@@ -131,8 +142,16 @@ class PatchManagerLogsMixin:
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
         self.info_text.insertHtml(full_html)
 
-        # 4. Scrollen
+        # 4. Automatisch bis ganz nach unten scrollen.
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
+
+        def _scroll_to_end():
+            widget = getattr(self, "info_text", None)
+            if widget is not None:
+                scrollbar = widget.verticalScrollBar()
+                scrollbar.setValue(scrollbar.maximum())
+
+        QTimer.singleShot(0, _scroll_to_end)
 
     def scroll_to_bottom_smooth(self):
         """Scrollt das Info-Fenster sanft nach unten."""
@@ -455,6 +474,7 @@ class PatchManagerLogsMixin:
         """
         from PyQt6.QtGui import QTextCursor
         from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import QTimer
 
         # Wir nutzen deine funktionierende append_info statt dem kaputten THEME-Dictionary
         if hasattr(self, "append_info") and hasattr(self, "info_text"):
@@ -465,6 +485,15 @@ class PatchManagerLogsMixin:
 
         # Sicherstellen, dass das Fenster zum Ende scrollt
         self.info_text.moveCursor(QTextCursor.MoveOperation.End)
+
+        # Nach der Aktualisierung zuverlässig ganz nach unten scrollen.
+        def _scroll_log_to_end():
+            widget = getattr(self, "info_text", None)
+            if widget is not None:
+                scrollbar = widget.verticalScrollBar()
+                scrollbar.setValue(scrollbar.maximum())
+
+        QTimer.singleShot(0, _scroll_log_to_end)
 
         # GUI aktualisieren, damit der Text sofort erscheint (wichtig bei Prozessen)
         QApplication.processEvents()

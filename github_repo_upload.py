@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from translations import TEXTS
 from workers import safe_play
 from patch_format import load_github_config
-from paths import PATCH_EMU_GIT_DIR
+from paths import PATCHED_EMU_GIT_DIR
 
 # ===================== GITHUB UPLOAD OSCAM-EMU FOLDER =====================
 def github_upload_oscam_emu_folder(
@@ -693,9 +693,7 @@ sys.stdout.write(value)
     # ============================================================
     # LOKALES REPOSITORY
     # ============================================================
-    target_dir = globals().get(
-        "PATCH_EMU_GIT_DIR"
-    )
+    target_dir = PATCHED_EMU_GIT_DIR
 
     if not target_dir:
 
@@ -710,7 +708,7 @@ sys.stdout.write(value)
         )
 
         log(
-            "PATCH_EMU_GIT_DIR ist nicht definiert.",
+            "PATCHED_EMU_GIT_DIR ist nicht definiert.",
             "error"
         )
 
@@ -1104,155 +1102,210 @@ sys.stdout.write(value)
         )
 
         # ========================================================
-        # PRÜFEN, OB ES ÄNDERUNGEN GIBT
+        # COMMIT-NACHRICHT
+        # ========================================================
+        commit_msg_final = "Sync OSCam-Emu folder"
+
+        header_func = globals().get("get_patch_header")
+
+        if header_func:
+            try:
+                raw = header_func()
+                if raw:
+                    first_line = raw.splitlines()
+                    if first_line:
+                        candidate = first_line[0].strip()
+                        if candidate:
+                            commit_msg_final = candidate
+            except Exception:
+                pass
+
+        commit_msg_final = (
+            commit_msg_final
+            .replace("\\r", " ")
+            .replace("\\n", " ")
+            .strip()
+        )
+
+        if not commit_msg_final:
+            commit_msg_final = "Sync OSCam-Emu folder"
+
+        # ========================================================
+        # GESTAGTE ÄNDERUNGEN PRÜFEN
         # ========================================================
         staged_check = run_git(
-            [
-                "diff",
-                "--cached",
-                "--quiet"
-            ],
+            ["diff", "--cached", "--quiet"],
             cwd=target_dir,
             env=silent_env
         )
 
-        if staged_check.returncode == 0:
-
-            final_txt = tr(
-                "github_upload_no_changes",
-                "ℹ️ Keine Änderungen vorhanden – kein Upload notwendig.",
-                "ℹ️ No changes detected – nothing to upload."
-            )
-
-            update_p(
-                100,
-                final_txt
-            )
-
-            log(
-                final_txt,
-                "warning"
-            )
-
-            play_sound(True)
-            return
-
-        if staged_check.returncode != 1:
-
+        if staged_check.returncode not in (0, 1):
             error_text = (
                 staged_check.stderr.strip()
                 or staged_check.stdout.strip()
                 or "Git konnte den Änderungsstatus nicht prüfen."
             )
-
-            error_text = mask_sensitive(
-                error_text,
-                username,
-                token
-            )
-
             raise RuntimeError(
-                error_text
+                mask_sensitive(error_text, username, token)
             )
 
         # ========================================================
-        # COMMIT-NACHRICHT
+        # COMMIT NUR WENN NEUE ÄNDERUNGEN VORHANDEN SIND
         # ========================================================
-        commit_msg_final = (
-            "Sync OSCam-Emu folder"
-        )
+        if staged_check.returncode == 1:
 
-        header_func = globals().get(
-            "get_patch_header"
-        )
+            update_p(
+                70,
+                tr(
+                    "github_upload_commit",
+                    "💾 Änderungen werden committed...",
+                    "💾 Committing changes..."
+                )
+            )
 
-        if header_func:
+            log(f"Commit: {commit_msg_final}")
 
-            try:
+            commit = run_git(
+                ["commit", "-m", commit_msg_final],
+                cwd=target_dir,
+                env=silent_env
+            )
 
-                raw = header_func()
+            if commit.returncode != 0:
+                commit_error = (
+                    commit.stderr.strip()
+                    or commit.stdout.strip()
+                    or "Git Commit fehlgeschlagen."
+                )
+                raise RuntimeError(
+                    "Git Commit Fehler:\n"
+                    + mask_sensitive(commit_error, username, token)
+                )
 
-                if raw:
-
-                    first_line = raw.splitlines()
-
-                    if first_line:
-
-                        candidate = (
-                            first_line[0].strip()
-                        )
-
-                        if candidate:
-
-                            commit_msg_final = (
-                                candidate
-                            )
-
-            except Exception:
-                pass
-
-        # --------------------------------------------------------
-        # Commit-Nachricht bereinigen
-        # --------------------------------------------------------
-        commit_msg_final = (
-            commit_msg_final
-            .replace("\r", " ")
-            .replace("\n", " ")
-            .strip()
-        )
-
-        if not commit_msg_final:
-
-            commit_msg_final = (
-                "Sync OSCam-Emu folder"
+        else:
+            log(
+                "Keine neuen Dateiänderungen. "
+                "Vorhandener lokaler Commit wird trotzdem geprüft.",
+                "info"
             )
 
         # ========================================================
-        # COMMIT
+        # LOKALEN COMMIT ERMITTELN
+        # ========================================================
+        local_head = run_git(
+            ["rev-parse", "HEAD"],
+            cwd=target_dir,
+            env=silent_env,
+            check=True
+        ).stdout.strip()
+
+        if not local_head:
+            raise RuntimeError("Lokaler Git-Commit konnte nicht ermittelt werden.")
+
+        log(f"Lokaler Ziel-Commit: {local_head}")
+
+        # ========================================================
+        # AKTUELLEN GITHUB-STAND ERMITTELN
         # ========================================================
         update_p(
-            70,
-            tr(
-                "github_upload_commit",
-                "💾 Änderungen werden committed...",
-                "💾 Committing changes..."
-            )
+            78,
+            "🔍 GitHub-Stand wird geprüft..."
         )
 
-        log(
-            f"Commit: {commit_msg_final}"
-        )
+        remote_ref = f"refs/heads/{branch}"
 
-        commit = run_git(
-            [
-                "commit",
-                "-m",
-                commit_msg_final
-            ],
+        remote_check = run_git(
+            ["ls-remote", "--heads", "origin", remote_ref],
             cwd=target_dir,
             env=silent_env
         )
 
-        if commit.returncode != 0:
-
-            commit_error = (
-                commit.stderr.strip()
-                or commit.stdout.strip()
-                or "Git Commit fehlgeschlagen."
+        if remote_check.returncode != 0:
+            error_text = (
+                remote_check.stderr.strip()
+                or remote_check.stdout.strip()
+                or "GitHub-Branch konnte nicht abgefragt werden."
             )
-
-            commit_error = mask_sensitive(
-                commit_error,
-                username,
-                token
-            )
-
             raise RuntimeError(
-                f"Git Commit Fehler:\n{commit_error}"
+                mask_sensitive(error_text, username, token)
+            )
+
+        remote_lines = remote_check.stdout.strip().splitlines()
+        remote_sha = ""
+
+        if remote_lines:
+            remote_sha = remote_lines[0].split()[0]
+
+        # ========================================================
+        # REMOTE FETCH: LEASE AUF AKTUELLEN STAND SETZEN
+        # ========================================================
+        if remote_sha:
+            log(
+                f"GitHub-Commit vor Upload: {remote_sha}"
+            )
+
+            fetch = run_git(
+                ["fetch", "origin", remote_ref],
+                cwd=target_dir,
+                env=silent_env
+            )
+
+            if fetch.returncode != 0:
+                error_text = (
+                    fetch.stderr.strip()
+                    or fetch.stdout.strip()
+                    or "GitHub-Fetch fehlgeschlagen."
+                )
+                raise RuntimeError(
+                    mask_sensitive(error_text, username, token)
+                )
+
+            fetched_sha = run_git(
+                ["rev-parse", "FETCH_HEAD"],
+                cwd=target_dir,
+                env=silent_env,
+                check=True
+            ).stdout.strip()
+
+            if not fetched_sha:
+                raise RuntimeError(
+                    "Der aktuelle GitHub-Commit konnte nicht gelesen werden."
+                )
+
+            # Der Fetch-Stand ist die Grundlage für den Lease-Schutz.
+            remote_sha = fetched_sha
+
+            log(f"Abgesicherter GitHub-Stand: {remote_sha}")
+
+        else:
+            log(
+                f"GitHub-Branch {branch} existiert noch nicht. "
+                "Er wird beim Push angelegt.",
+                "warning"
             )
 
         # ========================================================
-        # PUSH
+        # BEREITS AKTUELL?
+        # ========================================================
+        if remote_sha == local_head:
+
+            final_txt = tr(
+                "github_upload_success",
+                "✅ GitHub ist bereits auf dem aktuellen Patch-Stand.",
+                "✅ GitHub is already up to date."
+            )
+
+            update_p(100, final_txt)
+            log(final_txt, "success")
+            log(
+                "Repository: https://github.com/speedy005/Oscam-emu",
+                "success"
+            )
+            play_sound(True)
+            return
+
+        # ========================================================
+        # PUSH MIT EXPLIZITEM LEASE-SCHUTZ
         # ========================================================
         update_p(
             85,
@@ -1264,83 +1317,82 @@ sys.stdout.write(value)
         )
 
         log(
-            "Push zu GitHub gestartet...",
+            f"Übertrage lokalen Commit {local_head} "
+            f"auf origin/{branch}...",
             "warning"
+        )
+
+        lease_option = (
+            f"--force-with-lease={remote_ref}:{remote_sha}"
         )
 
         push = run_git(
             [
                 "push",
-                "--force-with-lease",
+                lease_option,
                 "origin",
-                branch
+                f"HEAD:{remote_ref}"
             ],
             cwd=target_dir,
             env=silent_env
         )
 
-        # ========================================================
-        # PUSH ERFOLGREICH
-        # ========================================================
-        if push.returncode == 0:
-
-            final_txt = tr(
-                "github_upload_success",
-                "✅ OSCam-Emu erfolgreich zu GitHub hochgeladen",
-                "✅ OSCam-Emu successfully uploaded to GitHub"
+        if push.returncode != 0:
+            error_text = (
+                push.stderr.strip()
+                or push.stdout.strip()
+                or "Unbekannter GitHub-Fehler."
             )
 
-            update_p(
-                100,
-                final_txt
+            raise RuntimeError(
+                "GitHub-Push fehlgeschlagen:\n"
+                + mask_sensitive(error_text, username, token)
             )
-
-            log(
-                final_txt,
-                "success"
-            )
-
-            log(
-                "Repository: https://github.com/speedy005/Oscam-emu",
-                "success"
-            )
-
-            play_sound(True)
-            return
 
         # ========================================================
-        # PUSH FEHLER
+        # UPLOAD ERFOLG KONTROLLIEREN
         # ========================================================
-        error_text = (
-            push.stderr.strip()
-            or push.stdout.strip()
-            or "Unbekannter GitHub-Fehler."
+        verify = run_git(
+            ["ls-remote", "--heads", "origin", remote_ref],
+            cwd=target_dir,
+            env=silent_env
         )
 
-        safe_error = mask_sensitive(
-            error_text,
-            username,
-            token
+        if verify.returncode != 0:
+            raise RuntimeError(
+                "Push wurde ausgeführt, aber die Kontrolle "
+                "des GitHub-Standes ist fehlgeschlagen."
+            )
+
+        verify_lines = verify.stdout.strip().splitlines()
+        github_sha = (
+            verify_lines[0].split()[0]
+            if verify_lines
+            else ""
         )
 
-        fail_txt = tr(
-            "github_upload_failed",
-            "❌ GitHub-Upload fehlgeschlagen",
-            "❌ GitHub upload failed"
+        if github_sha != local_head:
+            raise RuntimeError(
+                "GitHub enthält nach dem Push nicht den erwarteten Commit. "
+                f"Lokal: {local_head}, GitHub: {github_sha or 'unbekannt'}"
+            )
+
+        final_txt = tr(
+            "github_upload_success",
+            "✅ OSCam-Emu erfolgreich zu GitHub hochgeladen",
+            "✅ OSCam-Emu successfully uploaded to GitHub"
         )
 
-        update_p(
-            last_progress,
-            fail_txt,
-            is_err=True
-        )
-
+        update_p(100, final_txt)
+        log(final_txt, "success")
+        log(f"GitHub-Commit: {github_sha}", "success")
         log(
-            f"GitHub Error:\n{safe_error}",
-            "error"
+            "Repository: https://github.com/speedy005/Oscam-emu",
+            "success"
         )
 
-        play_sound(False)
+        play_sound(True)
+        return
 
     # ============================================================
     # GIT FEHLER
