@@ -642,6 +642,7 @@ def ensure_git_repository(
     clone_timeout=1200,
     depth=None,
     log=print,
+    branch=None,
 ):
     """
     Stellt sicher, dass ein gültiges Git-Repository vorhanden ist.
@@ -755,6 +756,48 @@ def ensure_git_repository(
     if parent_dir:
         os.makedirs(parent_dir, exist_ok=True)
 
+    def cleanup_failed_clone():
+        import shutil
+        import stat
+        import time
+
+        def handle_remove_error(func, path, exc_info):
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except OSError:
+                raise
+
+        last_error = None
+
+        for attempt in range(10):
+            try:
+                if os.path.islink(repo_dir):
+                    os.remove(repo_dir)
+                elif os.path.isdir(repo_dir):
+                    shutil.rmtree(
+                        repo_dir,
+                        onerror=handle_remove_error,
+                    )
+                elif os.path.exists(repo_dir):
+                    os.remove(repo_dir)
+
+                if not os.path.lexists(repo_dir):
+                    return
+
+                last_error = "Zielverzeichnis ist weiterhin vorhanden."
+
+            except OSError as exc:
+                last_error = str(exc)
+
+            time.sleep(0.5)
+
+        raise RuntimeError(
+            f"{description}: Fehlgeschlagenes Clone-Verzeichnis "
+            f"konnte nicht gelöscht werden: {repo_dir}\n"
+            f"Letzter Fehler: {last_error}"
+        )
+
     # --------------------------------------------------------
     # Git-Clone vorbereiten
     # --------------------------------------------------------
@@ -763,6 +806,12 @@ def ensure_git_repository(
         git_executable,
         "clone",
     ]
+
+    if branch:
+        command.extend([
+            "--branch",
+            str(branch),
+        ])
 
     if depth is not None:
         try:
@@ -794,20 +843,61 @@ def ensure_git_repository(
     # --------------------------------------------------------
 
     try:
-        result = subprocess.run(
-            command,
-            cwd=parent_dir or None,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            stdin=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            shell=False,
-            timeout=clone_timeout,
-        )
+        import os
+        import signal
+
+        popen_kwargs = {
+            "cwd": parent_dir or None,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "stdin": subprocess.DEVNULL,
+            "text": True,
+            "encoding": "utf-8",
+            "errors": "replace",
+            "shell": False,
+        }
+
+        if os.name == "nt":
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            popen_kwargs["start_new_session"] = True
+
+        process = subprocess.Popen(command, **popen_kwargs)
+
+        try:
+            stdout, stderr = process.communicate(timeout=clone_timeout)
+        except subprocess.TimeoutExpired:
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                    check=False,
+                )
+            else:
+                os.killpg(process.pid, signal.SIGKILL)
+
+            try:
+                stdout, stderr = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+
+            raise subprocess.TimeoutExpired(
+                command, clone_timeout, output=stdout, stderr=stderr
+            )
+
+        class CloneResult:
+            pass
+
+        result = CloneResult()
+        result.returncode = process.returncode
+        result.stdout = stdout
+        result.stderr = stderr
 
     except subprocess.TimeoutExpired as exc:
+        cleanup_failed_clone()
         import os
         lang = os.environ.get("LANG", "de").lower()[:2]
         if lang == "en":
@@ -827,12 +917,14 @@ def ensure_git_repository(
         raise RuntimeError(timeout_message) from exc
 
     except OSError as exc:
+        cleanup_failed_clone()
         raise RuntimeError(
             f"{description}: Git-Clone konnte nicht gestartet werden.\n"
             f"{exc}"
         ) from exc
 
     if result.returncode != 0:
+        cleanup_failed_clone()
         details = (
             result.stderr
             or result.stdout
@@ -851,6 +943,7 @@ def ensure_git_repository(
     # --------------------------------------------------------
 
     if not is_valid_git_repo(repo_dir):
+        cleanup_failed_clone()
         raise RuntimeError(
             f"{description}: Nach dem Klonen wurde kein gültiges "
             f"Git-Repository gefunden:\n{repo_dir}"
@@ -1084,26 +1177,23 @@ def clean_patch_folder(
     targets.append((zip_path, "file"))
 
     # ---------------------------------------------------------
-    # oscam-emu-git/
+    # oscam-emu-patched/
     # ---------------------------------------------------------
 
-    emu_git_path = globals().get("PATCH_EMU_GIT_DIR")
+    emu_git_path = PATCHED_EMU_GIT_DIR
 
-    if not emu_git_path:
-        emu_git_path = os.path.join(
-            PLUGIN_DIR,
-            "oscam-emu-git"
+    if emu_git_path:
+        targets.append((emu_git_path, "folder"))
+
+    # ---------------------------------------------------------
+    # TEMP_REPO / streamboard-git/
+    # ---------------------------------------------------------
+    if TEMP_REPO:
+        targets.append((TEMP_REPO, "folder"))
+        log(
+            "[CLEAN] TEMP_REPO wird zum Löschen vorgemerkt.",
+            "info"
         )
-
-    targets.append((emu_git_path, "folder"))
-
-    # ---------------------------------------------------------
-    # TEMP_REPO / streamboard-git bleibt geschützt
-    # ---------------------------------------------------------
-    log(
-        "[CLEAN] TEMP_REPO wird geschützt und nicht gelöscht.",
-        "info"
-    )
 
     # ---------------------------------------------------------
     # TEMP_PATCH_GIT/ (falls vorhanden)
@@ -2830,25 +2920,18 @@ def create_patch(
         # Klonen fehlschlägt oder nicht erreichbar ist, auf den
         # expliziten speedy005 OSCam-Git-Mirror ausweichen.
         stream_candidates = [
-            stream_url,
-            "https://github.com/speedy005/oscam-git.git",
+            (
+                "https://git.streamboard.tv/common/oscam.git",
+                None,
+            ),
+            (
+                "https://github.com/speedy005/oscam-git.git",
+                "master",
+            ),
         ]
-        try:
-            from paths import STREAM_REPO_CHOICES
-            stream_candidates.extend(
-                str(url).strip()
-                for url in STREAM_REPO_CHOICES.values()
-                if str(url).strip()
-            )
-        except Exception:
-            pass
 
-        # Leere URLs und doppelte Einträge entfernen, Reihenfolge beibehalten.
-        stream_candidates = list(dict.fromkeys(
-            url.strip() for url in stream_candidates if url.strip()
-        ))
         last_stream_error = None
-        for candidate_url in dict.fromkeys(stream_candidates):
+        for candidate_url, candidate_branch in stream_candidates:
             try:
                 log("[GIT] " + tr(
                     "stream_source_check",
@@ -2859,10 +2942,12 @@ def create_patch(
                     stream_dir,
                     candidate_url,
                     description="Streamboard",
-                    clone_timeout=120
+                    clone_timeout=10,
+                    log=log,
+                    branch=candidate_branch,
                 )
                 stream_url = candidate_url
-                if candidate_url != stream_candidates[0]:
+                if candidate_branch == "master":
                     log("[GIT] " + tr(
                         "stream_source_alternative",
                         "Alternative Streamboard-Quelle wird verwendet: {url}",

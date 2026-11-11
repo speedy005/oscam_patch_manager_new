@@ -2111,14 +2111,15 @@ class PatchManagerGUI(
             else:
                 active = bg
 
-        current_diff_colors = {
+        current_diff_colors.clear()
+        current_diff_colors.update({
             **base_colors,
             "bg": bg,
             "fg": fg,
             "text": base_colors.get("text", fg),
             "hover": hover,
             "active": active,
-        }
+        })
 
         # Aktive Farbpalette für alle Zusatzfenster bereitstellen.
         self.current_diff_colors = current_diff_colors

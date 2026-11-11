@@ -1048,179 +1048,129 @@ class PatchManagerGitMixin:
 
     def get_latest_remote_revision(self):
         """
-        Ermittelt die aktuellste OSCam-Revision aus dem
-        bereits geladenen Streamboard-Git.
+        Ermittelt die aktuelle OSCam-Revision.
 
-        Bevorzugt wird das lokale TEMP_REPO verwendet.
+        Priorität:
+        1. Streamboard OSCam Git
+        2. GitHub-Fallback speedy005/oscam-git
 
-        Falls TEMP_REPO nicht verfügbar ist, wird versucht,
-        das Streamboard-Git direkt zu aktualisieren.
+        Bei Nichterreichbarkeit wird automatisch die nächste
+        Quelle verwendet.
         """
 
         import os
         import re
+        import subprocess
+        import tempfile
 
-        # ============================================================
-        # 1. TEMP_REPO verwenden
-        # ============================================================
+        sources = [
+            (
+                "Streamboard",
+                "https://git.streamboard.tv/common/oscam.git"
+            ),
+            (
+                "GitHub-Fallback",
+                "https://github.com/speedy005/oscam-git.git"
+            ),
+        ]
 
-        try:
+        for source_name, repo_url in sources:
 
-            repo_dir = TEMP_REPO
+            temp_dir = None
 
-            git_dir = os.path.join(
-                repo_dir,
-                ".git"
-            )
+            try:
+                print(
+                    f"[REVISION] Prüfe {source_name}: {repo_url}",
+                    flush=True
+                )
 
-            if os.path.isdir(git_dir):
+                temp_dir = tempfile.TemporaryDirectory(
+                    prefix="oscam_revision_"
+                )
 
-                # ----------------------------------------------------
-                # Remote aktualisieren
-                # ----------------------------------------------------
+                repo_dir = temp_dir.name
 
-                try:
+                result = subprocess.run(
+                    [
+                        "git",
+                        "clone",
+                        "--depth", "1",
+                        "--no-tags",
+                        repo_url,
+                        repo_dir
+                    ],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=1200
+                )
 
-                    git_command(
-                        [
-                            "fetch",
-                            "--no-tags",
-                            "--prune",
-                            "origin"
-                        ],
-                        cwd=repo_dir,
-                        timeout=1200
+                if result.returncode != 0:
+                    raise RuntimeError(
+                        result.stderr.strip()
+                        or "Git-Clone fehlgeschlagen."
                     )
 
-                except Exception:
-                    pass
-
-                # ----------------------------------------------------
-                # Remote HEAD bestimmen
-                # ----------------------------------------------------
-
-                ref = "origin/master"
-
-                try:
-
-                    result = git_command(
-                        [
-                            "symbolic-ref",
-                            "--short",
-                            "refs/remotes/origin/HEAD"
-                        ],
-                        cwd=repo_dir,
-                        allowed_returncodes=(0, 1)
-                    )
-
-                    remote_head = (
-                        result.stdout
-                        or ""
-                    ).strip()
-
-                    if remote_head:
-
-                        ref = remote_head
-
-                except Exception:
-                    pass
-
-                # ----------------------------------------------------
-                # Commit bestimmen
-                # ----------------------------------------------------
-
-                try:
-
-                    commit = git_commit_id(
-                        repo_dir,
-                        ref
-                    )
-
-                except Exception:
-
-                    commit = git_commit_id(
-                        repo_dir,
-                        "HEAD"
-                    )
-
-                # ----------------------------------------------------
-                # Version auslesen
-                # ----------------------------------------------------
+                commit = git_commit_id(
+                    repo_dir,
+                    "HEAD"
+                )
 
                 version = get_oscam_version(
                     repo_dir,
                     commit
                 )
 
-                if version:
-
-                    match = re.search(
-                        r"-(\d+)$",
-                        str(version).strip()
+                if not version:
+                    raise RuntimeError(
+                        "Keine OSCam-Version im Commit gefunden."
                     )
 
-                    if match:
-
-                        revision = match.group(1)
-
-                        if revision.isdigit():
-
-                            return revision
-
-        except Exception:
-            pass
-
-        # ============================================================
-        # 2. FALLBACK: HTTP
-        # ============================================================
-
-        try:
-
-            import requests
-
-            url = (
-                "https://git.streamboard.tv/"
-            )
-
-            headers = {
-                "User-Agent":
-                    "OSCam-Patch-Manager"
-            }
-
-            response = requests.get(
-                url,
-                headers=headers,
-                timeout=15
-            )
-
-            if response.status_code == 200:
-
-                matches = re.findall(
-                    r"r(\d{5,7})",
-                    response.text
+                match = re.search(
+                    r"-(\d+)$",
+                    str(version).strip()
                 )
 
-                if matches:
+                if not match:
+                    raise RuntimeError(
+                        f"Ungültige OSCam-Version: {version}"
+                    )
 
-                    # ------------------------------------------------
-                    # Nicht einfach den ersten Treffer blind verwenden.
-                    # Höchste gefundene Revision verwenden.
-                    # ------------------------------------------------
+                revision = match.group(1)
 
-                    revisions = [
-                        int(value)
-                        for value in matches
-                        if value.isdigit()
-                    ]
+                if not revision.isdigit():
+                    raise RuntimeError(
+                        "Ungültige Revisionsnummer."
+                    )
 
-                    if revisions:
+                print(
+                    f"[REVISION] Erfolgreich: {source_name} "
+                    f"Revision {revision}",
+                    flush=True
+                )
 
-                        return str(
-                            max(revisions)
-                        )
+                return revision
 
-        except Exception:
-            pass
+            except Exception as exc:
+                print(
+                    f"[REVISION] {source_name} fehlgeschlagen: {exc}",
+                    flush=True
+                )
+
+                print(
+                    "[REVISION] Versuche nächste Quelle ...",
+                    flush=True
+                )
+
+            finally:
+                if temp_dir is not None:
+                    temp_dir.cleanup()
+
+        print(
+            "[REVISION] FEHLER: Keine Quelle erreichbar!",
+            flush=True
+        )
 
         return None
 
@@ -1482,6 +1432,15 @@ class PatchManagerGitMixin:
                 text=True,
                 check=True,
             )
+
+            # OSCam-Revision nach erfolgreichem Git-Pull aktualisieren
+            revision = self.get_local_revision()
+
+            if revision and str(revision).isdigit():
+                self.append_info(
+                    f"OSCam-Revision aktualisiert: {revision}",
+                    "success",
+                )
 
             self.header_label.setText(" System aktuell")
 
