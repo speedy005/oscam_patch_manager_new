@@ -370,13 +370,8 @@ class PatchManagerLogsMixin:
         if not isinstance(widget, QTextEdit) or widget is None:
             return
 
-        # Vor dem Einfügen merken, ob der Benutzer bereits am Ende liest.
-        # Nur dann später automatisch nach unten scrollen.
+        # Infoscreen immer automatisch beim neuesten Eintrag halten.
         scrollbar = widget.verticalScrollBar()
-        was_at_bottom = (
-            scrollbar is None
-            or scrollbar.value() >= scrollbar.maximum() - 2
-        )
 
         # 2. Farben & Variablen
         colors = {
@@ -461,11 +456,10 @@ class PatchManagerLogsMixin:
         widget.setTextCursor(cursor)
         cursor.insertHtml(html_output)
 
-        # 5. Scroll-Verhalten: nur automatisch folgen, wenn der Benutzer
-        # vor der neuen Meldung bereits am unteren Ende der Konsole war.
-        if was_at_bottom and scrollbar is not None:
+        # 5. Immer zum neuesten Eintrag scrollen.
+        if scrollbar is not None:
             scrollbar.setValue(scrollbar.maximum())
-            widget.ensureCursorVisible()
+        widget.ensureCursorVisible()
 
     def log(self, msg, level="info"):
         """
