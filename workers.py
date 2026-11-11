@@ -692,3 +692,58 @@ def ensure_executable_self():
         print(f"[WARN] Konnte Rechte nicht setzen: {e}")
 
 # ===================== ZEIT =====================
+
+
+# ============================================================
+# OSCam-Startprüfung: Revision ohne vollständigen Git-Clone
+# ============================================================
+
+import urllib.request
+
+
+class OSCamRevisionCheckWorker(QThread):
+    """Liest die OSCam-Revision direkt aus globals.h im Hintergrund."""
+
+    result_signal = pyqtSignal(str)
+
+    SOURCES = (
+        "https://git.streamboard.tv/common/oscam/-/raw/master/globals.h",
+        "https://raw.githubusercontent.com/speedy005/oscam-git/master/globals.h",
+    )
+
+    def run(self):
+        for url in self.SOURCES:
+            try:
+                request = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": "OSCam-Patch-Manager"},
+                )
+
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    content = response.read(1024 * 1024).decode(
+                        "utf-8", errors="replace"
+                    )
+
+                version = None
+
+                for macro in ("CS_VERSION", "OSCAM_VERSION", "VERSION"):
+                    match = re.search(
+                        r'^\s*#\s*define\s+' + macro
+                        + r'\s+"([^"]+)"',
+                        content,
+                        re.MULTILINE,
+                    )
+                    if match:
+                        version = match.group(1).strip()
+                        break
+
+                if version:
+                    revision = re.search(r"-(\d+)$", version)
+                    if revision:
+                        self.result_signal.emit(revision.group(1))
+                        return
+
+            except Exception as exc:
+                print(f"[OSCam-Revisionsprüfung] Quelle nicht erreichbar: {url}: {exc}")
+
+        self.result_signal.emit("")

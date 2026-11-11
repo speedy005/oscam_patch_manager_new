@@ -2317,6 +2317,239 @@ def create_patch(
 
         return False
 
+
+    def repair_emu_webif_tls(repo_dir, target_dir):
+        """
+        Stellt die zeitbegrenzte WebIF-TLS- und Request-Verarbeitung
+        aus dem Streamboard-Basis-Commit im temporären Ziel-Worktree wieder her.
+        Das eigentliche Repository wird nicht verändert.
+        """
+        import re
+        import subprocess
+
+        if not stream_commit:
+            raise RuntimeError(
+                "Streamboard-Basis-Commit fehlt für die WebIF-TLS-Korrektur."
+            )
+
+        result = subprocess.run(
+            [
+                find_git_executable(),
+                "-C", repo_dir,
+                "show",
+                f"{stream_commit}:module-webif.c",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=60,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                "Basisversion von module-webif.c konnte nicht gelesen werden:\n"
+                + result.stderr.decode("utf-8", errors="replace")
+            )
+
+        base_source = result.stdout.decode("utf-8", errors="replace")
+
+        target_file = os.path.join(target_dir, "module-webif.c")
+
+        with open(target_file, "r", encoding="utf-8", errors="replace") as f:
+            current_source = f.read()
+
+        # ---------------------------------------------------------
+        # 1. Zeitbegrenzte Hilfsfunktionen aus der Basis übernehmen
+        # ---------------------------------------------------------
+
+        helper_match = re.search(
+            r"(?ms)^static int32_t webif_remaining_ms\(.*?"
+            r"(?=^static int32_t readRequest\()",
+            base_source,
+        )
+
+        if not helper_match:
+            raise RuntimeError(
+                "TLS-Hilfsfunktionen wurden im Basis-Commit nicht gefunden."
+            )
+
+        helper_block = helper_match.group(0)
+
+        if "static int32_t webif_remaining_ms(" in current_source:
+            raise RuntimeError(
+                "WebIF-TLS-Hilfsfunktionen sind bereits vorhanden. "
+                "Keine automatische doppelte Einfügung."
+            )
+
+        # ---------------------------------------------------------
+        # 2. readRequest aus der Basis übernehmen.
+        #    Das größere EMU-Limit von 204800 Bytes bleibt erhalten.
+        # ---------------------------------------------------------
+
+        request_match = re.search(
+            r"(?ms)^static int32_t readRequest\(.*?"
+            r"(?=^static int32_t process_request\()",
+            base_source,
+        )
+
+        if not request_match:
+            raise RuntimeError(
+                "Basisversion von readRequest wurde nicht gefunden."
+            )
+
+        request_block = request_match.group(0)
+
+        max_size_pattern = re.compile(
+            r"(?m)^([ \t]*)const int32_t max_request_size = "
+            r"cfg\.http_max_request_size > 0 \? "
+            r"cfg\.http_max_request_size : 102400;[ \t]*$"
+        )
+
+        def emu_max_size(match):
+            indent = match.group(1)
+            return (
+                f"{indent}#ifdef WITH_EMU\n"
+                f"{indent}const int32_t max_request_size = "
+                f"cfg.http_max_request_size > 0 ? "
+                f"cfg.http_max_request_size : 204800;\n"
+                f"{indent}#else\n"
+                f"{indent}const int32_t max_request_size = "
+                f"cfg.http_max_request_size > 0 ? "
+                f"cfg.http_max_request_size : 102400;\n"
+                f"{indent}#endif"
+            )
+
+        request_block, max_replacements = max_size_pattern.subn(
+            emu_max_size,
+            request_block,
+            count=1,
+        )
+
+        if max_replacements != 1:
+            raise RuntimeError(
+                "Das Request-Größenlimit konnte nicht sicher angepasst werden."
+            )
+
+        current_request_match = re.search(
+            r"(?ms)^static int32_t readRequest\(.*?"
+            r"(?=^static int32_t process_request\()",
+            current_source,
+        )
+
+        if not current_request_match:
+            raise RuntimeError(
+                "Aktuelle readRequest-Funktion wurde nicht eindeutig gefunden."
+            )
+
+        current_source = (
+            current_source[:current_request_match.start()]
+            + helper_block
+            + request_block
+            + current_source[current_request_match.end():]
+        )
+
+        # ---------------------------------------------------------
+        # 3. Nur den TLS-Zweig von serve_process aus der Basis nehmen
+        # ---------------------------------------------------------
+
+        def extract_tls_branch(source, description):
+            function_start = source.find("static void *serve_process")
+
+            if function_start < 0:
+                raise RuntimeError(
+                    f"serve_process fehlt in {description}."
+                )
+
+            branch_start_match = re.search(
+                r"(?m)^#ifdef WITH_SSL[ \t]*\n[ \t]*if\(ssl_active\)",
+                source[function_start:],
+            )
+
+            if not branch_start_match:
+                raise RuntimeError(
+                    f"TLS-Zweig fehlt in {description}."
+                )
+
+            branch_start = (
+                function_start + branch_start_match.start()
+            )
+
+            branch_end_match = re.search(
+                r"(?m)^[ \t]*else[ \t]*\n#endif[ \t]*\n[ \t]*\{",
+                source[branch_start:],
+            )
+
+            if not branch_end_match:
+                raise RuntimeError(
+                    f"Ende des TLS-Zweigs fehlt in {description}."
+                )
+
+            branch_end = branch_start + branch_end_match.start()
+
+            return branch_start, branch_end
+
+        base_start, base_end = extract_tls_branch(
+            base_source, "Basisversion"
+        )
+
+        current_start, current_end = extract_tls_branch(
+            current_source, "Zielversion"
+        )
+
+        base_tls_branch = base_source[base_start:base_end]
+
+        current_source = (
+            current_source[:current_start]
+            + base_tls_branch
+            + current_source[current_end:]
+        )
+
+        # ---------------------------------------------------------
+        # 4. Sicherheitsprüfungen vor dem Schreiben
+        # ---------------------------------------------------------
+
+        required_markers = [
+            "static int32_t webif_remaining_ms(",
+            "static int32_t webif_wait(",
+            "static int32_t webif_ssl_accept(",
+            "SSL_get_error(ssl, rc)",
+            "webif_wait(fd, err == SSL_ERROR_WANT_WRITE",
+            "int32_t request_ok = -1;",
+            "if(request_ok >= 0)",
+        ]
+
+        for marker in required_markers:
+            if marker not in current_source:
+                raise RuntimeError(
+                    "Prüfung fehlgeschlagen. Fehlender TLS-Marker: "
+                    + marker
+                )
+
+        if "poll(&pfd, 1, -1)" in current_source:
+            raise RuntimeError(
+                "Unbegrenztes poll() ist weiterhin in module-webif.c vorhanden."
+            )
+
+        if "const int32_t max_request_size = cfg.http_max_request_size > 0 ? cfg.http_max_request_size : 204800;" not in current_source:
+            raise RuntimeError(
+                "Das EMU-Request-Limit von 204800 Bytes wurde nicht erhalten."
+            )
+
+        with open(target_file, "w", encoding="utf-8", newline="") as f:
+            f.write(current_source)
+
+        log(
+            "[EMU] WebIF-TLS und Request-Verarbeitung im "
+            "temporären Ziel-Worktree korrigiert."
+        )
+        log(
+            "[EMU] TLS-Handshake und Request-Lesen verwenden "
+            "wieder eine begrenzte Wartezeit."
+        )
+        log(
+            "[EMU] EMU-Request-Limit: 204800 Bytes."
+        )
+
     def prepare_validation_target(repo_dir, emu_commit, repo_url):
         temp_dir = tempfile.mkdtemp(prefix="oscam_patch_expected_")
         run_git(
@@ -2324,6 +2557,7 @@ def create_patch(
             cwd=repo_dir, check=True, timeout=1200
         )
         try:
+            repair_emu_webif_tls(repo_dir, temp_dir)
             normalize_emu_metadata(temp_dir, repo_url)
             return temp_dir
         except Exception:

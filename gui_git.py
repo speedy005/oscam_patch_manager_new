@@ -1237,29 +1237,47 @@ class PatchManagerGitMixin:
             )
 
     def start_oscam_update_check(self):
-        """Wird aufgerufen, um den Vergleich zu starten."""
-        # 1. Lokale Rev holen (aus Datei oder Fallback)
+        """Startet die OSCam-Revisionsprüfung ohne die GUI zu blockieren."""
+
+        worker = getattr(self, "_oscam_revision_worker", None)
+
+        if worker is not None and worker.isRunning():
+            return
+
         self.current_rev = self.get_local_revision()
 
-        # 2. Remote Rev von Streamboard holen
-        remote_rev = self.get_latest_remote_revision()
+        self._oscam_revision_worker = OSCamRevisionCheckWorker()
+        self._oscam_revision_worker.result_signal.connect(
+            self._finish_oscam_update_check
+        )
+        self._oscam_revision_worker.start()
+
+        print("[REVISION] Hintergrundprüfung gestartet.", flush=True)
+
+    def _finish_oscam_update_check(self, remote_rev):
+        """Verarbeitet das Ergebnis des Revisions-Workers im GUI-Thread."""
 
         if remote_rev:
             try:
-                # Prüfen ob die Online-Nummer größer als die lokale ist
                 update_available = int(remote_rev) > int(self.current_rev)
                 self._oscam_update_available = update_available
                 self._oscam_check_completed = True
+
+                print(
+                    f"[REVISION] Lokal: {self.current_rev}, "
+                    f"Remote: {remote_rev}",
+                    flush=True
+                )
+
                 self.on_update_check_finished(update_available, remote_rev)
-            except ValueError:
-                self._oscam_update_available = False
-                self._oscam_check_completed = True
-                self.on_update_check_finished(False, self.current_rev)
-        else:
-            # Fehlerfall: Nur lokalen Stand zeigen
-            self._oscam_update_available = False
-            self._oscam_check_completed = True
-            self.on_update_check_finished(False, self.current_rev)
+                return
+
+            except (ValueError, TypeError):
+                print("[REVISION] Revisionsvergleich nicht möglich.", flush=True)
+
+        self._oscam_update_available = False
+        self._oscam_check_completed = True
+        self.on_update_check_finished(False, self.current_rev)
 
     def change_modifier_name(self):
         """Öffnet Autor-Dialog mit Regenbogen-Progress, Sound und DE/EN Support."""

@@ -331,7 +331,7 @@ from system_check import SystemCheckWorker
 from themes import DIFF_COLORS, current_color_name, current_diff_colors
 from translations import LANG, TEXTS
 from ui_components import StreamToGui
-from workers import NcamBonecrewInstallWorker, OSCamUpdateWorker, S3InstallWorker, S4InstallWorker
+from workers import NcamBonecrewInstallWorker, OSCamUpdateWorker, OSCamRevisionCheckWorker, S3InstallWorker, S4InstallWorker
 from packaging.version import Version
 
 
