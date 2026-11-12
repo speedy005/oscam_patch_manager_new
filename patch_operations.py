@@ -2375,11 +2375,14 @@ def create_patch(
 
         helper_block = helper_match.group(0)
 
-        if "static int32_t webif_remaining_ms(" in current_source:
-            raise RuntimeError(
-                "WebIF-TLS-Hilfsfunktionen sind bereits vorhanden. "
-                "Keine automatische doppelte Einfügung."
-            )
+        helpers_present = (
+            "static int32_t webif_remaining_ms(" in current_source
+            and "static int32_t webif_wait(" in current_source
+            and "static int32_t webif_ssl_accept(" in current_source
+        )
+
+        # Vorhandene Hilfsfunktionen nicht doppelt einfügen.
+        helper_prefix = "" if helpers_present else helper_block
 
         # ---------------------------------------------------------
         # 2. readRequest aus der Basis übernehmen.
@@ -2443,7 +2446,7 @@ def create_patch(
 
         current_source = (
             current_source[:current_request_match.start()]
-            + helper_block
+            + helper_prefix
             + request_block
             + current_source[current_request_match.end():]
         )
