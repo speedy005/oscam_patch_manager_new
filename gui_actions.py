@@ -782,22 +782,31 @@ class PatchManagerActionsMixin:
 
                 custom_path = custom_path.resolve()
 
-                # Externe Pfade nicht stillschweigend akzeptieren.
-                if not is_inside(custom_path, project_dir):
-                    raise ValueError(
-                        f"Der Ordner '{key}' liegt außerhalb des "
-                        f"Projektverzeichnisses: {custom_path}"
-                    )
-
+                # Projektordner selbst und übergeordnete Ordner ablehnen.
                 if normalized_path(custom_path) == project_norm:
                     raise ValueError(
                         f"Der Ordner '{key}' verweist auf das gesamte Projekt."
                     )
 
-                if normalized_path(custom_path) not in {
-                    normalized_path(p) for p in protected_custom_paths
-                }:
-                    protected_custom_paths.append(custom_path)
+                if is_inside(project_dir, custom_path):
+                    raise ValueError(
+                        f"Der Ordner '{key}' ist ein übergeordneter "
+                        f"Projektordner: {custom_path}"
+                    )
+
+                # Externe Build-Verzeichnisse sind erlaubt.
+                # Sie bleiben durch is_protected() vollständig geschützt.
+                for existing_path in protected_custom_paths:
+                    if (
+                        is_inside(custom_path, existing_path)
+                        or is_inside(existing_path, custom_path)
+                    ):
+                        raise ValueError(
+                            f"Die konfigurierten Ordner überschneiden sich: "
+                            f"{custom_path} und {existing_path}"
+                        )
+
+                protected_custom_paths.append(custom_path)
 
             if len(protected_custom_paths) != 3:
                 raise ValueError(
