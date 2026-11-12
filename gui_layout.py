@@ -62,7 +62,21 @@ class PatchManagerLayoutMixin:
                     continue
                 seen.add(id(btn))
                 text = " ".join(btn.text().replace("\n", " ").split())
-                btn.setFixedHeight(height)
+                # Header- und Konsolenbuttons behalten ihre bisherige Höhe.
+                # Alle übrigen Buttons des Hauptfensters sind auf maximal 40 px begrenzt.
+                is_header_or_console = False
+                parent = btn.parentWidget()
+                while parent is not None:
+                    if parent in (
+                        getattr(self, "header_widget", None),
+                        getattr(self, "console_panel", None),
+                    ):
+                        is_header_or_console = True
+                        break
+                    parent = parent.parentWidget()
+
+                button_height = height if is_header_or_console else min(height, 45)
+                btn.setFixedHeight(button_height)
                 if id(btn) in option_button_ids:
                     btn.setMinimumWidth(220)
                 else:
@@ -155,8 +169,10 @@ class PatchManagerLayoutMixin:
             f"""
             QPushButton {{
                 background-color: {color}; color: {fg}; border-radius: {radius}px;
-                border: 1px solid rgba(255,255,255,0.1); padding: 5px;
-                font-weight: bold; min-height: {min_height}px;
+                border: 1px solid rgba(255,255,255,0.1); padding: 0px 5px;
+                font-weight: bold;
+                min-height: 45px;
+                max-height: 45px;
             }}
             QPushButton:hover {{
                 background-color: {hover_color};
@@ -166,11 +182,12 @@ class PatchManagerLayoutMixin:
             }} 
             QPushButton:pressed {{
                 background-color: {pressed_color};
-                border: 2px solid white;
+                border: 1px solid white;
             }} 
         """
         )
 
+        btn.setFixedHeight(45)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
         # --- DER AUTOMATISCHE REGENBOGEN-TRIGGER ---
@@ -848,7 +865,7 @@ class PatchManagerLayoutMixin:
 
             btn.setMinimumWidth(220)
             btn.setMinimumHeight(40)
-            btn.setMaximumHeight(40)
+            btn.setMaximumHeight(45)
 
             # ---------------------------------------------------------
             # EINZEILIGER BUTTON-TEXT

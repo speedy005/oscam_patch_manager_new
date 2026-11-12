@@ -3117,7 +3117,7 @@ class PatchManagerGUI(
         s3_s4_h_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         for _install_btn in (self.btn_s3, self.btn_s4, self.btn_ncam):
-            _install_btn.setMinimumSize(105, 50)
+            _install_btn.setMinimumSize(105, 45)
             _install_btn.setMaximumWidth(260)
             _install_btn.setSizePolicy(
                 QSizePolicy.Policy.Preferred,
@@ -3602,7 +3602,7 @@ class PatchManagerGUI(
 
         # --- OSCAM-GIT-URL ---
         self.oscam_source_button = QPushButton("Oscam Git URL")
-        self.oscam_source_button.setMinimumSize(300, 50)
+        self.oscam_source_button.setMinimumSize(300, 45)
         self.oscam_source_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.oscam_source_button.setFont(
             QFont("Segoe UI", 8, QFont.Weight.Bold)
@@ -3963,7 +3963,7 @@ class PatchManagerGUI(
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setMinimumHeight(self.UI_PROGRESS_H)
-        self.progress_bar.setMaximumHeight(40)
+        self.progress_bar.setMaximumHeight(45)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(True)
@@ -4189,8 +4189,8 @@ class PatchManagerGUI(
         /* FIX: Wir erzwingen hier im Stylesheet, dass alle Buttons 
            im Kasten sofort ihre Zielhöhe einnehmen */
         QPushButton {{
-            min-height: {self.UI_BUTTON_H}px;
-            max-height: {self.UI_BUTTON_H}px;
+            min-height: 45px;
+            max-height: 45px;
         }}
         """
         )
@@ -4373,7 +4373,7 @@ class PatchManagerGUI(
         self.btn_check_tools = QPushButton(
             self.get_t("check_tools_button", "🛠️ Tools prüfen")
         )
-        self.btn_check_tools.setFixedSize(220, self.UI_BUTTON_H)
+        self.btn_check_tools.setFixedSize(220, 45)
 
         # --- 0. Container Erstellung (Korrektur: QGroupBox statt QFrame) ---
         controls_group = QGroupBox("")
@@ -4527,8 +4527,9 @@ class PatchManagerGUI(
             }}
             QPushButton:pressed {{
                 background-color: {b_color};
-                padding-top: 2px;
+                border: 1px solid {b_color};
                 border-radius: 10px;
+                padding: 0px;
             }}
         """
         )
@@ -4818,10 +4819,10 @@ class PatchManagerGUI(
                 getattr(self, "btn_modifier", None),
                 getattr(self, "btn_check_tools", None),
             ):
-                button.setMinimumSize(250, 50)
+                button.setMinimumSize(250, 45)
                 # Keine künstliche Maximalbreite: sonst entstehen im rechten
                 # Bereich große Lücken, obwohl das Grid seine Spalten streckt.
-                button.setMaximumHeight(50)
+                button.setMaximumHeight(45)
                 button.setSizePolicy(
                     QSizePolicy.Policy.Expanding,
                     QSizePolicy.Policy.Fixed,
@@ -4845,11 +4846,7 @@ class PatchManagerGUI(
         # Revisions-Buttons auf dieselbe Zeile wie „Oscam Git URL“ setzen.
         # Repo URL bleibt oben neben Emu-Git und wird nicht erneut verschoben.
         revision_button_min_width = 220
-        revision_button_height = max(
-            self.oscam_source_button.sizeHint().height(),
-            self.oscam_source_button.height(),
-            50,
-        )
+        revision_button_height = 45
         for col, key in ((7, "streamboard_checkout"), (8, "oscam_emu_revision")):
             entry = self.option_buttons.get(key)
             if entry:
@@ -5084,6 +5081,20 @@ class PatchManagerGUI(
                         f"maximum={widget.maximumHeight()}",
                         flush=True,
                     )
+
+            exit_btn = getattr(self, "buttons", {}).get("exit")
+            if exit_btn is not None:
+                print(
+                    f"EXIT BUTTON: text={exit_btn.text()!r}, "
+                    f"height={exit_btn.height()}, "
+                    f"sizeHint={exit_btn.sizeHint().height()}, "
+                    f"minimum={exit_btn.minimumHeight()}, "
+                    f"maximum={exit_btn.maximumHeight()}, "
+                    f"fixed={exit_btn.minimumHeight() == exit_btn.maximumHeight()}, "
+                    f"parent={exit_btn.parentWidget().__class__.__name__ if exit_btn.parentWidget() else None}",
+                    flush=True,
+                )
+                print(f"EXIT STYLE: {exit_btn.styleSheet()}", flush=True)
 
             print("========== ENDE DIAGNOSE ==========\\n", flush=True)
 
