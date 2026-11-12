@@ -105,6 +105,69 @@ def _restart_elevated():
     return False
 
 
+def _ensure_linux_qtsvg():
+    """Installiert QtSvg unter Linux bei Bedarf über APT."""
+    if platform.system() != "Linux":
+        return True
+
+    try:
+        from PyQt6.QtSvg import QSvgRenderer
+        return True
+    except ImportError:
+        pass
+
+    answer = QMessageBox.question(
+        None,
+        "Fehlende QtSvg-Komponente",
+        "Für die Sprachwechsel-Animation fehlt PyQt6.QtSvg.\n\n"
+        "Soll python3-pyqt6.qtsvg jetzt installiert werden?",
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        QMessageBox.StandardButton.Yes,
+    )
+
+    if answer != QMessageBox.StandardButton.Yes:
+        return False
+
+    pkexec = shutil.which("pkexec")
+    if not pkexec:
+        QMessageBox.warning(
+            None, "Installation nicht möglich",
+            "Bitte manuell installieren mit:\n"
+            "sudo apt install python3-pyqt6.qtsvg"
+        )
+        return False
+
+    try:
+        result = subprocess.run(
+            [pkexec, "/usr/bin/apt-get", "install", "-y",
+             "python3-pyqt6.qtsvg"],
+            check=False,
+        )
+
+        if result.returncode != 0:
+            QMessageBox.warning(
+                None, "Installation fehlgeschlagen",
+                "QtSvg konnte nicht installiert werden."
+            )
+            return False
+
+        from PyQt6.QtSvg import QSvgRenderer
+
+        QMessageBox.information(
+            None, "Installation abgeschlossen",
+            "QtSvg wurde installiert. Das Programm wird neu gestartet."
+        )
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    except Exception as exc:
+        QMessageBox.warning(
+            None, "Installationsfehler", str(exc)
+        )
+        return False
+
+    return True
+
+
 def main():
     """Configure Qt and start the OSCam Patch Manager GUI."""
     # Avoid accidental recursive elevation.
@@ -139,6 +202,8 @@ def main():
         os.environ.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", plugin_path)
 
     app = QApplication.instance() or QApplication(sys.argv)
+    if system == "Linux" and not _ensure_linux_qtsvg():
+        return 0
     app.setStyle("Fusion")
 
     screen = app.primaryScreen()
@@ -166,20 +231,78 @@ def main():
 
     def actually_start():
         nonlocal main_window
+        print("[TRACE] actually_start() wurde erreicht", flush=True)
         try:
             main_window = PatchManagerGUI()
 
             main_window.setWindowTitle("OSCam Emu Patch Manager new - by speedy005")
             main_window.show()
+            main_window._debug_timer = QTimer(main_window)
+            main_window._debug_timer.setSingleShot(True)
+            main_window._debug_timer.timeout.connect(
+                lambda: print("[PERSISTENT-TIMER] Qt-Timer funktioniert", flush=True)
+            )
+            main_window._debug_timer.start(3000)
+            QTimer.singleShot(3000, lambda: print("[TIMER-TEST] Qt-Timer funktioniert", flush=True))
             main_window.raise_()
 
             # Fenstergeometrie nach dem Anzeigen wiederherstellen.
 
             def restore_main_window():
+                print("[TRACE] restore_main_window() wurde erreicht", flush=True)
                 try:
                     main_window._restore_window_state_after_show()
                 except Exception:
                     traceback.print_exc()
+
+                def debug_layout_sizes():
+                    _original_stdout = sys.stdout
+                    sys.stdout = sys.__stderr__
+                    try:
+                        print("\\n========== OSCAM LAYOUT DIAGNOSE ==========", flush=True)
+                        print(
+                            f"Fenster: {main_window.width()}x{main_window.height()}",
+                            flush=True,
+                        )
+    
+                        layout = main_window.layout()
+                        if layout is not None:
+                            print(
+                                f"Hauptlayout: Höhe={layout.geometry().height()}, "
+                                f"sizeHint={layout.sizeHint().height()}",
+                                flush=True,
+                            )
+                            for i in range(layout.count()):
+                                item = layout.itemAt(i)
+                                widget = item.widget()
+                                if widget is not None:
+                                    print(
+                                        f"{i}: {widget.objectName() or widget.__class__.__name__}: "
+                                        f"Höhe={widget.height()}, "
+                                        f"sizeHint={widget.sizeHint().height()}, "
+                                        f"min={widget.minimumHeight()}, "
+                                        f"max={widget.maximumHeight()}",
+                                        flush=True,
+                                    )
+    
+                        for name in (
+                            "console_panel", "info_text", "header_widget",
+                            "controls_group", "grid_container",
+                        ):
+                            widget = getattr(main_window, name, None)
+                            if widget is not None:
+                                print(
+                                    f"{name}: Höhe={widget.height()}, "
+                                    f"sizeHint={widget.sizeHint().height()}, "
+                                    f"min={widget.minimumHeight()}, "
+                                    f"max={widget.maximumHeight()}",
+                                    flush=True,
+                                )
+    
+                        print("========== ENDE DIAGNOSE ==========\\n", flush=True)
+                    finally:
+                        sys.stdout = _original_stdout
+                QTimer.singleShot(1500, debug_layout_sizes)
 
             QTimer.singleShot(1000, restore_main_window)
 

@@ -2995,7 +2995,7 @@ class PatchManagerGUI(
 
         header_widget = QFrame()
         self.header_widget = header_widget
-        header_widget.setMinimumHeight(200)
+        header_widget.setMinimumHeight(160)
         header_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         header_widget.setStyleSheet(
             """
@@ -3752,7 +3752,7 @@ class PatchManagerGUI(
             self.info_text.document().setMaximumBlockCount(10000)
         except Exception as exc:
             print(f"[console] Begrenzung der Konsolenhistorie nicht verfügbar: {exc}")
-        self.info_text.setMinimumHeight(220)
+        self.info_text.setMinimumHeight(0)
         self.info_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.info_text.setFont(QFont("Consolas", 11))
         self.info_text.setStyleSheet("""
@@ -3765,7 +3765,7 @@ class PatchManagerGUI(
         # Werkzeugleiste: zwei Reihen mit 5 und 4 Buttons.
         console_tools = QVBoxLayout()
         console_tools.setContentsMargins(0, 0, 0, 0)
-        console_tools.setSpacing(8)
+        console_tools.setSpacing(4)
 
         is_de = str(getattr(self, "LANG", LANG)).lower() == "de"
         copy_log_button = QPushButton("LOG KOPIEREN" if is_de else "COPY LOG")
@@ -3952,7 +3952,7 @@ class PatchManagerGUI(
             console_tools.addLayout(button_row)
         console_layout.addLayout(console_tools)
         console_layout.addWidget(self.info_text, 1)
-        main_layout.addWidget(console_panel, 10)
+        main_layout.addWidget(console_panel, 20)
 
         # Auto-Scroll wird beim Hinzufügen neuer Meldungen gesteuert.
         # Kein periodischer Timer: so bleibt die Konsole ruhig, wenn der
@@ -4177,7 +4177,7 @@ class PatchManagerGUI(
         controls_group = QFrame()
         # FIX: Wir setzen eine feste Mindesthöhe für den gesamten Block,
         # damit er beim Start nicht zusammenfällt.
-        controls_group.setMinimumHeight(100)
+        controls_group.setMinimumHeight(40)
 
         controls_group.setStyleSheet(
             f"""
@@ -5043,6 +5043,51 @@ class PatchManagerGUI(
         else:
             # Falls nicht Matrix, Standard-Neon setzen
             self.setStyleSheet(self.styleSheet() + neon_style)
+
+        # TEMPORÄRE LAYOUT-DIAGNOSE: tatsächliche Höhen nach dem Anzeigen messen
+        def _debug_layout_sizes():
+            print("\\n========== OSCAM LAYOUT DIAGNOSE ==========", flush=True)
+            print(
+                f"Fenster: height={self.height()}, "
+                f"sizeHint={self.sizeHint().height()}, "
+                f"minimum={self.minimumHeight()}",
+                flush=True,
+            )
+            print(
+                f"Hauptlayout: height={main_layout.geometry().height()}, "
+                f"sizeHint={main_layout.sizeHint().height()}",
+                flush=True,
+            )
+
+            for i in range(main_layout.count()):
+                item = main_layout.itemAt(i)
+                widget = item.widget()
+                if widget is not None:
+                    print(
+                        f"{i}: {widget.objectName() or widget.__class__.__name__}: "
+                        f"height={widget.height()}, "
+                        f"sizeHint={widget.sizeHint().height()}, "
+                        f"minimumHint={widget.minimumSizeHint().height()}, "
+                        f"minimum={widget.minimumHeight()}, "
+                        f"maximum={widget.maximumHeight()}",
+                        flush=True,
+                    )
+
+            for name in ("console_panel", "info_text", "header_widget", "controls_group", "grid_container"):
+                widget = getattr(self, name, None)
+                if widget is not None:
+                    print(
+                        f"{name}: height={widget.height()}, "
+                        f"sizeHint={widget.sizeHint().height()}, "
+                        f"minimumHint={widget.minimumSizeHint().height()}, "
+                        f"minimum={widget.minimumHeight()}, "
+                        f"maximum={widget.maximumHeight()}",
+                        flush=True,
+                    )
+
+            print("========== ENDE DIAGNOSE ==========\\n", flush=True)
+
+        QTimer.singleShot(2500, _debug_layout_sizes)
 
     # =====================
     # BUTTON & COLOR HANDLING

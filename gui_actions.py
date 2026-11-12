@@ -2056,8 +2056,8 @@ class PatchManagerActionsMixin:
         txt = getattr(self, "TEXT", {})
 
         # --- ZENTRALE FORMATIERUNG ---
-        SZ_BIG = "35px"  # Orange Titel
-        SZ_NORM = "35px"  # Standard-Inhalte
+        SZ_BIG = "22px"  # Orange Titel
+        SZ_NORM = "16px"  # Standard-Inhalte
         F_FAMILY = "'Arial', sans-serif"
 
         C_ORANGE = "#F37804"

@@ -456,10 +456,18 @@ class PatchManagerLogsMixin:
         widget.setTextCursor(cursor)
         cursor.insertHtml(html_output)
 
-        # 5. Immer zum neuesten Eintrag scrollen.
-        if scrollbar is not None:
-            scrollbar.setValue(scrollbar.maximum())
-        widget.ensureCursorVisible()
+        # 5. Erst nach der Qt-Layout-Aktualisierung zum neuesten Eintrag scrollen.
+        from PyQt6.QtCore import QTimer
+
+        def _scroll_to_latest(w=widget):
+            if w is None:
+                return
+            bar = w.verticalScrollBar()
+            bar.setValue(bar.maximum())
+            w.ensureCursorVisible()
+            bar.setValue(bar.maximum())
+
+        QTimer.singleShot(0, _scroll_to_latest)
 
     def log(self, msg, level="info"):
         """

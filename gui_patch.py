@@ -44,10 +44,10 @@ class PatchManagerPatchMixin:
 
         self.combo_source = QComboBox()
         self.combo_source.addItems(ONLINE_PATCHES.keys())
-        self.combo_source.setMinimumHeight(50)
+        self.combo_source.setMinimumHeight(40)
 
         self.btn_online = QPushButton(self.T_PATCH_BTN)
-        self.btn_online.setMinimumHeight(50)
+        self.btn_online.setMinimumHeight(40)
         self.btn_online.setStyleSheet(
             "font-weight: bold; background-color: #2c3e50; color: white;"
         )

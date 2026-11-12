@@ -621,7 +621,7 @@ class PatchManagerCoreMixin:
         # Schließen-Button
         # --------------------------------------------------
         close_btn = QPushButton(t.get("close", "Schließen" if is_de else "Close"))
-        close_btn.setMinimumHeight(50)
+        close_btn.setMinimumHeight(40)
 
         button_radius = getattr(self, "BUTTON_RADIUS", 8)
 

@@ -261,7 +261,7 @@ class PatchManagerLayoutMixin:
                 continue
             button.setFont(QFont("Segoe UI", font_size, QFont.Weight.Bold))
             if name != "info_button":
-                button.setMinimumHeight(50 if compact else 50)
+                button.setMinimumHeight(30 if compact else 40)
                 button.setMaximumWidth(280 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
                 button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
@@ -659,7 +659,7 @@ class PatchManagerLayoutMixin:
         cols_per_row = 4
 
         # Einheitliche Höhe
-        FLACH_HEIGHT = 50
+        FLACH_HEIGHT = 40
 
         # ---------------------------------------------------------
         # BUTTONS ERSTELLEN
@@ -847,8 +847,8 @@ class PatchManagerLayoutMixin:
             )
 
             btn.setMinimumWidth(220)
-            btn.setMinimumHeight(50)
-            btn.setMaximumHeight(50)
+            btn.setMinimumHeight(40)
+            btn.setMaximumHeight(40)
 
             # ---------------------------------------------------------
             # EINZEILIGER BUTTON-TEXT
@@ -2011,11 +2011,11 @@ class PatchManagerLayoutMixin:
                 )
 
                 btn.setMinimumHeight(
-                    50
+                    30
                 )
 
                 btn.setMaximumHeight(
-                    50
+                    40
                 )
 
                 # =====================================================
@@ -2069,7 +2069,7 @@ class PatchManagerLayoutMixin:
                         border: 1px solid #2d7185;
                         border-radius: 9px;
                         font-weight: 700;
-                        min-height: 42px;
+                        min-height: 30px;
                     }}
                     QPushButton:hover {{
                         border: 1px solid #35e6ff;
