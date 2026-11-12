@@ -1685,88 +1685,91 @@ class PatchManagerInstallationMixin:
                 return
 
         # ---------------------------------------------------------
-        # LINUX: Bisherigen nativen Startablauf beibehalten
-        # ---------------------------------------------------------
-        default_start = "/opt/s3"
-        s3_path = getattr(self, "S3_PATH", default_start)
-        sub_folder = "s3"
+        # LINUX: Auswahl zwischen Gorgone und Speedy005
+        from PyQt6.QtWidgets import QMessageBox
 
-        possible_names = ["s3"]
-        possible_paths = []
+        lang = str(getattr(self, "LANG", "de")).lower()[:2]
+        T = TEXTS.get(lang, TEXTS.get("de", {}))
 
-        for name in possible_names:
-            possible_paths.append(os.path.join(s3_path, name))
-            possible_paths.append(
-                os.path.join(s3_path, sub_folder, name)
+        choice = QMessageBox(self)
+        choice.setWindowTitle(
+            T.get("s3_choice_title", "S3 Simplebuild auswählen")
+        )
+        choice.setText(
+            T.get("s3_choice_text", "Welches S3-Menü möchtest du starten?")
+        )
+        choice.setInformativeText(
+            T.get(
+                "s3_choice_info",
+                "Gorgone verwendet den Ordner 's3'.\n"
+                "Speedy005 verwendet den Ordner 's3_speedy005'."
             )
+        )
 
-        possible_paths.extend([
-            "/opt/s3_neu/s3",
-            "/opt/s3/s3",
-            os.path.expanduser("~/s3/s3"),
-            shutil.which("s3"),
-        ])
+        gorgone_btn = choice.addButton(
+            T.get("s3_choice_gorgone", "S3 Gorgone"),
+            QMessageBox.ButtonRole.AcceptRole
+        )
+        speedy_btn = choice.addButton(
+            T.get("s3_choice_speedy005", "S3 Speedy005"),
+            QMessageBox.ButtonRole.ActionRole
+        )
+        choice.addButton(
+            T.get("button_cancel", "Abbrechen"),
+            QMessageBox.ButtonRole.RejectRole
+        )
 
-        for path in possible_paths:
-            if path and os.path.exists(path) and not os.path.isdir(path):
-                if os.access(path, os.X_OK):
-                    s3_exec = os.path.normpath(path)
+        choice.exec()
+        selected = choice.clickedButton()
 
-                    if (
-                        sub_folder in path.lower()
-                        and not s3_path.lower().endswith(sub_folder.lower())
-                    ):
-                        self.S3_PATH = os.path.normpath(
-                            os.path.join(s3_path, sub_folder)
-                        )
-                    else:
-                        self.S3_PATH = os.path.normpath(s3_path)
+        if selected not in (gorgone_btn, speedy_btn):
+            return
 
-                    success = save_config(
-                        {"s3_custom_path": self.S3_PATH},
-                        gui_instance=None,
-                        silent=True,
-                    )
-
-                    if not success:
-                        from PyQt6.QtWidgets import QMessageBox
-                        QMessageBox.warning(
-                            self,
-                            "Fehler",
-                            "Der S3-Pfad konnte nicht gespeichert werden.",
-                        )
-                        return
-
-                    if not isinstance(
-                        getattr(self, "current_config", None), dict
-                    ):
-                        self.current_config = {}
-
-                    self.current_config["s3_custom_path"] = self.S3_PATH
-                    break
-
-        if s3_exec:
-            if hasattr(self, "append_info") and hasattr(self, "info_text"):
-                msg = f"🚀 S3 Menü: {s3_exec}"
-                self.append_info(self.info_text, msg, "info")
-
-            self.open_terminal(
-                s3_path=s3_exec,
-                use_sudo=True,
-            )
+        if selected is gorgone_btn:
+            s3_path = "/opt/s3_neu"
+            variant_name = "S3 Gorgone"
         else:
-            err_msg = (
-                "❌ Fehler: S3-Startdatei nicht gefunden!"
-                if is_de
-                else "❌ Error: S3 executable not found!"
+            s3_path = "/opt/s3_speedy005"
+            variant_name = "S3 Speedy005"
+
+        s3_exec = os.path.join(s3_path, "s3")
+
+        if not os.path.isfile(s3_exec) or not os.access(s3_exec, os.X_OK):
+            QMessageBox.warning(
+                self,
+                "S3 Simplebuild",
+                f"{variant_name}: Ausführbare Datei nicht gefunden oder "
+                f"nicht ausführbar:\n{s3_exec}"
             )
+            return
 
-            if hasattr(self, "info_text") and self.info_text:
-                self.info_text.append(
-                    f'<br><span style="color:red;"><b>{err_msg}</b></span>'
-                )
+        old_path = getattr(self, "S3_PATH", "/opt/s3")
 
-            self.open_terminal()
+        success = save_config(
+            {"s3_custom_path": s3_path},
+            gui_instance=None,
+            silent=True
+        )
+
+        if not success:
+            QMessageBox.warning(
+                self,
+                "S3 Simplebuild",
+                "Der S3-Pfad konnte nicht gespeichert werden."
+            )
+            return
+
+        self.S3_PATH = s3_path
+
+        if not isinstance(getattr(self, "current_config", None), dict):
+            self.current_config = {}
+
+        self.current_config["s3_custom_path"] = s3_path
+
+        if hasattr(self, "append_info"):
+            self.append_info(f"{variant_name}: {s3_exec}")
+
+        self.open_terminal(s3_path=s3_exec, use_sudo=True)
 
     def start_s4_menu(self):
         """Startet SimpleBuild 4 unter Windows in WSL2 und unter Linux nativ."""
