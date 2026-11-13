@@ -38,7 +38,10 @@ def configure_window_layout(window, info_text, toolbar_buttons):
         QSizePolicy.Policy.Expanding,
         QSizePolicy.Policy.Expanding
     )
-    info_text.setMinimumHeight(min(sh, max(150, int(sh * 0.22))))
+    info_text.setMinimumHeight(0)
+    console_panel = getattr(window, 'console_panel', None)
+    if console_panel is not None:
+        console_panel.setMinimumHeight(0)
 
     # DPI-abhängige Grundschrift.
     dpi = screen.logicalDotsPerInchY()

@@ -2718,7 +2718,7 @@ class PatchManagerGUI(
             QTimer.singleShot(0, self._fit_header_controls)
 
         # 2. Dynamische Schriftgrößen berechnen
-        dynamic_size = max(10, int(self.width() / 90))
+        dynamic_size = max(10, min(14, int(self.width() / 140)))
 
         button_font = QFont(
             "Arial", dynamic_size, QFont.Weight.Bold
@@ -2975,10 +2975,16 @@ class PatchManagerGUI(
         # ---------------------------------------------------------
         # 1. Grundwerte & Hauptlayout
         # ---------------------------------------------------------
-        self.UI_BUTTON_H = 50
-        self.UI_BADGE_H = 50
-        self.UI_PROGRESS_H = 25
-        self.UI_STATUS_H = 50
+        screen = QApplication.primaryScreen()
+        compact_fhd = bool(
+            screen and screen.availableGeometry().height() <= 1100
+        )
+
+        self.UI_BUTTON_H = 38 if compact_fhd else 50
+        self.UI_BADGE_H = 40 if compact_fhd else 50
+        self.UI_PROGRESS_H = 20 if compact_fhd else 25
+        self.UI_STATUS_H = 38 if compact_fhd else 50
+        self.B_HEIGHT = self.UI_BUTTON_H
         self.UI_RADIUS = 10
 
         B_HEIGHT = self.UI_BUTTON_H
@@ -2986,8 +2992,13 @@ class PatchManagerGUI(
         CONTROL_HEIGHT = self.UI_BUTTON_H
         self.BUTTON_HEIGHT = self.UI_BUTTON_H
         main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(12)
-        main_layout.setContentsMargins(12, 10, 12, 14)
+        main_layout.setSpacing(6 if compact_fhd else 12)
+        main_layout.setContentsMargins(
+            8 if compact_fhd else 12,
+            6 if compact_fhd else 10,
+            8 if compact_fhd else 12,
+            8 if compact_fhd else 14,
+        )
         self.setStyleSheet("""
             QWidget { background-color: #10141d; color: #e8f1ff; }
             QGroupBox {
@@ -3019,7 +3030,7 @@ class PatchManagerGUI(
 
         header_widget = QFrame()
         self.header_widget = header_widget
-        header_widget.setMinimumHeight(160)
+        header_widget.setMinimumHeight(105 if compact_fhd else 160)
         header_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         header_widget.setStyleSheet(
             """
@@ -3765,8 +3776,8 @@ class PatchManagerGUI(
         console_panel = QGroupBox("LIVE SYSTEM CONSOLE  /  STATUS & LOGS")
         self.console_panel = console_panel
         console_layout = QVBoxLayout(console_panel)
-        console_layout.setContentsMargins(10, 12, 10, 10)
-        console_layout.setSpacing(8)
+        console_layout.setContentsMargins(6, 5, 6, 5)
+        console_layout.setSpacing(3)
         self.info_text = QTextEdit()
         self.info_text.setObjectName("liveConsole")
         self.info_text.setReadOnly(True)
@@ -3789,7 +3800,7 @@ class PatchManagerGUI(
         # Werkzeugleiste: zwei Reihen mit 5 und 4 Buttons.
         console_tools = QVBoxLayout()
         console_tools.setContentsMargins(0, 0, 0, 0)
-        console_tools.setSpacing(4)
+        console_tools.setSpacing(2)
 
         is_de = str(getattr(self, "LANG", LANG)).lower() == "de"
         copy_log_button = QPushButton("LOG KOPIEREN" if is_de else "COPY LOG")
@@ -3940,14 +3951,14 @@ class PatchManagerGUI(
                 QStyle.StandardPixmap.SP_FileIcon
             )
             tool_button.setIcon(self.style().standardIcon(pixmap))
-            tool_button.setIconSize(QSize(20, 20))
+            tool_button.setIconSize(QSize(16, 16))
 
             tool_font = tool_button.font()
-            tool_font.setPointSizeF(13.0)
+            tool_font.setPointSizeF(10.0)
             tool_font.setBold(True)
             tool_button.setFont(tool_font)
 
-            tool_button.setMinimumHeight(38)
+            tool_button.setMinimumHeight(30)
             tool_button.setSizePolicy(
                 QSizePolicy.Policy.Fixed,
                 QSizePolicy.Policy.Fixed
@@ -4213,15 +4224,18 @@ class PatchManagerGUI(
         /* FIX: Wir erzwingen hier im Stylesheet, dass alle Buttons 
            im Kasten sofort ihre Zielhöhe einnehmen */
         QPushButton {{
-            min-height: 45px;
-            max-height: 45px;
+           min-height: {self.UI_BUTTON_H}px;
+           max-height: {self.UI_BUTTON_H}px;
         }}
         """
         )
         controls_group_layout = QVBoxLayout(controls_group)
 
         # OPTIMIERUNG: Mehr Abstand nach oben (20) und unten (20) macht den Kasten höher
-        controls_group_layout.setContentsMargins(0, 20, 15, 20)
+        controls_group_layout.setContentsMargins(
+            0, 6 if compact_fhd else 20,
+            8, 6 if compact_fhd else 20
+        )
         # Mehr Abstand zwischen Header und den Reglern
         controls_group_layout.setSpacing(0)
 
@@ -4230,7 +4244,7 @@ class PatchManagerGUI(
 
         self.controls_header.setMinimumWidth(280)
         # OPTIMIERUNG: Header-Höhe von 28 auf 45 erhöht für mehr Präsenz
-        self.controls_header.setMinimumHeight(50)
+        self.controls_header.setMinimumHeight(32 if compact_fhd else 50)
         self.controls_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         bg = current_diff_colors.get("bg", "#2F2F2F")  # Dunkelgrauer Hintergrund
@@ -4241,7 +4255,7 @@ class PatchManagerGUI(
             QLabel {{
                 background-color: {bg};
                 color: {fg};
-                font-size: 20px;          /* Schrift im Header vergrößert */
+                font-size: {'14px' if compact_fhd else '20px'};
                 font-weight: bold;
                 padding-left: 15px;
                 padding-right: 15px;
@@ -4261,11 +4275,11 @@ class PatchManagerGUI(
         controls_layout.setSpacing(0)
 
         # Nutze hier deine neue B_HEIGHT (z.B. 60), falls definiert, sonst BUTTON_HEIGHT
-        CONTROL_HEIGHT = getattr(self, "B_HEIGHT", 50)
+        CONTROL_HEIGHT = self.UI_BUTTON_H
         controls_layout.addStretch(0)
         control_style = f"""
         QComboBox, QSpinBox {{
-            font-size: 18px;
+            font-size: {'13px' if compact_fhd else '18px'};
             border-radius: {self.BUTTON_RADIUS}px;
             border: 2px solid #555;
             padding: 4px 8px;
@@ -4288,7 +4302,7 @@ class PatchManagerGUI(
                 f"""
                 color: {fg}; 
                 font-weight: bold; 
-                font-size: 18px;
+                font-size: {'13px' if compact_fhd else '18px'};
                 background: transparent;
                 padding-left: 0px;
             """
@@ -4305,7 +4319,7 @@ class PatchManagerGUI(
         self.language_box.setStyleSheet(
             f"""
             QComboBox {{
-                background-color: #444444; color: white; font-weight: bold; font-size: 20px;
+                background-color: #444444; color: white; font-weight: bold; font-size: {'14px' if compact_fhd else '20px'};
                 border: 2px solid #555555; border-radius: 6px; padding-left: 5px;
             }}
             QComboBox::drop-down {{ border: none; width: 0px; }}
