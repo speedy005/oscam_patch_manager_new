@@ -106,6 +106,159 @@ def _restart_elevated():
 
 
 
+
+def _ensure_git():
+    """Prüft Git und bietet die Installation an, falls es fehlt."""
+    git = shutil.which("git")
+
+    if git:
+        result = subprocess.run(
+            [git, "--version"],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if result.returncode == 0:
+            print("[GIT] Git verfügbar:", result.stdout.strip(), flush=True)
+            return True
+
+    answer = QMessageBox.question(
+        None,
+        "Git fehlt",
+        "Git wurde nicht gefunden oder funktioniert nicht.\n\n"
+        "Soll Git jetzt automatisch installiert werden?",
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        QMessageBox.StandardButton.Yes,
+    )
+
+    if answer != QMessageBox.StandardButton.Yes:
+        return False
+
+    system = platform.system()
+
+    try:
+        if system == "Windows":
+            winget = shutil.which("winget")
+
+            if not winget:
+                QMessageBox.warning(
+                    None,
+                    "Git-Installation",
+                    "winget wurde nicht gefunden.\n\n"
+                    "Bitte Git manuell installieren:\n"
+                    "https://git-scm.com/download/win"
+                )
+                return False
+
+            result = subprocess.run(
+                [
+                    winget, "install",
+                    "--id", "Git.Git",
+                    "-e",
+                    "--source", "winget",
+                    "--accept-package-agreements",
+                    "--accept-source-agreements",
+                ],
+                check=False
+            )
+
+            if result.returncode != 0:
+                raise RuntimeError("Git konnte über winget nicht installiert werden.")
+
+            # Git für den aktuellen Prozess verfügbar machen.
+            candidates = [
+                os.path.join(
+                    os.environ.get("ProgramFiles", r"C:\Program Files"),
+                    "Git", "cmd"
+                ),
+                os.path.join(
+                    os.environ.get("LOCALAPPDATA", ""),
+                    "Programs", "Git", "cmd"
+                ),
+            ]
+
+            for folder in candidates:
+                if os.path.isfile(os.path.join(folder, "git.exe")):
+                    os.environ["PATH"] = folder + os.pathsep + os.environ.get("PATH", "")
+                    break
+
+        elif system == "Linux":
+            if shutil.which("apt-get"):
+                commands = [
+                    ["apt-get", "update"],
+                    ["apt-get", "install", "-y", "git"],
+                ]
+            elif shutil.which("dnf"):
+                commands = [["dnf", "install", "-y", "git"]]
+            elif shutil.which("pacman"):
+                commands = [["pacman", "-S", "--noconfirm", "git"]]
+            elif shutil.which("zypper"):
+                commands = [["zypper", "--non-interactive", "install", "git"]]
+            else:
+                raise RuntimeError("Kein unterstützter Linux-Paketmanager gefunden.")
+
+            if hasattr(os, "geteuid") and os.geteuid() == 0:
+                launcher = []
+            else:
+                sudo = shutil.which("sudo")
+                if not sudo:
+                    raise RuntimeError("sudo wurde nicht gefunden.")
+                launcher = [sudo]
+
+            for command in commands:
+                result = subprocess.run(
+                    launcher + command,
+                    check=False
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(
+                        "Git-Installation fehlgeschlagen: "
+                        + " ".join(command)
+                    )
+        else:
+            raise RuntimeError(
+                f"Automatische Git-Installation für {system} nicht eingerichtet."
+            )
+
+        # Installation überprüfen.
+        git = shutil.which("git")
+
+        if not git:
+            raise RuntimeError(
+                "Git wurde installiert, ist aber noch nicht erreichbar."
+            )
+
+        result = subprocess.run(
+            [git, "--version"],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError("Git-Version konnte nicht geprüft werden.")
+
+        QMessageBox.information(
+            None,
+            "Git installiert",
+            "Git wurde erfolgreich installiert:\n\n"
+            + result.stdout.strip()
+            + "\n\nDer Patch Manager wird neu gestartet."
+        )
+
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    except Exception as exc:
+        QMessageBox.warning(
+            None,
+            "Git-Installationsfehler",
+            str(exc)
+        )
+        return False
+
+    return True
+
+
 def _ensure_qtsvg():
     """Installiert PyQt6.QtSvg passend zum Betriebssystem."""
     system = platform.system()
@@ -288,6 +441,8 @@ def main():
         os.environ.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", plugin_path)
 
     app = QApplication.instance() or QApplication(sys.argv)
+    if not _ensure_git():
+        return 0
     if not _ensure_qtsvg():
         return 0
     app.setStyle("Fusion")
