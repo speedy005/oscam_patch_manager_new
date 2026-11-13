@@ -5165,6 +5165,7 @@ class PatchManagerGUI(
         widget = info_widget or getattr(self, "info_text", None)
         pbar = getattr(self, "progress_bar", None)
         current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
+        is_de = current_lang == "de"
         
 
         # --- Styles ---
