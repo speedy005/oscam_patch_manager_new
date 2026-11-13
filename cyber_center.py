@@ -27,6 +27,8 @@ class CyberCenterDialog(QDialog):
          "Animierter Systemstart und Systemcheck", "Animated startup and system check"),
         ("compatibility", "Patch-Kompatibilitätsprüfung", "Patch Compatibility Scanner",
          "Patches auf doppelte Änderungen und Konflikte prüfen", "Check patches for duplicate changes and conflicts"),
+        ("radar", "Patch Radar – Ampelsystem", "Patch Radar – Traffic Lights",
+         "Patch-Varianten automatisch auf Konflikte prüfen", "Automatically scan patch variants for conflicts"),
     ]
 
     def __init__(self, parent=None, language="de", colors=None):
@@ -113,8 +115,8 @@ class CyberCenterDialog(QDialog):
         layout.addLayout(grid, 1)
 
         footer = QLabel(self._tr(
-            "Alle sieben Module sind direkt über diese Zentrale erreichbar.",
-            "All seven modules are available directly from this control center."
+            "Alle neun Module sind direkt über diese Zentrale erreichbar.",
+            "All nine modules are available directly from this control center."
         ))
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer.setWordWrap(True)
@@ -183,6 +185,22 @@ class CyberCenterDialog(QDialog):
         """)
 
     def _open_module(self, module_key):
+        if module_key == "radar":
+            from patch_radar import PatchRadarDialog
+
+            if not hasattr(self, "_patch_radar_window") or self._patch_radar_window is None:
+                self._patch_radar_window = PatchRadarDialog(
+                    self,
+                    language=self.language,
+                    colors=self.colors,
+                )
+
+            self._patch_radar_window.refresh_scan()
+            self._patch_radar_window.show()
+            self._patch_radar_window.raise_()
+            self._patch_radar_window.activateWindow()
+            return
+
         if module_key == "compatibility":
             from patch_compatibility_scanner import PatchCompatibilityDialog
 
