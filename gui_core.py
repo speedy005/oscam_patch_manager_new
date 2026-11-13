@@ -1840,47 +1840,40 @@ class PatchManagerCoreMixin:
     def set_active_button(self, active_key):
         self.active_button_key = active_key
 
-        # 1. Sicherstellen, dass wir die richtige Textfarbe aus dem aktuellen Theme haben
-        # Wir probieren 'fg', falls das fehlt 'text', sonst weiß als Notlösung.
-        text_color = current_diff_colors.get(
-            "fg", current_diff_colors.get("text", "#FFFFFF")
-        )
-
-        # 2. Die Hover-Farbe für den inaktiven Zustand holen
-        hover_color = current_diff_colors.get("hover", current_diff_colors["bg"])
+        # Ursprüngliche Button-Styles einmalig sichern
+        if not hasattr(self, "_grid_button_original_styles"):
+            self._grid_button_original_styles = {
+                key: btn.styleSheet()
+                for key, btn in self.buttons.items()
+                if btn is not None
+            }
 
         for key, btn in self.buttons.items():
+            if btn is None:
+                continue
+
+            btn.setFixedHeight(45)
+
             if key == active_key:
-                # AKTIVER BUTTON: Giftgrün (wie in deinem Original)
-                # Tipp: Du könntest hier auch current_diff_colors['active'] nutzen!
                 btn.setStyleSheet(
                     f"""
                     QPushButton {{
-                        background-color: #00FF00; 
-                        color: #000000; 
-                        border-radius: {self.BUTTON_RADIUS}px; 
-                        min-height: {self.BUTTON_HEIGHT}px;
-                        font-weight: bold;
+                        background-color: #00FF00;
+                        color: #000000;
+                        border-radius: {self.BUTTON_RADIUS}px;
+                        min-height: 45px;
+                        max-height: 45px;
                         border: 2px solid white;
+                        padding: 0px 5px;
+                        font-weight: bold;
                     }}
-                """
+                    """
                 )
             else:
-                # INAKTIVE BUTTONS: Nutzen das aktuelle Farbschema (Theme)
-                # Wir bauen hier auch den Hover-Effekt wieder ein, damit er nicht verloren geht!
-                btn.setStyleSheet(
-                    f"""
-                    QPushButton {{
-                        background-color: {current_diff_colors['bg']}; 
-                        color: {text_color}; 
-                        border-radius: {self.BUTTON_RADIUS}px; 
-                        min-height: {self.BUTTON_HEIGHT}px;
-                    }}
-                    QPushButton:hover {{
-                        background-color: {hover_color};
-                    }}
-                """
-                )
+                # Ursprüngliche Umrandung und Formatierung wiederherstellen
+                original_style = self._grid_button_original_styles.get(key, "")
+                btn.setStyleSheet(original_style)
+
 
     def repaint_ui_colors(self):
         """
@@ -1972,6 +1965,9 @@ class PatchManagerCoreMixin:
         for btn in self.findChildren(QPushButton):
 
             try:
+
+                if btn in grid_buttons or btn.objectName() in protected_buttons:
+                    continue
 
                 # Alle Buttons erhalten dasselbe aktive Farbschema.
                 # Der Stats-Button wird weiter unten mit seinem Toggle-Zustand gestylt.

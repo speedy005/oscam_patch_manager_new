@@ -4932,12 +4932,9 @@ class PatchManagerGUI(
                 if hasattr(self, "apply_global_button_style") else None,
             )
 
-        # 2. Fenster-Eigenschaften bildschirmabhängig festlegen
-        # Mindestgröße an die tatsächlich verfügbare Bildschirmfläche anpassen.
-        # So verhindert die GUI auf kleineren Displays keine passende Fenstergröße.
-        screen = QApplication.primaryScreen()
+        # 2. Fenster- und Konsolengröße bildschirmabhängig konfigurieren.
+        from gui_layout_helper import configure_window_layout
 
-        # Benötigte Breite der neun Konsolen-Buttons dynamisch berechnen.
         toolbar_buttons = (
             self.copy_log_button,
             self.analyze_build_logs_button,
@@ -4949,29 +4946,13 @@ class PatchManagerGUI(
             self.achievement_button,
             self.ai_assistant_button,
         )
-        toolbar_required_width = (
-            sum(button.minimumWidth() for button in toolbar_buttons)
-            + 8 * 5
-            + 40
+
+        configure_window_layout(
+            self,
+            self.info_text,
+            toolbar_buttons
         )
 
-        if screen is not None:
-            available = screen.availableGeometry()
-            screen_width = max(640, available.width() - 50)
-            min_width = min(
-                screen_width,
-                max(1200, toolbar_required_width)
-            )
-            min_height = min(850, max(480, available.height() - 80))
-        else:
-            min_width = max(1200, toolbar_required_width)
-            min_height = 600
-
-        self.setMinimumSize(min_width, min_height)
-        self.resize(
-            max(self.width(), min_width),
-            max(self.height(), min_height)
-        )
         self.setWindowTitle(
             f"OSCam Toolkit v{APP_VERSION} | {getattr(self, 'patch_modifier', 'speedy005')}"
         )
