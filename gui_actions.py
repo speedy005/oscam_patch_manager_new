@@ -600,20 +600,29 @@ class PatchManagerActionsMixin:
 
                 # Status zusätzlich im großen Infoscreen anzeigen.
                 # HTML-Inhalte sicher maskieren; die Git-URL bleibt erhalten.
+                oscam_info_html = (
+                    f'<div style="width:100%; text-align:left;">'
+                    f'<span style="font-size:26px; font-weight:bold; color:#00FF00;">'
+                    f'✅ [{html.escape(str(timestamp))}] '
+                    f'{html.escape(str(msg))} </span>'
+                    f'<span style="font-size:26px; font-weight:bold; color:#FF0000;">'
+                    f'(r{html.escape(str(old_rev))})</span><br>'
+                    f'<span style="font-size:26px; color:#00FFFF;">'
+                    f'Git-URL: {html.escape(str(git_url))}</span>'
+                    f'</div>'
+                )
+
+                self._last_oscam_info_html = oscam_info_html
+
                 if not refresh_only:
-                    self.append_info(
-                        getattr(self, "info_text", None),
-                        (
-                            f'<span style="font-size:24px; font-weight:bold; color:#00FF00;">'
-                            f'✅ [{html.escape(str(timestamp))}] '
-                            f'{html.escape(str(msg))} </span>'
-                            f'<span style="font-size:24px; font-weight:bold; color:#FF0000;">'
-                            f'(r{html.escape(str(old_rev))})</span><br>'
-                            f'<span style="font-size:16px; color:#00FFFF;">'
-                            f'Git-URL: {html.escape(str(git_url))}</span>'
-                        ),
-                        "html",
-                    )
+                    if getattr(self, "_system_check_display_finished", False):
+                        self.append_info(
+                            getattr(self, "info_text", None),
+                            oscam_info_html,
+                            "html",
+                        )
+                    else:
+                        self._pending_oscam_info_html = oscam_info_html
 
 
                 if not refresh_only:
@@ -2056,8 +2065,8 @@ class PatchManagerActionsMixin:
         txt = getattr(self, "TEXT", {})
 
         # --- ZENTRALE FORMATIERUNG ---
-        SZ_BIG = "22px"  # Orange Titel
-        SZ_NORM = "16px"  # Standard-Inhalte
+        SZ_BIG = "30px"  # Orange Titel
+        SZ_NORM = "24px"  # Standard-Inhalte
         F_FAMILY = "'Arial', sans-serif"
 
         C_ORANGE = "#F37804"
@@ -2164,34 +2173,15 @@ class PatchManagerActionsMixin:
                 f'<div style="color:{C_LINE}; text-align:left;">{"-" * 45}</div>'
             )
 
-            # Ausgewählte Streamboard-Git-URL anzeigen
-            import html
-
-            git_url = "unbekannt"
-            try:
-                selected_url = get_selected_stream_repo_url()
-                if selected_url:
-                    git_url = str(selected_url).strip() or "unbekannt"
-            except Exception:
-                pass
-
-            if git_url == "unbekannt":
-                try:
-                    result = git_command(
-                        ["remote", "get-url", "origin"],
-                        cwd=TEMP_REPO,
-                        allowed_returncodes=(0, 1),
-                    )
-                    git_url = (result.stdout or "").strip() or "unbekannt"
-                except Exception:
-                    pass
-
-            output.append(
-                '<div style="font-size:30px; font-weight:bold; text-align:left;">'
-                '<span style="color:#FF0000;">🔗 Git-URL: </span>'
-                f'<span style="color:#00BFFF;">{html.escape(git_url)}</span>'
-                '</div>'
+            # OSCam-Status direkt unter der Abschluss-Trennlinie anzeigen
+            self._oscam_info_in_update_block = False
+            oscam_html = (
+                getattr(self, "_last_oscam_info_html", None)
+                or getattr(self, "_pending_oscam_info_html", None)
             )
+            if oscam_html:
+                output.append(oscam_html)
+                self._oscam_info_in_update_block = True
 
             # Log ausgeben
             if hasattr(self, "append_info") and hasattr(self, "info_text"):

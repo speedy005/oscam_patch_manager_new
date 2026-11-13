@@ -82,6 +82,8 @@ class SystemCheckWorker(QObject):
         return (
             '<div style="'
             'white-space:nowrap;'
+        'width:100%;'
+        'display:block;'
             'margin:2px 0;'
             'padding:0;'
             'line-height:1.2;'
@@ -196,8 +198,8 @@ class SystemCheckWorker(QObject):
             # ============================================================
 
             copyright_text = self.tr(
-                "© 2026 speedy005 - Alle Rechte vorbehalten.",
-                "© 2026 speedy005 - All rights reserved.",
+                "Alle Rechte vorbehalten.",
+                "All rights reserved.",
             )
 
             greeting = self.tr(
@@ -224,7 +226,7 @@ class SystemCheckWorker(QObject):
                         © 2026 speedy005
                     </span>
                     <span style="color:#FF0039;">
-                        - Alle Rechte vorbehalten.
+                        - {copyright_text}
                     </span>
                 </div>
 
@@ -236,7 +238,7 @@ class SystemCheckWorker(QObject):
                     <span style="color:{C_GREEN};">●</span>
                     <span style="color:{C_RED};">LIVE</span>
                     <span style="color:#FFFFFF;"> | </span>
-                    <span style="color:{C_BLUE};">System Monitor</span>
+                    <span style="color:{C_BLUE};">{self.tr("Systemüberwachung", "System Monitor")}</span>
                 </div>
 
                 <div style="
@@ -645,7 +647,8 @@ class SystemCheckWorker(QObject):
                 f"🌐 {T['network_check']}",
             )
 
-            network_html = ""
+            ping_html = ""
+            network_status_html = ""
 
             local_ip = None
             ping_ms = None
@@ -664,15 +667,16 @@ class SystemCheckWorker(QObject):
                     (time.perf_counter() - start) * 1000
                 )
 
-                network_html += self.row(
+                network_status_html = self.row(
                     "📡",
                     T["network"],
                     f"{T['online']} ({local_ip})",
                     C_GREEN,
                     C_BLUE,
+                    size="18pt",
                 )
 
-                network_html += self.row(
+                ping_html += self.row(
                     "⚡",
                     T["ping"],
                     f"{ping_ms} ms",
@@ -681,15 +685,17 @@ class SystemCheckWorker(QObject):
                 )
 
             except Exception:
-                network_html += self.row(
+                network_status_html = self.row(
                     "❌",
                     T["network"],
                     T["offline"],
                     C_RED,
                     C_RED,
+                    size="18pt",
                 )
 
-            self.html.emit(network_html)
+            self.network_status_html = network_status_html
+            self.html.emit(network_status_html + ping_html)
 
             # ============================================================
             # REPOSITORIES
@@ -1016,7 +1022,7 @@ class SystemCheckWorker(QObject):
                 ">
                     📊
                     <span style="color:{C_YELLOW};">
-                        STATISTICS
+                        {self.tr("STATISTIKEN", "STATISTICS")}
                     </span>
                 </div>
 
@@ -1042,7 +1048,7 @@ class SystemCheckWorker(QObject):
                 ">
                     💾
                     <span style="color:{C_ORANGE};">
-                        Local:
+                        {self.tr("Lokal:", "Local:")}
                     </span>
 
                     <span style="color:{C_BLUE};">
@@ -1057,7 +1063,7 @@ class SystemCheckWorker(QObject):
                 ">
                     📊
                     <span style="color:{C_YELLOW};">
-                        Total:
+                        {self.tr("Gesamt:", "Total:")}
                     </span>
 
                     <span style="color:{C_BLUE};">

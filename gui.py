@@ -529,8 +529,6 @@ class PatchManagerGUI(
         # 2. System-Check (2000ms) - Injiziert sich in den Anker
         QTimer.singleShot(2000, lambda: self.run_full_system_check(clear_log=False))
 
-        # 3. Update-Check (6000ms) - Wartet, bis der Check oben fertig "eingezogen" ist
-        QTimer.singleShot(4000, self.check_for_update_on_start)
 
         # 4. OSCam Monitor (8500ms)
         QTimer.singleShot(4500, self.start_oscam_update_check)
@@ -1263,13 +1261,13 @@ class PatchManagerGUI(
         # Info-Widget leeren
         # ------------------------------------------------------------
 
+        # HTML-Puffer bei jedem Systemcheck neu initialisieren.
+        self._system_check_html = []
+        self._system_check_display_finished = False
+
+        # Anzeige nur leeren, wenn dies ausdrücklich angefordert wurde.
         if clear_log:
             widget.setHtml("")
-
-        # Der SystemCheckWorker liefert den einzigen Kopf über sein HTML-Signal.
-        # Das Info-Feld vorher leeren, damit kein alter Begrüßungskopf stehen bleibt.
-        self._system_check_html = []
-        widget.setHtml("")
 
         def append_html(fragment):
             """
@@ -1279,20 +1277,25 @@ class PatchManagerGUI(
             if not fragment:
                 return
 
+            # Systemcheck-Ausgabe nicht-destruktiv am Ende einfügen.
+            # So bleiben Update- und Konfigurationsmeldungen erhalten.
             self._system_check_html.append(fragment)
-
-            widget.setHtml(
-                "".join(self._system_check_html)
-            )
 
             try:
                 from PyQt6.QtGui import QTextCursor
 
-                widget.moveCursor(
-                    QTextCursor.MoveOperation.End
-                )
-            except Exception:
-                pass
+                cursor = widget.textCursor()
+                cursor.movePosition(QTextCursor.MoveOperation.End)
+
+                # Jedes neue HTML-Fragment in einem eigenen Absatz beginnen.
+                if widget.document().characterCount() > 1:
+                    cursor.insertBlock()
+
+                widget.setTextCursor(cursor)
+                cursor.insertHtml(fragment)
+                widget.setTextCursor(cursor)
+            except Exception as exc:
+                log_error("Systemcheck-HTML konnte nicht eingefügt werden", exc)
 
         def update_progress(value, text):
             """
@@ -1552,6 +1555,27 @@ class PatchManagerGUI(
                     f"⚠️ Update check: {e}"
                     "</span>"
                 )
+
+        # Ab jetzt darf ein später eintreffender OSCam-Status direkt ans Ende.
+        self._system_check_display_finished = True
+
+        # OSCam-Status zuletzt anzeigen, auch wenn er vor dem Systemcheck fertig war.
+        try:
+            oscam_html = (
+                getattr(self, "_last_oscam_info_html", None)
+                or getattr(self, "_pending_oscam_info_html", None)
+            )
+            if oscam_html and not getattr(
+                self, "_oscam_info_in_update_block", False
+            ):
+                self.append_info(
+                    getattr(self, "info_text", None),
+                    oscam_html,
+                    "html",
+                )
+            self._pending_oscam_info_html = None
+        except Exception as exc:
+            log_error("OSCam-Status konnte nicht angehängt werden", exc)
 
         # ------------------------------------------------------------
         # Referenzen behalten wir bis zum Thread-Ende.
