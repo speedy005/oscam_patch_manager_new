@@ -3179,7 +3179,7 @@ def create_patch(
                     stream_dir,
                     candidate_url,
                     description="Streamboard",
-                    clone_timeout=10,
+                    clone_timeout=180,
                     log=log,
                     branch=candidate_branch,
                 )
@@ -4132,6 +4132,14 @@ def create_patch(
         # ========================================================
         # Patch-Body lesen
         # ========================================================
+
+        if not os.path.isfile(patch_file):
+            raise RuntimeError(
+                "Die Patch-Datei wurde nicht erzeugt oder ist nicht vorhanden:\n"
+                f"{patch_file}\n\n"
+                "Bitte prüfe, ob beide Git-Repositories erfolgreich "
+                "geklont und die Patch-Erzeugung abgeschlossen wurden."
+            )
 
         with open(
             patch_file,
