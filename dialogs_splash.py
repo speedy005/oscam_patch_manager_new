@@ -1099,7 +1099,7 @@ class CinematicMatrixSplash(QWidget):
         " █    |_|   |_||__| |__||_|  |__||__| |__||_______||_______||___|  |_|        █ ",
         " █                                                                            █ ",
         " █  ──────────────────[ SYSTEM: NEURAL_LINK OPERATIONAL ]───────────────────  █ ",
-        " █                     >> OSCAM EMU PATCH MANAGER v2.0.6  <<                  █ ",
+        " █                     >> OSCAM EMU PATCH MANAGER v2.0.7  <<                  █ ",
         " █               >> CODENAME: Speedy_Oscam-_Patch_Manager 2026 <<             █ ",
         " ◥◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢◤ ",
     ]
@@ -1329,7 +1329,7 @@ class CinematicMatrixSplash(QWidget):
         colors = ("#0000FF", "#FFA500", "#FF0000")
         markers = (
             "SYSTEM: NEURAL_LINK OPERATIONAL",
-            "OSCAM EMU PATCH MANAGER v2.0.6",
+            "OSCAM EMU PATCH MANAGER v2.0.7",
             "CODENAME: Speedy Oscam Patch Manager 2026",
         )
         import html
