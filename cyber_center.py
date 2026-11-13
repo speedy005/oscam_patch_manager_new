@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QGridLayout, QFrame,
     QLabel, QPushButton, QMessageBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize, QSettings
 
 
 class CyberCenterDialog(QDialog):
@@ -40,6 +40,15 @@ class CyberCenterDialog(QDialog):
         self.setWindowTitle("OSCam Control Center")
         self.setMinimumSize(760, 540)
         self.resize(900, 620)
+
+        # Restore the last OSCam Control Center window size.
+        self.settings = QSettings(
+            "OSCamPatchManager", "OSCamPatchManager"
+        )
+        saved_size = self.settings.value("cyber_center/window_size")
+        if isinstance(saved_size, QSize) and saved_size.isValid():
+            if saved_size.width() >= 760 and saved_size.height() >= 540:
+                self.resize(saved_size)
 
         self._build_ui()
         self._apply_theme()
@@ -183,6 +192,12 @@ class CyberCenterDialog(QDialog):
                 font-size: 10pt;
             }}
         """)
+
+    def closeEvent(self, event):
+        # Save the current window size for the next launch.
+        self.settings.setValue("cyber_center/window_size", self.size())
+        self.settings.sync()
+        super().closeEvent(event)
 
     def _open_module(self, module_key):
         if module_key == "radar":

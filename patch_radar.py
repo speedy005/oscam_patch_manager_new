@@ -3,7 +3,7 @@
 from itertools import combinations
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize, QSettings
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QTextEdit
@@ -27,6 +27,15 @@ class PatchRadarDialog(QDialog):
         self.setWindowTitle("OSCam Patch Radar")
         self.resize(900, 650)
         self.setMinimumSize(740, 520)
+
+        # Restore the last window size.
+        self.settings = QSettings(
+            "OSCamPatchManager", "OSCamPatchManager"
+        )
+        saved_size = self.settings.value("patch_radar/window_size")
+        if isinstance(saved_size, QSize) and saved_size.isValid():
+            if saved_size.width() >= 740 and saved_size.height() >= 520:
+                self.resize(saved_size)
 
         layout = QVBoxLayout(self)
 
@@ -85,6 +94,12 @@ class PatchRadarDialog(QDialog):
         """)
 
         self.refresh_scan()
+
+    def closeEvent(self, event):
+        # Save the current window size for the next launch.
+        self.settings.setValue("patch_radar/window_size", self.size())
+        self.settings.sync()
+        super().closeEvent(event)
 
     def tr_text(self, de, en):
         return de if self.language == "de" else en
