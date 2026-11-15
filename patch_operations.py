@@ -2779,6 +2779,34 @@ def create_patch(
                 emu_repo_url
             )
 
+            # Gleiche Korrektur wie bei der Patch-Erstellung:
+            # ungenutzte is_api_page()-Funktion entfernen.
+            webif_file = os.path.join(
+                expected_worktree,
+                "module-webif.c"
+            )
+
+            with open(webif_file, "rb") as f:
+                webif_data = f.read()
+
+            webif_data, removed = re.subn(
+                rb'(?ms)^static bool is_api_page\(enum webif_page page\)\r?\n\{.*?^\}\r?\n',
+                b'',
+                webif_data,
+                count=1
+            )
+
+            if removed != 1:
+                raise RuntimeError(
+                    "is_api_page() konnte im Validierungs-Ziel "
+                    "nicht eindeutig gefunden und entfernt werden."
+                )
+
+            with open(webif_file, "wb") as f:
+                f.write(webif_data)
+
+            log("[PATCH] is_api_page() auch im Validierungs-Ziel entfernt.")
+
             try:
                 # CS_VERSION im erwarteten Zielzustand genauso
                 # angleichen wie im Ziel-Worktree der Patch-Erstellung.
@@ -3882,6 +3910,36 @@ def create_patch(
             log(
                 f"        {target_worktree_for_patch}"
             )
+
+            # ========================================================
+            # UNGENUTZTE is_api_page()-FUNKTION ENTFERNEN
+            # ========================================================
+
+            webif_file = os.path.join(
+                target_worktree_for_patch,
+                "module-webif.c"
+            )
+
+            with open(webif_file, "rb") as f:
+                webif_data = f.read()
+
+            webif_data, removed = re.subn(
+                rb'(?ms)^static bool is_api_page\(enum webif_page page\)\r?\n\{.*?^\}\r?\n',
+                b'',
+                webif_data,
+                count=1
+            )
+
+            if removed != 1:
+                raise RuntimeError(
+                    "is_api_page() konnte im OSCam-Emu-Ziel "
+                    "nicht eindeutig gefunden und entfernt werden."
+                )
+
+            with open(webif_file, "wb") as f:
+                f.write(webif_data)
+
+            log("[PATCH] Ungenutzte Funktion is_api_page() entfernt.")
 
             # ========================================================
             # OSCAM-VERSION VOM STREAMBOARD-BASIS-COMMIT ÜBERNEHMEN
@@ -6342,6 +6400,37 @@ def patch_oscam_emu_git(
             )
 
         # ========================================================
+        # EXAKTE STREAMBOARD-BASIS AUS PATCH-HEADER LESEN
+        # ========================================================
+
+        with open(patch_file, "r", encoding="utf-8", errors="replace") as f:
+            patch_text = f.read()
+
+        base_match = re.search(
+            r"(?im)^patch base commit:\s*([0-9a-f]{40})\s*$",
+            patch_text
+        )
+
+        url_match = re.search(
+            r"(?im)^patch streamboard url:\s*(https?://\S+)\s*$",
+            patch_text
+        )
+
+        if not base_match or not url_match:
+            raise RuntimeError(
+                "Patch-Header enthält keinen gültigen "
+                "Streamboard-Basis-Commit oder keine Repository-URL."
+            )
+
+        patch_base_commit = base_match.group(1)
+        patch_streamboard_url = url_match.group(1)
+
+        stream_url = patch_streamboard_url
+
+        log(f"[PATCH] Streamboard-Quelle aus Patch-Header: {stream_url}")
+        log(f"[PATCH] Exakter Basis-Commit: {patch_base_commit}")
+
+        # ========================================================
         # GIT PRÜFEN
         # ========================================================
 
@@ -6407,7 +6496,7 @@ def patch_oscam_emu_git(
         # Erst die gewählte Streamboard-Quelle versuchen,
         # bei Fehler oder Timeout den GitHub-Fallback verwenden.
         stream_candidates = list(dict.fromkeys([
-            str(stream_url).strip(),
+            str(patch_streamboard_url).strip(),
             "https://github.com/speedy005/oscam-git.git",
         ]))
 
@@ -6454,6 +6543,66 @@ def patch_oscam_emu_git(
 
         log(
             "✓ Streamboard erfolgreich geklont.",
+            "success"
+        )
+
+        # ========================================================
+        # EXAKTEN PATCH-BASIS-COMMIT AUSCHECKEN
+        # ========================================================
+
+        commit_check = subprocess.run(
+            [
+                find_git_executable(),
+                "cat-file",
+                "-e",
+                f"{patch_base_commit}^{{commit}}"
+            ],
+            cwd=temp_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False
+        )
+
+        if commit_check.returncode != 0:
+            log(
+                "[PATCH] Basis-Commit fehlt im Klon. "
+                "Hole ihn aus der Header-Quelle..."
+            )
+
+            run_git(
+                [
+                    "fetch",
+                    "--no-tags",
+                    patch_streamboard_url
+                ],
+                cwd=temp_dir,
+                timeout=300
+            )
+
+        run_git(
+            [
+                "checkout",
+                "--detach",
+                patch_base_commit
+            ],
+            cwd=temp_dir,
+            timeout=120
+        )
+
+        stream_head = git_output(
+            ["rev-parse", "HEAD"],
+            cwd=temp_dir
+        )
+
+        if stream_head.lower() != patch_base_commit.lower():
+            raise RuntimeError(
+                "Der exakte Patch-Basis-Commit konnte nicht ausgecheckt werden.\\n"
+                f"Erwartet: {patch_base_commit}\\n"
+                f"Erhalten: {stream_head}"
+            )
+
+        log(
+            f"[PATCH] Exakter Basis-Commit ausgecheckt: {stream_head}",
             "success"
         )
 
