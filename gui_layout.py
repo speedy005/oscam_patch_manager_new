@@ -1628,7 +1628,8 @@ class PatchManagerLayoutMixin:
                     return clean_patch_folder(
                         self,
                         self.info_text,
-                        self.progress_bar.setValue
+                        self.progress_bar.setValue,
+                        clear_streamboard=True
                     )
                 except Exception as exc:
                     try:

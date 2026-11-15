@@ -146,6 +146,51 @@ def find_git_executable():
     return shutil.which("git")
 
 
+def get_git_repository_root(repo_dir):
+    """Return the actual Git root for a directory, or None."""
+    git_executable = find_git_executable()
+    if not git_executable or not os.path.isdir(repo_dir):
+        return None
+
+    try:
+        result = subprocess.run(
+            [
+                git_executable, "-C", repo_dir,
+                "rev-parse", "--show-toplevel"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            shell=False,
+        )
+        if result.returncode != 0:
+            return None
+
+        return os.path.normcase(os.path.realpath(result.stdout.strip()))
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def is_valid_git_repository(repo_dir):
+    """Accept only an independent repository rooted at repo_dir."""
+    target = os.path.normcase(os.path.realpath(repo_dir))
+    app_root = os.path.normcase(os.path.realpath(PLUGIN_DIR))
+
+    # The application directory and its ancestors must never be
+    # accepted as OSCam working repositories.
+    try:
+        if os.path.commonpath([app_root, target]) == target:
+            return False
+    except ValueError:
+        return False
+
+    return get_git_repository_root(repo_dir) == target
+
+
 def ensure_git_repository(
     repo_dir,
     repo_url,
@@ -187,35 +232,7 @@ def ensure_git_repository(
         )
 
     def git_is_valid(path):
-        if not os.path.isdir(path):
-            return False
-
-        try:
-            result = subprocess.run(
-                [
-                    git_executable,
-                    "-C",
-                    path,
-                    "rev-parse",
-                    "--is-inside-work-tree",
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                stdin=subprocess.DEVNULL,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=60,
-                shell=False,
-            )
-
-            return (
-                result.returncode == 0
-                and result.stdout.strip().lower() == "true"
-            )
-
-        except (OSError, subprocess.SubprocessError):
-            return False
+        return is_valid_git_repository(path)
 
     # Vorhandenes gültiges Repository weiterverwenden.
     if git_is_valid(repo_dir):

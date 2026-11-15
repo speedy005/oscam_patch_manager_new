@@ -32,6 +32,7 @@ from paths import (
     PATCHED_EMU_GIT_DIR,
     PATCH_FILE,
     get_selected_stream_repo_url,
+    is_valid_git_repository,
 )
 
 
@@ -680,33 +681,7 @@ def ensure_git_repository(
         raise RuntimeError("Git wurde nicht gefunden.")
 
     def is_valid_git_repo(path):
-        if not os.path.isdir(path):
-            return False
-
-        try:
-            result = subprocess.run(
-                [
-                    git_executable,
-                    "-C",
-                    path,
-                    "rev-parse",
-                    "--is-inside-work-tree",
-                ],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=60,
-                shell=False,
-            )
-
-            return (
-                result.returncode == 0
-                and result.stdout.strip().lower() == "true"
-            )
-
-        except (OSError, subprocess.SubprocessError):
-            return False
+        return is_valid_git_repository(path)
 
     # --------------------------------------------------------
     # Vorhandenes Repository prüfen
@@ -967,7 +942,8 @@ from paths import TEMP_REPO
 def clean_patch_folder(
     gui_instance=None,
     info_widget=None,
-    progress_callback=None
+    progress_callback=None,
+    clear_streamboard=False
 ):
     """
     Löscht die Dateien und temporären Ordner der Patch-Erstellung.
@@ -978,7 +954,6 @@ def clean_patch_folder(
         - oscam-emu.patch.zip
         - oscam-emu.zip
         - oscam-emu-git/
-        - TEMP_REPO/
         - TEMP_PATCH_GIT/ (falls vorhanden)
 
     NICHT GELÖSCHT:
@@ -1180,18 +1155,19 @@ def clean_patch_folder(
     # oscam-emu-patched/
     # ---------------------------------------------------------
 
-    emu_git_path = PATCHED_EMU_GIT_DIR
+    emu_git_path = PATCH_EMU_GIT_DIR
 
     if emu_git_path:
         targets.append((emu_git_path, "folder"))
 
     # ---------------------------------------------------------
-    # TEMP_REPO / streamboard-git/
+    # streamboard-git/ nur beim Button "Patch-Ordner leeren"
     # ---------------------------------------------------------
-    if TEMP_REPO:
+
+    if clear_streamboard and TEMP_REPO:
         targets.append((TEMP_REPO, "folder"))
         log(
-            "[CLEAN] TEMP_REPO wird zum Löschen vorgemerkt.",
+            "[CLEAN] streamboard-git wird zum Löschen vorgemerkt.",
             "info"
         )
 
@@ -1790,21 +1766,12 @@ def create_patch(
                 "Repository-Verzeichnis fehlt."
             )
 
-        result = run_git(
-            [
-                "rev-parse",
-                "--is-inside-work-tree"
-            ],
-            cwd=repo_dir,
-            check=False,
-            timeout=60
-        )
-
-        if result.strip().lower() != "true":
-
+        if not is_valid_git_repository(repo_dir):
             raise RuntimeError(
-                f"{description}: "
-                "kein gültiges Git-Repository."
+                f"{description}: Git-Repository ungültig oder "
+                "Git-Hauptordner stimmt nicht mit dem Zielordner "
+                f"überein. Vorgang aus Sicherheitsgründen abgebrochen:\n"
+                f"{os.path.realpath(repo_dir)}"
             )
 
     # ============================================================
@@ -1853,6 +1820,7 @@ def create_patch(
     # ============================================================
 
     def update_emu_repository(repo_dir, branch):
+        validate_git_repository(repo_dir, "OSCam-Emu")
         branch = str(branch or "master").strip() or "master"
         run_git(["fetch", "origin", branch], cwd=repo_dir, check=True, timeout=1200)
         remote_ref = f"origin/{branch}"
@@ -1878,6 +1846,8 @@ def create_patch(
         repo_dir,
         description
     ):
+
+        validate_git_repository(repo_dir, description)
 
         log(
             f"[GIT] Aktualisiere {description}..."
@@ -2012,6 +1982,8 @@ def create_patch(
         repo_url
     ):
 
+        validate_git_repository(repo_dir, "OSCam-Emu vor Remote-Änderung")
+
         current_origin = run_git(
             [
                 "remote",
@@ -2108,6 +2080,8 @@ def create_patch(
         stream_commit
     ):
         nonlocal stream_url
+
+        validate_git_repository(emu_dir, "OSCam-Emu vor Streamboard-Import")
 
         remote_name = (
             "streamboard-current"
@@ -2745,6 +2719,7 @@ def create_patch(
             run_git(
                 [
                     "apply",
+                    "--index",
                     "--binary",
                     patch_file
                 ],
@@ -2888,13 +2863,27 @@ def create_patch(
                 tree_b = run_git(["write-tree"], cwd=expected_worktree, check=True, timeout=1200).strip()
 
                 if tree_a != tree_b:
+                    changed_files = run_git(
+                        ["diff", "--no-renames", "--name-status", tree_a, tree_b],
+                        cwd=emu_repo_dir, check=True, timeout=1200
+                    ).strip()
+
+                    detailed_diff = run_git(
+                        ["diff", "--no-ext-diff", "--stat", tree_a, tree_b],
+                        cwd=emu_repo_dir, check=True, timeout=1200
+                    ).strip()
+
                     raise RuntimeError(
                         "Der angewendete Patch entspricht nicht dem "
                         "erwarteten OSCam-Emu-Zielzustand.\n\n"
-                        f"Patch-Tree:    {tree_a}\n"
-                        f"Erwarteter Tree: {tree_b}\n"
-                        f"Patch-Status: {differences or '<keine>'}\n"
-                        f"Soll-Status:  {expected_diff or '<keine>'}"
+                        f"Patch-Tree:      {tree_a}\n"
+                        f"Erwarteter Tree: {tree_b}\n\n"
+                        "Abweichende Dateien:\n"
+                        f"{changed_files or '<keine>'}\n\n"
+                        "Änderungsübersicht:\n"
+                        f"{detailed_diff or '<keine>'}\n\n"
+                        f"Patch-Status:\n{differences or '<keine>'}\n\n"
+                        f"Soll-Status:\n{expected_diff or '<keine>'}"
                     )
             finally:
                 try:
@@ -3207,7 +3196,7 @@ def create_patch(
                     stream_dir,
                     candidate_url,
                     description="Streamboard",
-                    clone_timeout=180,
+                    clone_timeout=15,
                     log=log,
                     branch=candidate_branch,
                 )
@@ -6169,14 +6158,43 @@ def patch_oscam_emu_git(
         retries=5
     ):
 
-        if not os.path.exists(
-            directory
-        ):
-            return
+        if not directory:
+            raise RuntimeError(
+                "Löschen abgebrochen: Kein Verzeichnispfad angegeben."
+            )
 
         directory = os.path.abspath(
-            directory
+            os.path.expanduser(os.fspath(directory))
         )
+
+        # Nur die beiden ausdrücklich vorgesehenen Arbeitsordner
+        # dürfen durch diese Funktion gelöscht werden.
+        allowed_names = {
+            ".oscam_emu_patch_work",
+            os.path.basename(patch_dir) + ".old",
+        }
+
+        expected_parent = os.path.normcase(
+            os.path.realpath(plugin_dir)
+        )
+        actual_parent = os.path.normcase(
+            os.path.realpath(os.path.dirname(directory))
+        )
+
+        if (
+            os.path.basename(directory) not in allowed_names
+            or actual_parent != expected_parent
+            or os.path.islink(directory)
+        ):
+            raise RuntimeError(
+                "Löschen aus Sicherheitsgründen verweigert. "
+                "Der Pfad ist kein erlaubter temporärer Arbeits- "
+                "oder Backup-Ordner:\n"
+                f"{directory}"
+            )
+
+        if not os.path.exists(directory):
+            return
 
         last_error = None
 
