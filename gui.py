@@ -1577,6 +1577,23 @@ class PatchManagerGUI(
         except Exception as exc:
             log_error("OSCam-Status konnte nicht angehängt werden", exc)
 
+        # OSCam-Update-Meldung wirklich als letzten Start-Logeintrag anhängen.
+        try:
+            revision_line = getattr(
+                self,
+                "_pending_revision_update_line",
+                None,
+            )
+            if revision_line:
+                self.append_info(
+                    getattr(self, "info_text", None),
+                    revision_line,
+                    "html",
+                )
+                self._pending_revision_update_line = None
+        except Exception as exc:
+            log_error("OSCam-Update-Meldung konnte nicht angehängt werden", exc)
+
         # ------------------------------------------------------------
         # Referenzen behalten wir bis zum Thread-Ende.
         # Danach können sie freigegeben werden.

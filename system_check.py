@@ -590,17 +590,30 @@ class SystemCheckWorker(QObject):
                     )
 
                 else:
-                    tool_html += self.row(
-                        "❌",
-                        tool_name.capitalize(),
-                        (
-                            "nicht verfügbar"
-                            if self.is_de
-                            else "off"
-                        ),
-                        C_RED,
-                        C_RED,
-                    )
+                    if tool_name in ("pacman", "yay"):
+                        # Pacman bei fehlender Installation klar zentrieren.
+                        status = "nicht verfügbar" if self.is_de else "off"
+                        tool_html += (
+                            '<div style="width:100%; display:block; '
+                            'text-align:center; margin:2px 0; '
+                            'font-family:Arial,sans-serif; '
+                            'font-size:22pt; font-weight:bold; '
+                            'color:#FF3333;">'
+                            f'❌ {tool_name.capitalize()}: {status}'
+                            '</div>'
+                        )
+                    else:
+                        tool_html += self.row(
+                            "❌",
+                            tool_name.capitalize(),
+                            (
+                                "nicht verfügbar"
+                                if self.is_de
+                                else "off"
+                            ),
+                            C_RED,
+                            C_RED,
+                        )
 
                 progress = 30 + int(
                     ((i + 1) / total_tools) * 20

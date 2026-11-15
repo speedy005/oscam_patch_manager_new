@@ -374,6 +374,27 @@ class PatchManagerActionsMixin:
 
             self.last_remote_rev = new_rev
 
+            # OSCam-Revision-Update am Ende des Systemchecks ausgeben.
+            if update_available and new_rev and not refresh_only:
+                import html
+
+                revision_line = (
+                    '<div style="width:100%; text-align:left; margin:6px 0; '
+                    'font-family:Arial,Segoe UI,sans-serif; '
+                    'font-size:26px; font-weight:bold; color:#FFAA00;">'
+                    f'🚀 [{html.escape(timestamp)}] Update verfügbar! '
+                    f'(r{html.escape(str(old_rev))} → '
+                    f'r{html.escape(str(new_rev))})'
+                    '</div>'
+                )
+
+                if getattr(self, "_system_check_display_finished", False):
+                    if hasattr(self, "append_info") and getattr(self, "info_text", None):
+                        self.append_info(self.info_text, revision_line, "html")
+                    self._pending_revision_update_line = None
+                else:
+                    self._pending_revision_update_line = revision_line
+
             # --- Zentrale Farben & Schriftarten ---
             C_TIME = "#FF0000"
             F_TIME = "Arial, Segoe UI, sans-serif"
@@ -433,15 +454,6 @@ class PatchManagerActionsMixin:
             if update_available:
                 title = txt.get("oscam_update_found", "UPDATE VERFÜGBAR")
             
-                # Update-Meldung zusätzlich im großen Infoscreen anzeigen
-                if not refresh_only:
-                    self.append_info(
-                        self.info_text,
-                        f"🚀 [{timestamp}] {title} "
-                        f"(r{old_rev} → r{new_rev})",
-                        "warning",
-                    )
-
                 if status_label:
                     html = (
                         f"🚀 <span style='font-size:{F_TIME_SIZE}; font-family:{F_TIME}; color:{C_TIME}; font-weight:{F_TIME_WEIGHT};'>[{timestamp}]</span> "
@@ -643,6 +655,9 @@ class PatchManagerActionsMixin:
                         delay,
                         lambda c=blink_colors[i]: blink_revision(c)
                     )
+
+
+
 
 
     def trigger_alert_animation(self, widget):
@@ -2193,6 +2208,24 @@ class PatchManagerActionsMixin:
 
             if is_new:
                 self.show_update_dialog(latest_v, current_v)
+
+            # Update-Revision als allerletzten Logeintrag anzeigen.
+            if is_new:
+                from datetime import datetime
+                import html
+
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                revision_line = (
+                    '<div style="width:100%; text-align:left; margin:6px 0; '
+                    'font-family:Arial,Segoe UI,sans-serif; '
+                    'font-size:26px; font-weight:bold; color:#FFAA00;">'
+                    f'🚀 [{html.escape(timestamp)}] '
+                    f'Update verfügbar! (r{html.escape(str(getattr(self, "current_rev", "unbekannt")))} '
+                    f'→ r{html.escape(str(latest_v))})'
+                    '</div>'
+                )
+                if hasattr(self, "append_info") and getattr(self, "info_text", None):
+                    self.append_info(self.info_text, revision_line, "html")
 
         except Exception as e:
             if "safe_play" in globals():
