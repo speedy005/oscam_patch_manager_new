@@ -887,6 +887,7 @@ class PatchManagerActionsMixin:
 
             if for_backup:
                 protected_file_names.discard("config.json")
+                protected_file_names.discard("github_upload_config.json")
 
             if path.name.casefold() in protected_file_names:
                 return True
@@ -1067,6 +1068,16 @@ class PatchManagerActionsMixin:
                 if "config.json" not in backup_contents:
                     raise RuntimeError(
                         "config.json fehlt im Backup. "
+                        "Das bisherige Backup bleibt erhalten."
+                    )
+
+                github_config_file = project_dir / "github_upload_config.json"
+                if (
+                    github_config_file.is_file()
+                    and "github_upload_config.json" not in backup_contents
+                ):
+                    raise RuntimeError(
+                        "github_upload_config.json fehlt im Backup. "
                         "Das bisherige Backup bleibt erhalten."
                     )
 
