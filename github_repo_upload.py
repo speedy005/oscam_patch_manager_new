@@ -365,6 +365,12 @@ def github_upload_oscam_emu_folder(
             with open(readme_path, "rb") as handle:
                 saved_readme = handle.read()
 
+        # Originalen GitHub-.github-Ordner vollständig sichern.
+        github_dir = os.path.join(repo_dir, ".github")
+        saved_github_dir = os.path.join(temp_root, "saved_github")
+        if os.path.isdir(github_dir):
+            shutil.copytree(github_dir, saved_github_dir, symlinks=True)
+
         # Git-Archiv des geprüften Quell-HEAD erstellen.
         progress(40, "📦 OSCam-Emu-Quellstand wird vorbereitet...")
         archive = subprocess.run(
@@ -399,6 +405,16 @@ def github_upload_oscam_emu_folder(
                 if os.path.commonpath([root, destination]) != root:
                     raise RuntimeError("Ungültiger Pfad im Quellarchiv.")
             tar.extractall(path=repo_dir, members=members)
+
+        # Originalen .github-Ordner aus dem GitHub-Ziel wiederherstellen.
+        if os.path.isdir(saved_github_dir):
+            restored_github_dir = os.path.join(repo_dir, ".github")
+            if os.path.lexists(restored_github_dir):
+                if os.path.islink(restored_github_dir) or os.path.isfile(restored_github_dir):
+                    os.remove(restored_github_dir)
+                else:
+                    shutil.rmtree(restored_github_dir)
+            shutil.copytree(saved_github_dir, restored_github_dir, symlinks=True)
 
         # README aus dem GitHub-Ziel wiederherstellen.
         if saved_readme is not None:
