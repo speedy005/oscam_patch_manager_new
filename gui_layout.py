@@ -441,9 +441,8 @@ class PatchManagerLayoutMixin:
             "streamboard_revision_number",
         )
 
-        emu_dir = globals().get("PATCH_EMU_GIT_DIR", "")
-        if not emu_dir:
-            emu_dir = getattr(self, "PATCH_EMU_GIT_DIR", "")
+        from paths import EMU_SOURCE_DIR
+        emu_dir = EMU_SOURCE_DIR
 
         emu_revision = revision_for(
             emu_dir,

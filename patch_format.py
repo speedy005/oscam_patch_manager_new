@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import QApplication, QCheckBox, QDialog, QDialogButtonBox, 
 from datetime import datetime, timezone
 
 from git_manager import _git_command
-from paths import GITHUB_CONF_FILE, PATCH_EMU_GIT_DIR, PATCH_MODIFIER, STREAMREPO
+from paths import GITHUB_CONF_FILE, EMU_SOURCE_DIR, PATCH_EMU_GIT_DIR, PATCH_MODIFIER, STREAMREPO
 from translations import TEXTS
 from workers import safe_play
 
@@ -85,7 +85,7 @@ def get_patch_header(
         streamboard_repo = STREAMREPO
 
     if emu_repo is None:
-        emu_repo = PATCH_EMU_GIT_DIR
+        emu_repo = EMU_SOURCE_DIR
 
     streamboard_repo = os.path.abspath(
         streamboard_repo

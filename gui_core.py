@@ -1341,9 +1341,9 @@ class PatchManagerCoreMixin:
                 de_fallback if is_de else en_fallback
             )
 
-        emu_dir = os.path.abspath(
-            globals().get("PATCH_EMU_GIT_DIR", "")
-        )
+        from paths import EMU_SOURCE_DIR
+
+        emu_dir = os.path.abspath(EMU_SOURCE_DIR)
 
         # Die aktive OSCam-Emu-URL kommt aus der bestehenden GUI-Konfiguration.
         try:

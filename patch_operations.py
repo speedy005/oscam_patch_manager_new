@@ -29,6 +29,7 @@ from paths import (
     PLUGIN_DIR,
     STREAMREPO,
     PATCH_EMU_GIT_DIR,
+    EMU_SOURCE_DIR,
     PATCHED_EMU_GIT_DIR,
     PATCH_FILE,
     get_selected_stream_repo_url,
@@ -271,7 +272,7 @@ def get_patch_header(
         streamboard_repo = STREAMREPO
 
     if emu_repo is None:
-        emu_repo = PATCH_EMU_GIT_DIR
+        emu_repo = EMU_SOURCE_DIR
 
     streamboard_repo = os.path.abspath(
         os.path.expandvars(
@@ -2993,9 +2994,7 @@ def create_patch(
             STREAMREPO
         )
 
-        emu_dir = os.path.abspath(
-            PATCH_EMU_GIT_DIR
-        )
+        emu_dir = os.path.abspath(EMU_SOURCE_DIR)
 
         patch_file = os.path.abspath(
             PATCH_FILE
@@ -5656,6 +5655,80 @@ def add_patch_header(
 
     return header.strip()
 
+
+
+def _sync_validated_emu_upload_repo(source_dir, target_dir):
+    """Übernimmt ein validiertes Git-Repository transaktionssicher."""
+    source_dir = os.path.abspath(source_dir)
+    target_dir = os.path.abspath(target_dir)
+
+    if not os.path.isdir(source_dir):
+        raise RuntimeError(f"Synchronisierungsquelle fehlt: {source_dir}")
+
+    if not os.path.exists(os.path.join(source_dir, ".git")):
+        raise RuntimeError("Die Synchronisierungsquelle besitzt kein Git-Repository.")
+
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    staging = target_dir + ".sync-tmp-" + stamp
+    backup = target_dir + ".backup-" + stamp
+
+    def head(path):
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=path,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        )
+        return result.stdout.strip()
+
+    source_head = head(source_dir)
+
+    if os.path.exists(staging) or os.path.exists(backup):
+        raise RuntimeError("Synchronisierungs-Ziel oder Backup existiert bereits.")
+
+    moved_old = False
+
+    try:
+        shutil.copytree(source_dir, staging, symlinks=True)
+
+        if not os.path.exists(os.path.join(staging, ".git")):
+            raise RuntimeError("Git-Verzeichnis fehlt in der temporären Kopie.")
+
+        if head(staging) != source_head:
+            raise RuntimeError("Git-HEAD der temporären Kopie stimmt nicht überein.")
+
+        if os.path.exists(target_dir):
+            os.replace(target_dir, backup)
+            moved_old = True
+
+        try:
+            os.replace(staging, target_dir)
+        except Exception:
+            if moved_old and os.path.exists(backup):
+                os.replace(backup, target_dir)
+                moved_old = False
+            raise
+
+        if head(target_dir) != source_head:
+            failed = target_dir + ".failed-" + stamp
+            os.replace(target_dir, failed)
+            if moved_old and os.path.exists(backup):
+                os.replace(backup, target_dir)
+                moved_old = False
+            raise RuntimeError("Git-HEAD nach der Übernahme stimmt nicht überein.")
+
+        return source_head, backup if moved_old else ""
+
+    except Exception:
+        if os.path.exists(staging):
+            shutil.rmtree(staging, ignore_errors=True)
+        if moved_old and os.path.exists(backup) and not os.path.exists(target_dir):
+            os.replace(backup, target_dir)
+        raise
+
+
 def patch_oscam_emu_git(
     gui_instance=None,
     info_widget=None,
@@ -5664,7 +5737,7 @@ def patch_oscam_emu_git(
     """
     Klont das aktuelle Streamboard-OSCam, wendet den
     oscam-emu.patch an und übernimmt das fertige Git-
-    Repository nach PATCH_EMU_GIT_DIR.
+    Repository nach PATCHED_EMU_GIT_DIR.
 
     Die Fortschrittsanzeige läuft von 0 bis 100 %.
 
@@ -7059,6 +7132,31 @@ def patch_oscam_emu_git(
                 "nicht ermittelt werden."
             )
 
+        # Upload-Ordner erst nach erfolgreicher Validierung synchronisieren.
+        update_progress(
+            97,
+            "🔄 Upload-Ordner wird sicher synchronisiert..."
+        )
+
+        upload_head, upload_backup = _sync_validated_emu_upload_repo(
+            patch_dir,
+            PATCH_EMU_GIT_DIR
+        )
+
+        log(
+            f"✓ Upload-Ordner synchronisiert: {PATCH_EMU_GIT_DIR}",
+            "success"
+        )
+        log(
+            f"✓ Upload-HEAD: {upload_head}",
+            "success"
+        )
+        if upload_backup:
+            log(
+                f"🛡️ Vorheriger Upload-Ordner gesichert: {upload_backup}",
+                "success"
+            )
+
         log(
             f"✓ Fertiges Repository HEAD: {final_head}",
             "success"
@@ -7112,7 +7210,7 @@ def patch_oscam_emu_git(
         )
 
         log(
-            f"📂 Upload-Ordner:\n{patch_dir}",
+            f"📂 Upload-Ordner:\n{PATCH_EMU_GIT_DIR}",
             "success"
         )
 

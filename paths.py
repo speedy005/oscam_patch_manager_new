@@ -13,7 +13,7 @@ from datetime import datetime
 # APP CONFIG
 # ============================================================
 
-APP_VERSION = "2.1.4"
+APP_VERSION = "2.1.3"
 
 # ============================================================
 # PLUGIN / WORKING DIRECTORY
@@ -32,6 +32,7 @@ TEMP_REPO = os.path.join(PLUGIN_DIR, "streamboard-git")
 STREAMREPO = TEMP_REPO
 
 # OSCam-Emu-Repository
+EMU_SOURCE_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-source")
 PATCH_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-git")
 EMUREPO = PATCH_EMU_GIT_DIR
 
