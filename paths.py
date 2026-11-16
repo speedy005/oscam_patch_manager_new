@@ -33,6 +33,7 @@ STREAMREPO = TEMP_REPO
 
 # OSCam-Emu-Repository
 EMU_SOURCE_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-source")
+EMU_SOURCE_URL = "https://github.com/oscam-mirror/oscam-emu.git"
 PATCH_EMU_GIT_DIR = os.path.join(PLUGIN_DIR, "oscam-emu-git")
 EMUREPO = PATCH_EMU_GIT_DIR
 

@@ -30,6 +30,7 @@ from paths import (
     STREAMREPO,
     PATCH_EMU_GIT_DIR,
     EMU_SOURCE_DIR,
+    EMU_SOURCE_URL,
     PATCHED_EMU_GIT_DIR,
     PATCH_FILE,
     get_selected_stream_repo_url,
@@ -3464,8 +3465,8 @@ def create_patch(
         # Ordner sicher, ohne Nutzerdaten automatisch zu löschen.
         ensure_git_repository(
             emu_dir,
-            emu_repo_url,
-            description="OSCam-Emu",
+            EMU_SOURCE_URL,
+            description="OSCam-Emu-Originalquelle",
             clone_timeout=120
         )
 
@@ -3480,7 +3481,7 @@ def create_patch(
 
         sync_emu_origin(
             emu_dir,
-            emu_repo_url
+            EMU_SOURCE_URL
         )
 
         set_progress(
