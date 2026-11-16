@@ -1161,6 +1161,15 @@ def clean_patch_folder(
         targets.append((emu_git_path, "folder"))
 
     # ---------------------------------------------------------
+    # oscam-emu-patched/
+    # ---------------------------------------------------------
+
+    emu_patched_path = PATCHED_EMU_GIT_DIR
+
+    if emu_patched_path:
+        targets.append((emu_patched_path, "folder"))
+
+    # ---------------------------------------------------------
     # streamboard-git/ nur beim Button "Patch-Ordner leeren"
     # ---------------------------------------------------------
 
