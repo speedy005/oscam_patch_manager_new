@@ -2754,33 +2754,6 @@ def create_patch(
                 emu_repo_url
             )
 
-            # Gleiche Korrektur wie bei der Patch-Erstellung:
-            # ungenutzte is_api_page()-Funktion entfernen.
-            webif_file = os.path.join(
-                expected_worktree,
-                "module-webif.c"
-            )
-
-            with open(webif_file, "rb") as f:
-                webif_data = f.read()
-
-            webif_data, removed = re.subn(
-                rb'(?ms)^static bool is_api_page\(enum webif_page page\)\r?\n\{.*?^\}\r?\n',
-                b'',
-                webif_data,
-                count=1
-            )
-
-            if removed != 1:
-                raise RuntimeError(
-                    "is_api_page() konnte im Validierungs-Ziel "
-                    "nicht eindeutig gefunden und entfernt werden."
-                )
-
-            with open(webif_file, "wb") as f:
-                f.write(webif_data)
-
-            log("[PATCH] is_api_page() auch im Validierungs-Ziel entfernt.")
 
             try:
                 # CS_VERSION im erwarteten Zielzustand genauso
@@ -3899,36 +3872,6 @@ def create_patch(
             log(
                 f"        {target_worktree_for_patch}"
             )
-
-            # ========================================================
-            # UNGENUTZTE is_api_page()-FUNKTION ENTFERNEN
-            # ========================================================
-
-            webif_file = os.path.join(
-                target_worktree_for_patch,
-                "module-webif.c"
-            )
-
-            with open(webif_file, "rb") as f:
-                webif_data = f.read()
-
-            webif_data, removed = re.subn(
-                rb'(?ms)^static bool is_api_page\(enum webif_page page\)\r?\n\{.*?^\}\r?\n',
-                b'',
-                webif_data,
-                count=1
-            )
-
-            if removed != 1:
-                raise RuntimeError(
-                    "is_api_page() konnte im OSCam-Emu-Ziel "
-                    "nicht eindeutig gefunden und entfernt werden."
-                )
-
-            with open(webif_file, "wb") as f:
-                f.write(webif_data)
-
-            log("[PATCH] Ungenutzte Funktion is_api_page() entfernt.")
 
             # ========================================================
             # OSCAM-VERSION VOM STREAMBOARD-BASIS-COMMIT ÜBERNEHMEN
