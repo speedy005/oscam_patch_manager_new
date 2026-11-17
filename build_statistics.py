@@ -271,7 +271,7 @@ class BuildStatisticsDialog(QDialog):
                 self.records.append(self._read_log(path))
 
         self.records.sort(
-            key=lambda item: item["start"] or datetime.min,
+            key=lambda item: item["start"].timestamp() if item["start"] else float("-inf"),
             reverse=True
         )
         self._render()
