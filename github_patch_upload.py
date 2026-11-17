@@ -996,12 +996,46 @@ sys.stdout.write(value)
             patch_version=patch_version
         )
 
+        # GitHub-Ziel und hochgeladene Datei anzeigen
+        log(
+            "==========================================",
+            "success"
+        )
+        log(
+            "PATCH ERFOLGREICH HOCHGELADEN",
+            "success"
+        )
+        log(
+            f"GitHub Repository: {repo_url}",
+            "success"
+        )
+        log(
+            f"Branch: {branch}",
+            "success"
+        )
+        log(
+            "Datei: oscam-emu.patch",
+            "success"
+        )
+        log(
+            f"Version: {patch_version}",
+            "success"
+        )
+        log(
+            f"GitHub URL: {repo_url.rstrip('/')}/blob/{branch}/oscam-emu.patch",
+            "success"
+        )
+        log(
+            "==========================================",
+            "success"
+        )
+
         set_progress(
             100,
             text=(
-                "✅ Patch hochgeladen"
+                "✅ Patch erfolgreich hochgeladen"
                 if lang == "de"
-                else "✅ Patch Uploaded"
+                else "✅ Patch successfully uploaded"
             )
         )
 
