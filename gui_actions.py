@@ -481,6 +481,67 @@ class PatchManagerActionsMixin:
                     )
 
         
+                # --- Rote Abschlussmeldung synchron zur Revisionsanimation ---
+                try:
+                    pbar = getattr(self, "progress_bar", None)
+
+                    if pbar is not None and run_startup_animation:
+                        is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+                        final_text = (
+                            "🚀 OSCam-Update verfügbar!"
+                            if is_de else "🚀 OSCam update available!"
+                        )
+
+                        label = getattr(self, "final_label", None)
+                        if label is None:
+                            label = QLabel(self)
+                            label.setObjectName("final_label")
+                            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                            self.final_label = label
+
+                        label.setText(final_text)
+                        pos = pbar.mapTo(self, pbar.rect().topLeft())
+                        label.setGeometry(pos.x(), pos.y(), pbar.width(), pbar.height())
+
+                        def set_update_message_color(color):
+                            current = getattr(self, "final_label", None)
+                            if current is None or not current.isVisible():
+                                return
+                            current.setStyleSheet(
+                                "QLabel { background-color: black;"
+                                f" color: {color}; border: 2px solid #F70606;"
+                                " border-radius: 6px;"
+                                " font-family: Arial, Segoe UI, sans-serif;"
+                                " font-size: 20px; font-weight: bold; }"
+                            )
+
+                        label.show()
+                        label.raise_()
+                        set_update_message_color("transparent")
+
+                        blink_colors = [
+                            "transparent", "#F70606",
+                            "transparent", "#F70606",
+                            "transparent", "#F70606",
+                        ]
+
+                        for delay, color in zip(
+                            (300, 600, 900, 1200, 1500, 1800),
+                            blink_colors,
+                        ):
+                            QTimer.singleShot(
+                                delay,
+                                lambda c=color: set_update_message_color(c),
+                            )
+
+                        QTimer.singleShot(
+                            1900,
+                            lambda: set_update_message_color("#F70606"),
+                        )
+
+                except Exception as exc:
+                    print(f"[UPDATE-MESSAGE-BLINK] Fehler: {exc!r}", flush=True)
+
             else:
                 # --- Up-to-date ---
                 # --- Finale Meldung parallel zum Revisions-Blinken anzeigen ---
@@ -554,7 +615,7 @@ class PatchManagerActionsMixin:
                                 "QLabel {"
                                 " background-color: black;"
                                 f" color: {color};"
-                                " border: 2px solid cyan;"
+                                " border: 2px solid #F70606;"
                                 " border-radius: 6px;"
                                 " font-family: Arial, Segoe UI, sans-serif;"
                                 " font-size: 20px;"

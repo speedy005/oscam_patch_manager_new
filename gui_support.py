@@ -52,9 +52,28 @@ class ResponsiveGridReflow(QObject):
                 widgets.append(widget)
         if not widgets:
             return
-        columns = min(columns, len(widgets))
+
+        pinned_widgets = [
+            widget for widget in widgets
+            if widget.property("pin_right")
+        ]
+        widgets = [
+            widget for widget in widgets
+            if not widget.property("pin_right")
+        ]
+
+        columns = min(columns, len(widgets) + len(pinned_widgets))
+
         for index, widget in enumerate(widgets):
             self.layout.addWidget(widget, index // columns, index % columns)
+
+        for widget in pinned_widgets:
+            self.layout.addWidget(
+                widget,
+                len(widgets) // columns,
+                columns - 1,
+            )
+
         for col in range(max(columns, self._last_columns)):
             self.layout.setColumnStretch(col, 1 if col < columns else 0)
         self._last_columns = columns

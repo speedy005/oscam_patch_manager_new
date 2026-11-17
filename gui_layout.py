@@ -86,7 +86,7 @@ class PatchManagerLayoutMixin:
                     ancestor = ancestor.parentWidget()
 
                 if is_patch_grid_button:
-                    btn.setMinimumWidth(0)
+                    btn.setMinimumWidth(410)
                     btn.setSizePolicy(
                         QSizePolicy.Policy.Expanding,
                         QSizePolicy.Policy.Fixed,
@@ -297,8 +297,11 @@ class PatchManagerLayoutMixin:
             button.setFont(QFont("Segoe UI", font_size, QFont.Weight.Bold))
             if name != "info_button":
                 button.setMinimumHeight(30 if compact else 40)
-                button.setMaximumWidth(280 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
-                button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+                if name == "oscam_source_button":
+                    button.setFixedSize(440, 45)
+                else:
+                    button.setMaximumWidth(280 if name in ("btn_s3", "btn_s4", "btn_ncam") else 340)
+                    button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
         # Alle vier Header-Buttons exakt gleich groß halten.
         for name in (

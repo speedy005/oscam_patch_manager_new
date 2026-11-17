@@ -2721,8 +2721,6 @@ class PatchManagerGUI(
                 self.commit_label.setFixedWidth(100 if compact else 140)
             if hasattr(self, "commit_spin"):
                 self.commit_spin.setFixedWidth(65 if compact else 75)
-            if hasattr(self, "btn_check_tools"):
-                self.btn_check_tools.setFixedWidth(165 if compact else 360)
         except RuntimeError:
             # Widgets können während des Schließens bereits zerstört sein.
             pass
@@ -3656,8 +3654,7 @@ class PatchManagerGUI(
 
         # --- OSCAM-GIT-URL ---
         self.oscam_source_button = QPushButton("Oscam Git URL")
-        self.oscam_source_button.setMinimumSize(300, 45)
-        self.oscam_source_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.oscam_source_button.setFixedSize(440, 45)
         self.oscam_source_button.setFont(
             QFont("Segoe UI", 8, QFont.Weight.Bold)
         )
@@ -4605,7 +4602,7 @@ class PatchManagerGUI(
         # --- Manuelles Projekt-Backup ---
         self.btn_backup_gui = QPushButton("💾 Backup erstellen")
         self.btn_backup_gui.setIconSize(QSize(I_SIZE, I_SIZE))
-        self.btn_backup_gui.setFixedSize(300, B_HEIGHT)
+        self.btn_backup_gui.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_backup_gui.setStyleSheet(button_style)
         self.btn_backup_gui.setToolTip(
             "Erstellt backup/backup_gi.zip mit dem aktuellen Projektstand"
@@ -4685,7 +4682,7 @@ class PatchManagerGUI(
 
         # --- B) RECHTER BADGE (OSCam Status - Länge 280) ---
         self.right_badge = QFrame()
-        self.right_badge.setFixedSize(600, self.UI_BADGE_H)
+        self.right_badge.setFixedSize(750, self.UI_BADGE_H)
         self.right_badge.setStyleSheet(
             f"""
             QFrame {{
@@ -4712,7 +4709,7 @@ class PatchManagerGUI(
         )
 
         # Füge das Label ohne Stretch hin
-        right_layout.addWidget(self.status_label)
+        right_layout.addWidget(self.status_label, 1)
 
         # Keine weiteren Strecken mehr erforderlich
         h_layout.addWidget(self.right_badge)
@@ -4843,11 +4840,11 @@ class PatchManagerGUI(
             getattr(self, "btn_modifier", None),
             getattr(self, "btn_check_tools", None),
 
-            # Beenden
-            getattr(self, "buttons", {}).get("exit"),
-
-            # Direkt danach: Rechte fixen
+            # Rechte fixen
             getattr(self, "btn_fix_perms", None),
+
+            # Beenden – immer als letzter Aktionsbutton
+            getattr(self, "buttons", {}).get("exit"),
         ]
 
 
@@ -4863,15 +4860,17 @@ class PatchManagerGUI(
         from PyQt6.QtWidgets import QSizePolicy
         seen_patch_buttons = set()
         ordered_patch_buttons = []
+        exit_button = getattr(self, "buttons", {}).get("exit")
         for button in patch_build_order:
             if button is None or id(button) in seen_patch_buttons:
                 continue
             seen_patch_buttons.add(id(button))
             ordered_patch_buttons.append(button)
             button.setParent(self.grid_container)
+            button.setProperty("pin_right", button is exit_button)
             # Alle Buttons im PATCH-&-BUILD-Grid bekommen natürliche Textbreite.
             # Alte setFixedSize()-Vorgaben (z.B. 440 px) werden aufgehoben.
-            button.setMinimumWidth(0)
+            button.setMinimumWidth(410)
             button.setMaximumWidth(16777215)
             button.setMinimumHeight(45)
             button.setMaximumHeight(45)

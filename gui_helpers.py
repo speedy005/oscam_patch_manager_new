@@ -154,6 +154,16 @@ class ResponsiveGridReflow(QObject):
         if not widgets:
             return
 
+        pinned_widgets = [
+            widget for widget in widgets
+            if widget.property("pin_right")
+        ]
+        widgets = [
+            widget for widget in widgets
+            if not widget.property("pin_right")
+        ]
+        column_widgets = widgets + pinned_widgets
+
         width = max(1, self.container.contentsRect().width())
         margins = self.layout.contentsMargins()
         spacing = max(0, self.layout.horizontalSpacing())
@@ -165,12 +175,12 @@ class ResponsiveGridReflow(QObject):
             # Natürliche Buttonbreiten berücksichtigen und maximal
             # zehn gleichmäßig ausgerichtete Spalten verwenden.
             columns = 1
-            max_columns = min(10, len(widgets))
+            max_columns = min(10, len(column_widgets))
 
             for candidate in range(1, max_columns + 1):
                 column_widths = [0] * candidate
 
-                for index, widget in enumerate(widgets):
+                for index, widget in enumerate(column_widgets):
                     col = index % candidate
                     button_width = max(
                         widget.sizeHint().width(),
@@ -203,6 +213,15 @@ class ResponsiveGridReflow(QObject):
                 index % columns,
             )
 
+        # Markierte Buttons kommen in der letzten Zeile ganz nach rechts.
+        for widget in pinned_widgets:
+            self.layout.addWidget(
+                widget,
+                len(widgets) // columns,
+                columns - 1,
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            )
+
         for col in range(max(columns, self._last_columns)):
             self.layout.setColumnStretch(
                 col, 1 if col < columns else 0
@@ -210,6 +229,20 @@ class ResponsiveGridReflow(QObject):
             self.layout.setColumnMinimumWidth(col, 0)
 
         self._last_columns = columns
+
+        if self.container.objectName() == "patchBuildPanel":
+            print(f"[PATCH GRID] Spalten: {columns}", flush=True)
+            for index in range(self.layout.count()):
+                item = self.layout.itemAt(index)
+                widget = item.widget()
+                if widget is not None:
+                    row, col, row_span, col_span = self.layout.getItemPosition(index)
+                    print(
+                        f"[PATCH GRID] {widget.text()!r}: "
+                        f"Zeile {row + 1}, Spalte {col + 1}, "
+                        f"pin_right={widget.property('pin_right')}",
+                        flush=True,
+                    )
 
 
 class ButtonClickSoundFilter(QObject):
