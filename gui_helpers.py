@@ -30,6 +30,7 @@ class _PatchCreateBridge(QObject):
         "EMUREPO", "selected_emu_repo_url", "selected_emu_repo_branch",
         "selected_emu_commit", "selected_emu_commit_repo_url",
         "selected_streamboard_commit", "selected_streamboard_repo_url",
+        "selected_streamboard_commit_repo_url",
     ))
 
     def __getattr__(self, name):

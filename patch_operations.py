@@ -3155,16 +3155,40 @@ def create_patch(
         # Erst die ausgewählte Quelle versuchen. Nur wenn sie beim
         # Klonen fehlschlägt oder nicht erreichbar ist, auf den
         # expliziten speedy005 OSCam-Git-Mirror ausweichen.
-        stream_candidates = [
-            (
-                "https://git.streamboard.tv/common/oscam.git",
-                None,
-            ),
-            (
-                "https://github.com/speedy005/oscam-git.git",
-                "master",
-            ),
+        stream_candidates = []
+
+        def _stream_candidate_key(url):
+            key = str(url).strip().lower()
+            key = re.sub(r"^[a-z][a-z0-9+.-]*://", "", key)
+            if key.endswith(".git"):
+                key = key[:-4]
+            return key.rstrip("/")
+
+        # Die ausdrücklich ausgewählte Quelle immer zuerst versuchen.
+        if stream_url:
+            selected_branch = (
+                "master"
+                if "github.com/speedy005/oscam-git" in stream_url.lower()
+                else None
+            )
+            stream_candidates.append((stream_url, selected_branch))
+
+        # Bekannte Quellen nur als Fallback ergänzen.
+        fallback_candidates = [
+            ("https://git.streamboard.tv/common/oscam.git", None),
+            ("https://github.com/speedy005/oscam-git.git", "master"),
         ]
+
+        existing_keys = {
+            _stream_candidate_key(url)
+            for url, _branch in stream_candidates
+        }
+
+        for candidate_url, candidate_branch in fallback_candidates:
+            candidate_key = _stream_candidate_key(candidate_url)
+            if candidate_key not in existing_keys:
+                stream_candidates.append((candidate_url, candidate_branch))
+                existing_keys.add(candidate_key)
 
         last_stream_error = None
         for candidate_url, candidate_branch in stream_candidates:
@@ -3248,6 +3272,79 @@ def create_patch(
         ).strip().lower()
 
         if selected_stream_commit:
+
+            # Die manuell ausgewaehlte Commit-Revision muss aus
+            # derselben Streamboard-Quelle stammen, die jetzt
+            # fuer die Patch-Erstellung verwendet wird.
+            selected_stream_repo_url = getattr(
+                gui_instance,
+                "selected_streamboard_commit_repo_url",
+                None
+            ) if gui_instance is not None else None
+
+            if not selected_stream_repo_url:
+                selected_stream_repo_url = globals().get(
+                    "SELECTED_STREAMBOARD_COMMIT_REPO_URL"
+                )
+
+            def normalize_stream_repo_url(value):
+                raw = str(value or "").strip()
+                if not raw:
+                    return ""
+
+                raw = re.sub(
+                    r"^[a-z][a-z0-9+.-]*://",
+                    "",
+                    raw,
+                    flags=re.I
+                )
+
+                if raw.startswith("git@"):
+                    raw = raw[4:]
+                elif "@" in raw.split("/", 1)[0]:
+                    raw = raw.split("@", 1)[1]
+
+                if ":" in raw.split("/", 1)[0]:
+                    host, repo_path = raw.split(":", 1)
+                    raw = host + "/" + repo_path
+
+                raw = raw.split("?", 1)[0].split("#", 1)[0]
+                host, separator, repo_path = raw.partition("/")
+
+                host = host.lower()
+                repo_path = repo_path.rstrip("/")
+
+                if repo_path.lower().endswith(".git"):
+                    repo_path = repo_path[:-4]
+
+                return host + ("/" + repo_path if separator else "")
+
+            selected_source = normalize_stream_repo_url(
+                selected_stream_repo_url
+            )
+            actual_source = normalize_stream_repo_url(stream_url)
+
+            if not selected_source:
+                raise RuntimeError(
+                    "Die Herkunft der manuell ausgewählten "
+                    "Streamboard-Revision ist nicht bekannt. "
+                    "Bitte die Revision erneut auswählen."
+                )
+
+            if selected_source != actual_source:
+                raise RuntimeError(
+                    "Die ausgewählte Streamboard-Revision stammt "
+                    "aus einer anderen Repository-Quelle.\n"
+                    f"Ausgewählte Quelle: {selected_stream_repo_url}\n"
+                    f"Aktuelle Quelle:   {stream_url}\n"
+                    "Bitte dieselbe Streamboard-Quelle auswählen "
+                    "und die Revision erneut laden."
+                )
+
+            log(
+                "[STREAMBOARD] Repository-Zuordnung der "
+                "manuellen Revision erfolgreich geprüft."
+            )
 
             if not re.fullmatch(
                 r"[0-9a-f]{40}",
