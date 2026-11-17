@@ -249,7 +249,7 @@ class PatchManagerGUI(
         try:
             self.stdout_redir = StreamToGui()
             self.stdout_redir.callback = lambda msg: self.append_info(
-                self.info_text, msg, "info"
+                self.info_text, msg, "stdout"
             )
             sys.stdout = self.stdout_redir
             self.stderr_redir = StreamToGui()
@@ -4815,6 +4815,9 @@ class PatchManagerGUI(
         # anhand der tatsächlich verfügbaren Breite dynamisch an.
         self.layout_grid_buttons.setHorizontalSpacing(6)
         self.layout_grid_buttons.setVerticalSpacing(6)
+        self.layout_grid_buttons.setAlignment(
+            Qt.AlignmentFlag.AlignTop
+        )
         self.layout_grid_buttons.setContentsMargins(8, 8, 8, 8)
 
         # Container zuerst einbetten, dann die vorhandenen Aktionsbuttons erzeugen.
@@ -4866,24 +4869,16 @@ class PatchManagerGUI(
             seen_patch_buttons.add(id(button))
             ordered_patch_buttons.append(button)
             button.setParent(self.grid_container)
-            # Die sechs verschobenen Buttons sollen sich genauso flexibel
-            # an die Spaltenbreite anpassen wie die nativen Patch-Buttons.
-            if button in (
-                getattr(self, "btn_patch_online", None),
-                #getattr(self, "btn_backup_gui", None),
-                getattr(self, "btn_repo_url", None),
-                getattr(self, "btn_check_commit", None),
-                getattr(self, "btn_modifier", None),
-                getattr(self, "btn_check_tools", None),
-            ):
-                button.setMinimumSize(250, 45)
-                # Keine künstliche Maximalbreite: sonst entstehen im rechten
-                # Bereich große Lücken, obwohl das Grid seine Spalten streckt.
-                button.setMaximumHeight(45)
-                button.setSizePolicy(
-                    QSizePolicy.Policy.Expanding,
-                    QSizePolicy.Policy.Fixed,
-                )
+            # Alle Buttons im PATCH-&-BUILD-Grid bekommen natürliche Textbreite.
+            # Alte setFixedSize()-Vorgaben (z.B. 440 px) werden aufgehoben.
+            button.setMinimumWidth(0)
+            button.setMaximumWidth(16777215)
+            button.setMinimumHeight(45)
+            button.setMaximumHeight(45)
+            button.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed,
+            )
 
         # Erst kompakt einsetzen; ResponsiveGridReflow ordnet danach anhand
         # der realen Containerbreite in passende Spalten um.
@@ -4902,7 +4897,7 @@ class PatchManagerGUI(
 
         # Revisions-Buttons auf dieselbe Zeile wie „Oscam Git URL“ setzen.
         # Repo URL bleibt oben neben Emu-Git und wird nicht erneut verschoben.
-        revision_button_min_width = 220
+        revision_button_min_width = 0
         revision_button_height = 45
         for col, key in ((7, "streamboard_checkout"), (8, "oscam_emu_revision")):
             entry = self.option_buttons.get(key)
@@ -4914,7 +4909,7 @@ class PatchManagerGUI(
                 button.setMaximumWidth(16777215)
                 button.setFixedHeight(revision_button_height)
                 button.setSizePolicy(
-                    QSizePolicy.Policy.Expanding,
+                    QSizePolicy.Policy.Preferred,
                     QSizePolicy.Policy.Fixed,
                 )
                 button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))

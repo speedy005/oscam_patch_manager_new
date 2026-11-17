@@ -383,6 +383,84 @@ class PatchManagerLogsMixin:
             "raw": "transparent",
         }
         lvl_str = str(level).lower()
+
+        # Live-Konsole: technische stdout-Ausgaben filtern.
+        if lvl_str == "stdout":
+            import re
+
+            visible_lines = []
+            suppress_layout = getattr(self, "_live_console_suppress_layout", False)
+
+            for line in str(text).replace("\r", "\n").splitlines():
+                item = line.strip()
+                if not item:
+                    continue
+
+                # Verbliebene MATRIX-Debug-Folgewerte ausblenden.
+                clean_item = item.rstrip("\\\\")
+                debug_values = {
+                    "'standard'", '"standard"',
+                    "'🔙 MATRIX Beenden'", '"🔙 MATRIX Beenden"',
+                    "'📟 MATRIX MODE'", '"📟 MATRIX MODE"',
+                }
+                if clean_item in debug_values:
+                    continue
+
+                # Interne Zustandszuweisungen ausblenden.
+                if re.match(
+                    r"^\\s*\\|?\\s*(?:ziel|config|button_text|button)\\s*=",
+                    item,
+                    re.IGNORECASE,
+                ):
+                    continue
+
+                # Mehrzeilige Layoutdiagnose vollständig unterdrücken.
+                if "OSCAM LAYOUT DIAGNOSE" in item:
+                    suppress_layout = True
+                    continue
+
+                if suppress_layout:
+                    if "ENDE DIAGNOSE" in item:
+                        suppress_layout = False
+                    continue
+
+                # Explizite Debug- und interne Diagnosemeldungen.
+                if re.match(
+                    r"^(?:DEBUG:|TRACE:|\[DEBUG\]|\[TRACE\]|\[GRID|\[PATCH CHECK\]|\[WINDOW\]|\[TIMER-TEST\]|\[PERSISTENT-TIMER\])",
+                    item,
+                    re.IGNORECASE,
+                ):
+                    continue
+
+                # Technische Folgezeilen der Debug-Ausgaben.
+                if re.match(
+                    r"^(?:force_state|config|theme_mode|button_text|ziel)\s*=|^\|\s*button\s*=|^<PyQt6\.|^(?:True|False)$",
+                    item,
+                    re.IGNORECASE,
+                ):
+                    continue
+
+                # Layout- und Qt-Objektdiagnosen.
+                if re.match(
+                    r"^(?:Fenster|Hauptlayout|console_panel|info_text|header_widget|grid_container):\s*height=|^\d+:\s*Q(?:Frame|GroupBox|ProgressBar):|^(?:EXIT BUTTON|EXIT STYLE):|^(?:QObject::|QSocketNotifier:|qt\.)",
+                    item,
+                    re.IGNORECASE,
+                ):
+                    continue
+
+                # Zeitstempel am Anfang entfernen.
+                item = re.sub(r"\[(?:\d{2}:){2}\d{2}\]\s*", "", item)
+
+                if item:
+                    visible_lines.append(item)
+
+            self._live_console_suppress_layout = suppress_layout
+
+            if not visible_lines:
+                return
+
+            text = "\n".join(visible_lines)
+
         current_color = colors.get(lvl_str, "white")
         do_newline = kwargs.get("newline", True)
 

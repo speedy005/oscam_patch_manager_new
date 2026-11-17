@@ -540,6 +540,69 @@ def main():
                                     flush=True,
                                 )
     
+                        print("\\n========== BUTTON SICHTBARKEIT ==========", flush=True)
+
+                        container = getattr(main_window, "grid_container", None)
+                        if container is not None:
+                            print(
+                                f"GRID CONTAINER: visible={container.isVisible()}, "
+                                f"hidden={container.isHidden()}, "
+                                f"geometry={container.geometry()}",
+                                flush=True,
+                            )
+
+                        buttons = getattr(main_window, "buttons", {})
+                        for key, button in buttons.items():
+                            if button is None:
+                                continue
+
+                            parent = button.parentWidget()
+                            print(
+                                f"{key}: visible={button.isVisible()}, "
+                                f"hidden={button.isHidden()}, "
+                                f"parent={parent.objectName() if parent else None}, "
+                                f"geometry={button.geometry()}",
+                                flush=True,
+                            )
+
+                        print("========== ENDE BUTTON SICHTBARKEIT ==========", flush=True)
+                        
+                        from pathlib import Path
+
+                        diag_file = Path(__file__).with_name(
+                            "button_visibility_debug.txt"
+                        )
+
+                        with diag_file.open("w", encoding="utf-8") as f:
+                            container = getattr(
+                                main_window, "grid_container", None
+                            )
+
+                            f.write(f"GRID CONTAINER: {container!r}\n")
+
+                            if container is not None:
+                                f.write(
+                                    f"visible={container.isVisible()}\n"
+                                    f"hidden={container.isHidden()}\n"
+                                    f"geometry={container.geometry()}\n"
+                                )
+
+                            for key, button in getattr(
+                                main_window, "buttons", {}
+                            ).items():
+                                if button is None:
+                                    continue
+
+                                parent = button.parentWidget()
+                                f.write(
+                                    f"{key}: "
+                                    f"visible={button.isVisible()}, "
+                                    f"hidden={button.isHidden()}, "
+                                    f"enabled={button.isEnabled()}, "
+                                    f"parent={parent!r}, "
+                                    f"geometry={button.geometry()}\n"
+                                )
+
                         print("========== ENDE DIAGNOSE ==========\\n", flush=True)
                     finally:
                         sys.stdout = _original_stdout

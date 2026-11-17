@@ -136,18 +136,29 @@ def ensure_dir(directory):
         except Exception as e:
             print(f"[ERROR] Unbekannter Fehler beim Erstellen von {directory}: {e}")
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 class StreamToGui(QObject):
-    """Sichere Weiterleitung von stdout an die GUI mittels Signalen."""
+    """Sichere Weiterleitung von stdout/stderr an die GUI."""
 
     new_text = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
+        self.callback = None
+        self.new_text.connect(self._dispatch)
+
+    @pyqtSlot(str)
+    def _dispatch(self, text):
+        callback = self.callback
+        if callable(callback):
+            try:
+                callback(text)
+            except Exception:
+                pass
 
     def write(self, text):
-        if text.strip():
+        if text and text.strip():
             self.new_text.emit(str(text))
 
     def flush(self):

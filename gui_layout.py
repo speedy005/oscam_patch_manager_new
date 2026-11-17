@@ -77,11 +77,29 @@ class PatchManagerLayoutMixin:
 
                 button_height = height if is_header_or_console else min(height, 45)
                 btn.setFixedHeight(button_height)
-                if id(btn) in option_button_ids:
-                    btn.setMinimumWidth(220)
-                else:
+                ancestor = btn.parentWidget()
+                is_patch_grid_button = False
+                while ancestor is not None:
+                    if ancestor.objectName() == "patchBuildPanel":
+                        is_patch_grid_button = True
+                        break
+                    ancestor = ancestor.parentWidget()
+
+                if is_patch_grid_button:
                     btn.setMinimumWidth(0)
-                btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                    btn.setSizePolicy(
+                        QSizePolicy.Policy.Expanding,
+                        QSizePolicy.Policy.Fixed,
+                    )
+                else:
+                    if id(btn) in option_button_ids:
+                        btn.setMinimumWidth(220)
+                    else:
+                        btn.setMinimumWidth(0)
+                    btn.setSizePolicy(
+                        QSizePolicy.Policy.Expanding,
+                        QSizePolicy.Policy.Fixed,
+                    )
 
                 # Nicht bei jedem Resize dieselbe CSS-Regel erneut anhängen.
                 # Das verhinderte zwar keinen sichtbaren Fehler, ließ den
@@ -1756,7 +1774,7 @@ class PatchManagerLayoutMixin:
             ):
                 self.all_buttons = []
 
-            cols = 3
+            cols = 10
 
             btn_color = "#1E90FF"
 
@@ -2019,13 +2037,11 @@ class PatchManagerLayoutMixin:
                 )
 
                 btn.setSizePolicy(
-                    QSizePolicy.Policy.Expanding,
+                    QSizePolicy.Policy.Preferred,
                     QSizePolicy.Policy.Fixed
                 )
 
-                btn.setMinimumWidth(
-                    230
-                )
+                btn.setMinimumWidth(0)
 
                 btn.setMinimumHeight(
                     30
@@ -2146,12 +2162,12 @@ class PatchManagerLayoutMixin:
 
                 grid_layout.setColumnStretch(
                     i,
-                    1
+                    0
                 )
 
             # Bei schmalen Fenstern weniger Spalten, bei breiten mehr.
             self._patch_grid_reflow = ResponsiveGridReflow(
-                grid_container, grid_layout, min_item_width=320, parent=self
+                grid_container, grid_layout, min_item_width=360, parent=self
             )
 
             # =========================================================

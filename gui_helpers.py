@@ -142,22 +142,72 @@ class ResponsiveGridReflow(QObject):
     def reflow(self):
         if self.container is None or self.layout is None:
             return
-        width = max(1, self.container.contentsRect().width())
-        spacing = max(0, self.layout.spacing())
-        columns = max(1, (width + spacing) // (self.min_item_width + spacing))
+
         widgets = []
         while self.layout.count():
             item = self.layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
                 widgets.append(widget)
+
         if not widgets:
             return
-        columns = min(columns, len(widgets))
+
+        width = max(1, self.container.contentsRect().width())
+        margins = self.layout.contentsMargins()
+        spacing = max(0, self.layout.horizontalSpacing())
+        available_width = max(
+            1, width - margins.left() - margins.right()
+        )
+
+        if self.container.objectName() == "patchBuildPanel":
+            # Natürliche Buttonbreiten berücksichtigen und maximal
+            # zehn gleichmäßig ausgerichtete Spalten verwenden.
+            columns = 1
+            max_columns = min(10, len(widgets))
+
+            for candidate in range(1, max_columns + 1):
+                column_widths = [0] * candidate
+
+                for index, widget in enumerate(widgets):
+                    col = index % candidate
+                    button_width = max(
+                        widget.sizeHint().width(),
+                        widget.minimumSizeHint().width(),
+                    )
+                    column_widths[col] = max(
+                        column_widths[col], button_width
+                    )
+
+                required_width = (
+                    sum(column_widths)
+                    + spacing * (candidate - 1)
+                )
+
+                if required_width <= available_width:
+                    columns = candidate
+                else:
+                    break
+        else:
+            columns = max(
+                1,
+                (width + spacing)
+                // (self.min_item_width + spacing)
+            )
+
         for index, widget in enumerate(widgets):
-            self.layout.addWidget(widget, index // columns, index % columns)
+            self.layout.addWidget(
+                widget,
+                index // columns,
+                index % columns,
+            )
+
         for col in range(max(columns, self._last_columns)):
-            self.layout.setColumnStretch(col, 1 if col < columns else 0)
+            self.layout.setColumnStretch(
+                col, 1 if col < columns else 0
+            )
+            self.layout.setColumnMinimumWidth(col, 0)
+
         self._last_columns = columns
 
 
