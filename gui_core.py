@@ -896,70 +896,6 @@ class PatchManagerCoreMixin:
                 )
                 return False
 
-            # Commit-Liste aus dem aktuell ausgewählten Repository laden.
-            git_run(
-                [
-                    "fetch",
-                    stream_url,
-                    "refs/heads/master:refs/remotes/revision-picker/master",
-                ],
-                timeout=1200,
-            )
-
-            # Aktuellen Remote-Master direkt vom Server bestimmen.
-            remote_head = ""
-            try:
-                remote_head = git_run(
-                    ["ls-remote", "--exit-code", stream_url, "refs/heads/master"],
-                    cwd=stream_dir,
-                    timeout=120,
-                ).split()[0]
-            except Exception:
-                remote_head = ""
-
-            # Letzte 100 Commits aus dem ausgewählten Repository.
-            log_output = git_run(
-                [
-                    "log",
-                    "revision-picker/master",
-                    "-100",
-                    "--date=format:%Y-%m-%d %H:%M",
-                    "--format=%H%x09%ad%x09%s",
-                ],
-                timeout=120,
-            )
-
-            commits = []
-            seen = set()
-            for line in log_output.splitlines():
-                parts = line.split("\t", 2)
-                if len(parts) != 3:
-                    continue
-                sha, date_text, subject = parts
-                sha = sha.strip()
-                if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
-                    continue
-                if sha in seen:
-                    continue
-                seen.add(sha)
-                commits.append((sha, date_text, subject))
-
-            if remote_head and remote_head not in seen:
-                try:
-                    git_run(["fetch", stream_url, remote_head], timeout=1200)
-                    subject = git_run(
-                        ["show", "-s", "--format=%s", remote_head],
-                        timeout=60,
-                    )
-                    date_text = git_run(
-                        ["show", "-s", "--date=format:%Y-%m-%d %H:%M", "--format=%ad", remote_head],
-                        timeout=60,
-                    )
-                    commits.insert(0, (remote_head, date_text, subject))
-                    seen.add(remote_head)
-                except Exception:
-                    pass
-
             dialog = QDialog(self)
             dialog.setModal(True)
             dialog.resize(900, 620)
@@ -1004,6 +940,50 @@ class PatchManagerCoreMixin:
             repo_combo.addItems(repo_names)
             if selected_repo_name:
                 repo_combo.setCurrentText(selected_repo_name)
+
+            # Git-Quellenauswahl passend zum aktiven GUI-Theme hervorheben.
+            colors = globals().get("current_diff_colors", {}) or {}
+            bg = colors.get("bg", "#2F2F2F")
+            fg = colors.get("fg", colors.get("text", "#FFFFFF"))
+            hover = colors.get("hover", "#444444")
+            active = colors.get("active", "#666666")
+
+            repo_combo.setStyleSheet(f"""
+                QComboBox {{
+                    background-color: {active};
+                    color: {fg};
+                    border: 2px solid {hover};
+                    border-radius: 7px;
+                    padding: 6px 10px;
+                    min-height: 30px;
+                    font-weight: 700;
+                }}
+                QComboBox:hover {{
+                    border: 2px solid {fg};
+                }}
+                QComboBox QAbstractItemView {{
+                    background-color: {bg};
+                    color: {fg};
+                    border: 1px solid {hover};
+                    selection-background-color: {hover};
+                    selection-color: {fg};
+                    outline: none;
+                }}
+                QComboBox QAbstractItemView::item {{
+                    padding: 7px 10px;
+                    min-height: 26px;
+                }}
+                QComboBox QAbstractItemView::item:selected {{
+                    background-color: {active};
+                    color: {fg};
+                    border-left: 3px solid {hover};
+                }}
+                QComboBox QAbstractItemView::item:hover {{
+                    background-color: {hover};
+                    color: {fg};
+                }}
+            """)
+
             layout.addWidget(repo_combo)
             current = getattr(self, "selected_streamboard_commit", "")
             if current:
@@ -1015,13 +995,6 @@ class PatchManagerCoreMixin:
 
             commit_list = QListWidget(dialog)
             layout.addWidget(commit_list)
-
-            for sha, date_text, subject in commits:
-                item = QListWidgetItem(
-                    f"{date_text}  {sha[:12]}  {subject}"
-                )
-                item.setData(0x0100, sha)
-                commit_list.addItem(item)
 
             sha_edit = QLineEdit(dialog)
             sha_edit.setPlaceholderText(
@@ -1072,7 +1045,6 @@ class PatchManagerCoreMixin:
             def refresh_list():
                 try:
                     if git_run(["status", "--porcelain"], timeout=60):
-                        
                         QMessageBox.warning(
                             dialog,
                             "Streamboard",
@@ -1082,7 +1054,6 @@ class PatchManagerCoreMixin:
                                 "Working tree is not clean."
                             )
                         )
-
                         return
 
                     selected_name = repo_combo.currentText()
@@ -1090,7 +1061,6 @@ class PatchManagerCoreMixin:
                         stream_choices.get(selected_name, "")
                     ).strip()
 
-                    
                     if not selected_url:
                         raise RuntimeError(
                             tr(
@@ -1100,55 +1070,98 @@ class PatchManagerCoreMixin:
                             )
                         )
 
-
-                    remote_ref = "refs/remotes/revision-picker/master"
-
-                    
-                    git_run(
-                        [
-                            "fetch",
-                            "--force",
-                            selected_url,
-                            f"+refs/heads/master:{remote_ref}",
-                        ],
-                        timeout=1200,
+                    # Getrennte lokale Referenzen für beide Quellen.
+                    source_key = (
+                        "speedy"
+                        if "speedy" in selected_name.casefold()
+                        else "streamboard"
                     )
-
-
-                    fresh = git_run(
-                        [
-                            "log",
-                            remote_ref,
-                            "-100",
-                            "--date=format:%Y-%m-%d %H:%M",
-                            "--format=%H%x09%ad%x09%s",
-                        ],
-                        timeout=120,
+                    remote_prefix = (
+                        f"refs/remotes/revision-picker/{source_key}"
                     )
 
                     commit_list.clear()
                     sha_edit.clear()
-                    local_seen = set()
 
-                    for line in fresh.splitlines():
-                        parts = line.split("\t", 2)
-                        if len(parts) != 3:
-                            continue
+                    # Alle Branches der ausgewählten Quelle aktualisieren.
+                    git_run(
+                        [
+                            "fetch",
+                            "--prune",
+                            "--force",
+                            selected_url,
+                            f"+refs/heads/*:{remote_prefix}/*",
+                        ],
+                        timeout=1200,
+                    )
 
-                        sha, date_text, subject = parts
-                        sha = sha.lower()
+                    refs_output = git_run(
+                        [
+                            "for-each-ref",
+                            "--format=%(refname)",
+                            remote_prefix,
+                        ],
+                        timeout=60,
+                    )
 
-                        if not re.fullmatch(r"[0-9a-f]{40}", sha):
-                            continue
-                        if sha in local_seen:
-                            continue
-
-                        local_seen.add(sha)
-                        refreshed_item = QListWidgetItem(
-                            f"{date_text}  {sha[:12]}  {subject}"
+                    if not refs_output:
+                        raise RuntimeError(
+                            "Keine Branches im ausgewählten Repository gefunden."
+                            if is_de else
+                            "No branches found in the selected repository."
                         )
-                        refreshed_item.setData(0x0100, sha)
-                        commit_list.addItem(refreshed_item)
+
+                    commits_by_sha = {}
+
+                    for ref in refs_output.splitlines():
+                        ref = ref.strip()
+                        if not ref:
+                            continue
+
+                        branch_name = ref.removeprefix(
+                            remote_prefix + "/"
+                        )
+
+                        fresh = git_run(
+                            [
+                                "log",
+                                ref,
+                                "-100",
+                                "--date=format:%Y-%m-%d %H:%M",
+                                "--format=%H%x09%ad%x09%s",
+                            ],
+                            timeout=120,
+                        )
+
+                        for line in fresh.splitlines():
+                            parts = line.split("\t", 2)
+                            if len(parts) != 3:
+                                continue
+
+                            sha, date_text, subject = parts
+                            sha = sha.lower()
+
+                            if not re.fullmatch(r"[0-9a-f]{40}", sha):
+                                continue
+
+                            commits_by_sha.setdefault(
+                                sha,
+                                (sha, date_text, branch_name, subject)
+                            )
+
+                    commits = sorted(
+                        commits_by_sha.values(),
+                        key=lambda item: item[1],
+                        reverse=True,
+                    )
+
+                    for sha, date_text, branch_name, subject in commits:
+                        item = QListWidgetItem(
+                            f"{date_text}  [{branch_name}]  "
+                            f"{sha[:12]}  {subject}"
+                        )
+                        item.setData(0x0100, sha)
+                        commit_list.addItem(item)
 
                 except Exception as exc:
                     QMessageBox.critical(
@@ -1161,6 +1174,7 @@ class PatchManagerCoreMixin:
             repo_combo.currentTextChanged.connect(
                 lambda _name: refresh_list()
             )
+            refresh_list()
             buttons.accepted.connect(dialog.accept)
             buttons.rejected.connect(dialog.reject)
 
@@ -1530,6 +1544,50 @@ class PatchManagerCoreMixin:
             current_index = repo_combo.findData(emu_url)
             if current_index >= 0:
                 repo_combo.setCurrentIndex(current_index)
+
+
+            # Git-Quellenauswahl passend zum aktiven GUI-Theme hervorheben.
+            colors = globals().get("current_diff_colors", {}) or {}
+            bg = colors.get("bg", "#2F2F2F")
+            fg = colors.get("fg", colors.get("text", "#FFFFFF"))
+            hover = colors.get("hover", "#444444")
+            active = colors.get("active", "#666666")
+
+            repo_combo.setStyleSheet(f"""
+                QComboBox {{
+                    background-color: {active};
+                    color: {fg};
+                    border: 2px solid {hover};
+                    border-radius: 7px;
+                    padding: 6px 10px;
+                    min-height: 30px;
+                    font-weight: 700;
+                }}
+                QComboBox:hover {{
+                    border: 2px solid {fg};
+                }}
+                QComboBox QAbstractItemView {{
+                    background-color: {bg};
+                    color: {fg};
+                    border: 1px solid {hover};
+                    selection-background-color: {hover};
+                    selection-color: {fg};
+                    outline: none;
+                }}
+                QComboBox QAbstractItemView::item {{
+                    padding: 7px 10px;
+                    min-height: 26px;
+                }}
+                QComboBox QAbstractItemView::item:selected {{
+                    background-color: {active};
+                    color: {fg};
+                    border-left: 3px solid {hover};
+                }}
+                QComboBox QAbstractItemView::item:hover {{
+                    background-color: {hover};
+                    color: {fg};
+                }}
+            """)
 
             layout.addWidget(repo_combo)
             info = QLabel(
