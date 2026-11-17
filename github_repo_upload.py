@@ -347,7 +347,15 @@ def github_upload_oscam_emu_folder(
 
         progress(25, "📥 GitHub-Repository wird temporär geklont...")
         run_git(
-            ["clone", "--branch", branch, "--single-branch", target_url, repo_dir],
+            [
+                "clone",
+                "-c", "core.autocrlf=false",
+                "-c", "core.eol=lf",
+                "--branch", branch,
+                "--single-branch",
+                target_url,
+                repo_dir
+            ],
             temp_root
         )
 

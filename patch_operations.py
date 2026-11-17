@@ -2320,7 +2320,7 @@ def create_patch(
         result = subprocess.run(
             [
                 find_git_executable(),
-                "-C", repo_dir,
+                "-C", stream_dir,
                 "show",
                 f"{stream_commit}:module-webif.c",
             ],
@@ -3421,6 +3421,84 @@ def create_patch(
                     f"Remote-HEAD: {stream_commit}\n"
                     f"Lokal:       {local_stream_commit or '<nicht gefunden>'}"
                 )
+
+        # Automatischen Streamboard-HEAD auf echten Quellcode pruefen.
+        # Manche Mirrors enthalten kuenstliche Commits, deren Baum
+        # nur oscam-emu.patch enthaelt. Diese werden uebersprungen.
+        if not selected_stream_commit:
+            log("[STREAMBOARD] Pruefe Commit-Historie auf echten Quellcode...")
+
+            history_result = subprocess.run(
+                [
+                    find_git_executable(),
+                    "-C", stream_dir,
+                    "rev-list",
+                    "--first-parent",
+                    stream_commit,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                timeout=120,
+            )
+
+            if history_result.returncode != 0:
+                raise RuntimeError(
+                    "Streamboard-Commit-Historie konnte nicht gelesen werden: "
+                    + (history_result.stderr or "")
+                )
+
+            source_commit = None
+            skipped_commits = 0
+
+            for candidate in history_result.stdout.splitlines():
+                candidate = candidate.strip()
+                if not candidate:
+                    continue
+
+                has_required_files = True
+                for required_file in ("module-webif.c", "globals.h"):
+                    check_result = subprocess.run(
+                        [
+                            find_git_executable(),
+                            "-C", stream_dir,
+                            "cat-file",
+                            "-e",
+                            f"{candidate}:{required_file}",
+                        ],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=False,
+                        timeout=30,
+                    )
+                    if check_result.returncode != 0:
+                        has_required_files = False
+                        break
+
+                if has_required_files:
+                    source_commit = candidate
+                    break
+
+                skipped_commits += 1
+
+            if not source_commit:
+                raise RuntimeError(
+                    "Kein echter Streamboard-Quellcode-Commit gefunden. "
+                    "Die Historie enthaelt keinen Commit mit "
+                    "module-webif.c und globals.h."
+                )
+
+            if source_commit != stream_commit:
+                log("[STREAMBOARD] Ueberspringe kuenstliche Patch-Commits: "
+                    + str(skipped_commits))
+                log("[STREAMBOARD] Verwende letzten echten Quellcode-Commit: "
+                    + source_commit)
+                stream_commit = source_commit
+            else:
+                log("[STREAMBOARD] Remote-HEAD enthaelt bereits echten Quellcode.")
 
         set_progress(
             25,

@@ -792,6 +792,8 @@ sys.stdout.write(value)
         git_command(
             [
                 "clone",
+                "-c", "core.autocrlf=false",
+                "-c", "core.eol=lf",
                 "--no-checkout",
                 "--branch",
                 branch,
@@ -882,10 +884,19 @@ sys.stdout.write(value)
             "oscam-emu.patch"
         )
 
-        shutil.copy2(
-            patch_file,
-            destination_patch
+        # Patch-Datei systemunabhaengig auf LF normalisieren.
+        # Funktioniert sowohl unter Windows als auch unter Linux.
+        with open(patch_file, "rb") as source:
+            patch_data = source.read()
+
+        patch_data = (
+            patch_data
+            .replace(b"\r\n", b"\n")
+            .replace(b"\r", b"\n")
         )
+
+        with open(destination_patch, "wb") as destination:
+            destination.write(patch_data)
 
         # ========================================================
         # Version aus Patch Header
