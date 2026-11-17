@@ -516,8 +516,27 @@ class PatchManagerLogsMixin:
                 .replace("\n", "<br>")
             )
 
+            important_markers = (
+                "Kein Update vorhanden",
+                "Plugin ist aktuell",
+                "Aktive Konfiguration",
+                "Patch Autor:",
+                "Repository:",
+                "OSCam Git ist aktuell",
+                "Git-URL:",
+            )
+            is_important = any(
+                marker.casefold() in str(text).casefold()
+                for marker in important_markers
+            )
+
             if lvl_str == "raw":
                 html_output += f'<div style="display:inline;">{safe_text}</div>'
+            elif is_important:
+                html_output += (
+                    f'<div style="color:{current_color}; font-size:14px; '
+                    f'font-weight:700; display:inline;">{safe_text}</div>'
+                )
             else:
                 html_output += (
                     f'<div style="color:{current_color}; display:inline;">'
