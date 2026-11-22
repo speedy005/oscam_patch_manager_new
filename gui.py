@@ -4804,7 +4804,7 @@ class PatchManagerGUI(
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 0px 5px;
-                top: -10px;
+                top: 0px;
             }
         """)
         self.layout_grid_buttons = QGridLayout(self.grid_container)
