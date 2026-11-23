@@ -1333,6 +1333,14 @@ _EMU_GIT_BUTTON_TRANSLATIONS = {
         'github_configuration_title': 'Configurazione GitHub',
         'final_label': '🛠️ Cosa costruiamo oggi?',
         'oscam_uptodate': 'OSCam Git è aggiornato.',
+        "patch_repo_label": "Repository patch:",
+        "patch_branch_label": "Branch patch:",
+        "emu_repo_label": "Repository EMU:",
+        "emu_branch_label": "Branch EMU:",
+        "github_username_label": "Utente GitHub:",
+        "github_token_label": "Token GitHub:",
+        "github_user_name_label": "Nome Git:",
+        "github_user_email_label": "E-mail Git:",
     },
     "pl": {
         "streamboard_checkout": "Rewizja Streamboard",
@@ -1407,6 +1415,14 @@ _EMU_GIT_BUTTON_TRANSLATIONS = {
         'github_configuration_title': 'Konfiguracja GitHub',
         'final_label': '🛠️ Co dzisiaj tworzymy?',
         'oscam_uptodate': 'OSCam Git jest aktualny.',
+        "patch_repo_label": "Repozytorium patcha:",
+        "patch_branch_label": "Gałąź patcha:",
+        "emu_repo_label": "Repozytorium EMU:",
+        "emu_branch_label": "Gałąź EMU:",
+        "github_username_label": "Użytkownik GitHub:",
+        "github_token_label": "Token GitHub:",
+        "github_user_name_label": "Nazwa Git:",
+        "github_user_email_label": "E-mail Git:",
     },
     "tr": {
         "streamboard_checkout": "Streamboard Sürümü",
@@ -1481,6 +1497,14 @@ _EMU_GIT_BUTTON_TRANSLATIONS = {
         'github_configuration_title': 'GitHub Yapılandırması',
         'final_label': '🛠️ Bugün ne oluşturuyoruz?',
         'oscam_uptodate': 'OSCam Git güncel.',
+        "patch_repo_label": "Patch deposu:",
+        "patch_branch_label": "Patch dalı:",
+        "emu_repo_label": "EMU deposu:",
+        "emu_branch_label": "EMU dalı:",
+        "github_username_label": "GitHub kullanıcısı:",
+        "github_token_label": "GitHub belirteci:",
+        "github_user_name_label": "Git adı:",
+        "github_user_email_label": "Git e-posta:",
     },
     "gr": {
         "streamboard_checkout": "Έκδοση Streamboard",
@@ -1555,6 +1579,14 @@ _EMU_GIT_BUTTON_TRANSLATIONS = {
         'github_configuration_title': 'Διαμόρφωση GitHub',
         'final_label': '🛠️ Τι θα δημιουργήσουμε σήμερα;',
         'oscam_uptodate': 'Το OSCam Git είναι ενημερωμένο.',
+        "patch_repo_label": "Αποθετήριο patch:",
+        "patch_branch_label": "Κλάδος patch:",
+        "emu_repo_label": "Αποθετήριο EMU:",
+        "emu_branch_label": "Κλάδος EMU:",
+        "github_username_label": "Χρήστης GitHub:",
+        "github_token_label": "Token GitHub:",
+        "github_user_name_label": "Όνομα Git:",
+        "github_user_email_label": "Email Git:",
     },
 }
 
@@ -1568,3 +1600,39 @@ TEXTS["it"]["final_label"] = "🛠️ Cosa costruiamo oggi?"
 
 
 TEXTS["it"]["final_label"] = "🛠️ Cosa costruiamo oggi?"
+
+
+# OSCam source selection dialog translations
+TEXTS["en"].update({'oscam_source_dialog_title': 'Select OSCam source', 'oscam_source_dialog_prompt': 'Repository for patch creation:', 'oscam_source_configured': 'OSCam source configured: {selected}\n{url}', 'oscam_source_error_title': 'OSCam source', 'oscam_source_save_error': 'Could not save setting:\n{error}'})
+TEXTS["de"].update({'oscam_source_dialog_title': 'OSCam-Quelle auswählen', 'oscam_source_dialog_prompt': 'Repository für Patch-Erstellung:', 'oscam_source_configured': 'OSCam-Quelle eingestellt: {selected}\n{url}', 'oscam_source_error_title': 'OSCam-Quelle', 'oscam_source_save_error': 'Einstellung konnte nicht gespeichert werden:\n{error}'})
+TEXTS["it"].update({'oscam_source_dialog_title': 'Seleziona sorgente OSCam', 'oscam_source_dialog_prompt': 'Repository per la creazione della patch:', 'oscam_source_configured': 'Sorgente OSCam configurata: {selected}\n{url}', 'oscam_source_error_title': 'Sorgente OSCam', 'oscam_source_save_error': "Impossibile salvare l'impostazione:\n{error}"})
+TEXTS["pl"].update({'oscam_source_dialog_title': 'Wybierz źródło OSCam', 'oscam_source_dialog_prompt': 'Repozytorium do tworzenia patcha:', 'oscam_source_configured': 'Skonfigurowano źródło OSCam: {selected}\n{url}', 'oscam_source_error_title': 'Źródło OSCam', 'oscam_source_save_error': 'Nie można zapisać ustawienia:\n{error}'})
+TEXTS["tr"].update({'oscam_source_dialog_title': 'OSCam kaynağını seç', 'oscam_source_dialog_prompt': 'Patch oluşturma deposu:', 'oscam_source_configured': 'OSCam kaynağı ayarlandı: {selected}\n{url}', 'oscam_source_error_title': 'OSCam kaynağı', 'oscam_source_save_error': 'Ayar kaydedilemedi:\n{error}'})
+TEXTS["gr"].update({'oscam_source_dialog_title': 'Επιλογή πηγής OSCam', 'oscam_source_dialog_prompt': 'Αποθετήριο για τη δημιουργία patch:', 'oscam_source_configured': 'Η πηγή OSCam ορίστηκε: {selected}\n{url}', 'oscam_source_error_title': 'Πηγή OSCam', 'oscam_source_save_error': 'Δεν ήταν δυνατή η αποθήκευση της ρύθμισης:\n{error}'})
+
+
+# S3-Repository-Auswahl: Tooltip in allen Sprachen
+TEXTS.setdefault("en", {})["s3_repo_combo_tooltip"] = 'Select the repository used for S3 installation.'
+TEXTS.setdefault("de", {})["s3_repo_combo_tooltip"] = 'Repository auswählen, das bei der S3-Installation verwendet wird.'
+TEXTS.setdefault("it", {})["s3_repo_combo_tooltip"] = "Seleziona il repository utilizzato per l'installazione S3."
+TEXTS.setdefault("pl", {})["s3_repo_combo_tooltip"] = 'Wybierz repozytorium używane podczas instalacji S3.'
+TEXTS.setdefault("tr", {})["s3_repo_combo_tooltip"] = 'S3 kurulumu için kullanılacak depoyu seçin.'
+TEXTS.setdefault("gr", {})["s3_repo_combo_tooltip"] = 'Επιλέξτε το αποθετήριο που χρησιμοποιείται για την εγκατάσταση S3.'
+
+
+# Barrierefreiheit: Statistikbutton
+TEXTS.setdefault("en", {})["stats_accessible_name"] = 'Enable or disable statistics'
+TEXTS.setdefault("de", {})["stats_accessible_name"] = 'Statistik aktivieren oder deaktivieren'
+TEXTS.setdefault("it", {})["stats_accessible_name"] = 'Attiva o disattiva le statistiche'
+TEXTS.setdefault("pl", {})["stats_accessible_name"] = 'Włącz lub wyłącz statystyki'
+TEXTS.setdefault("tr", {})["stats_accessible_name"] = 'İstatistikleri etkinleştir veya devre dışı bırak'
+TEXTS.setdefault("gr", {})["stats_accessible_name"] = 'Ενεργοποίηση ή απενεργοποίηση στατιστικών'
+
+
+# Konsolenfehler: Kopieren
+TEXTS.setdefault("en", {})["console_copy_error"] = 'Copy failed: {error}'
+TEXTS.setdefault("de", {})["console_copy_error"] = 'Kopieren fehlgeschlagen: {error}'
+TEXTS.setdefault("it", {})["console_copy_error"] = 'Copia non riuscita: {error}'
+TEXTS.setdefault("pl", {})["console_copy_error"] = 'Kopiowanie nie powiodło się: {error}'
+TEXTS.setdefault("tr", {})["console_copy_error"] = 'Kopyalama başarısız: {error}'
+TEXTS.setdefault("gr", {})["console_copy_error"] = 'Η αντιγραφή απέτυχε: {error}'

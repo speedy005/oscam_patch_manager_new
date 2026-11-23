@@ -642,6 +642,17 @@ class PatchManagerGUI(
                         )
                     )
 
+                if hasattr(self, "oscam_source_button"):
+                    self.oscam_source_button.setText(
+                        lang_dict.get("oscam_source_button", "OSCam Git URL")
+                    )
+                    self.oscam_source_button.setToolTip(
+                        lang_dict.get(
+                            "oscam_source_tooltip",
+                            "Choose source for Create Patch and OSCam-Emu-Git Patch",
+                        )
+                    )
+
                 if hasattr(self, "music_title_combo"):
                     self._refresh_background_music_titles()
                 if hasattr(self, "music_player_button"):
@@ -745,10 +756,10 @@ class PatchManagerGUI(
                     )
                 if hasattr(self, "diagnostics_button"):
                     self.diagnostics_button.setText(
-                        lang_dict.get("system_diagnostics_button", "SYSTEM-DIAGNOSE" if is_de else "SYSTEM DIAGNOSTICS")
+                        lang_dict.get("diagnostics_button", "SYSTEM-DIAGNOSE" if is_de else "SYSTEM DIAGNOSTICS")
                     )
                     self.diagnostics_button.setToolTip(
-                        lang_dict.get("system_diagnostics_tooltip", "System, Tool-Verzeichnisse und vorhandene Build-Logs prüfen; startet keinen Build" if is_de else "Check system, tool directories and existing build logs; does not start a build")
+                        lang_dict.get("diagnostics_tooltip", "System, Tool-Verzeichnisse und vorhandene Build-Logs prüfen; startet keinen Build" if is_de else "Check system, tool directories and existing build logs; does not start a build")
                     )
 
                 if hasattr(self, "header_label"):
@@ -782,16 +793,6 @@ class PatchManagerGUI(
                             QTimer.singleShot(300, blink_status)
 
                     blink_status()
-
-                # Gruppentitel an die gewählte Sprache anpassen
-                for box in self.findChildren(QGroupBox):
-                    title = box.title()
-                    if any(term in title for term in ("Settings", "Einstellungen")):
-                        box.setTitle(lang_dict.get("settings_title", "Settings"))
-                    if any(term in title for term in ("Configuration", "Konfiguration", "GitHub")):
-                        box.setTitle(
-                            lang_dict.get("github_configuration_title", "GitHub Configuration")
-                        )
 
                 if hasattr(self, "btn_modifier"):
                     self.btn_modifier.setText(
@@ -1690,13 +1691,15 @@ class PatchManagerGUI(
     def choose_oscam_source(self):
         """Öffnet eine separate Auswahlbox für das OSCam-Quellrepository."""
         from PyQt6.QtWidgets import QInputDialog
-        is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
+
+        lang = str(getattr(self, "LANG", "de")).lower()[:2]
+        texts = TEXTS.get(lang, TEXTS.get("en", {}))
         names = list(STREAM_REPO_CHOICES.keys())
         current = get_selected_stream_repo_name()
         selected, accepted = QInputDialog.getItem(
             self,
-            "OSCam-Quelle auswählen" if is_de else "Select OSCam source",
-            "Repository für Patch-Erstellung:" if is_de else "Repository for patch creation:",
+            texts.get("oscam_source_dialog_title", "Select OSCam source"),
+            texts.get("oscam_source_dialog_prompt", "Repository for patch creation:"),
             names,
             names.index(current) if current in names else 0,
             False,
@@ -1714,14 +1717,15 @@ class PatchManagerGUI(
             config["oscam_source"] = selected
             with open(config_path, "w", encoding="utf-8") as handle:
                 json.dump(config, handle, indent=4, ensure_ascii=False)
-            # Aktuelle Laufzeit-Workflows verwenden ebenfalls die Auswahl.
+
             globals()["STREAMREPO_URL"] = STREAM_REPO_CHOICES[selected]
-            self.oscam_source_button.setText("Oscam Git URL")
-            message = (
-                        f"OSCam-Quelle eingestellt: {selected}\n{STREAM_REPO_CHOICES[selected]}"
-                        if is_de
-                        else f"OSCam source configured: {selected}\n{STREAM_REPO_CHOICES[selected]}"
-                    )
+            self.oscam_source_button.setText(
+                texts.get("oscam_source_button", "OSCam Git URL")
+            )
+            message = texts.get(
+                "oscam_source_configured",
+                "OSCam source configured: {selected}\\n{url}",
+            ).format(selected=selected, url=STREAM_REPO_CHOICES[selected])
             if hasattr(self, "append_info"):
                 self.append_info(self.info_text, message, "success")
             elif hasattr(self, "info_text"):
@@ -1729,14 +1733,12 @@ class PatchManagerGUI(
         except Exception as exc:
             QMessageBox.critical(
                 self,
-                "OSCam-Quelle" if is_de else "OSCam source",
-                (
-                    f"Einstellung konnte nicht gespeichert werden:\n{exc}"
-                    if is_de
-                    else f"Could not save setting:\n{exc}"
-                ),
+                texts.get("oscam_source_error_title", "OSCam source"),
+                texts.get(
+                    "oscam_source_save_error",
+                    "Could not save setting:\\n{error}",
+                ).format(error=exc),
             )
-
 
 
     def _play_sys_sound(self, sound_type="standard"):
@@ -3132,13 +3134,8 @@ class PatchManagerGUI(
         self.info_button.setIconSize(QSize(22, 22) if hd_mode else QSize(28, 28))
         self.info_button.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        # Tooltip entsprechend der aktuellen Sprache
-        is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
-
         self.info_button.setToolTip(
-            "Zeigt Informationen über das OSCam Toolkit an."
-            if is_de
-            else "Displays information about the OSCam Toolkit."
+            self.TEXT.get("info_tooltip", "Info / Help")
         )
         self.info_button.setToolTipDuration(10000)
 
@@ -3250,7 +3247,10 @@ class PatchManagerGUI(
         self.s3_repo_combo.setMinimumWidth(230)
         self.s3_repo_combo.setMinimumHeight(34)
         self.s3_repo_combo.setToolTip(
-            "Repository auswählen, das bei der S3-Installation verwendet wird."
+            self.TEXT.get(
+                "s3_repo_combo_tooltip",
+                "Select the repository used for S3 installation.",
+            )
         )
         self.s3_repo_combo.setStyleSheet("""
             QComboBox {
@@ -3657,7 +3657,10 @@ class PatchManagerGUI(
             self.TEXT.get("stats_tooltip", "Allow/disallow anonymous usage statistics (Hit-Counter).")
         )
         self.telemetry_cb.setAccessibleName(
-            "Stats aktivieren oder deaktivieren"
+            self.TEXT.get(
+                "stats_accessible_name",
+                "Enable or disable statistics",
+            )
         )
         self.telemetry_cb.setStyleSheet(action_button_style)
         self.telemetry_cb.toggled.connect(self.on_telemetry_changed)
@@ -3838,7 +3841,13 @@ class PatchManagerGUI(
             try:
                 QApplication.clipboard().setText(self.info_text.toPlainText())
             except Exception as exc:
-                self.append_info(self.info_text, f"Kopieren fehlgeschlagen: {exc}", "error")
+                self.append_info(
+                    self.info_text,
+                    self.TEXT.get(
+                        "console_copy_error", "Copy failed: {error}"
+                    ).format(error=exc),
+                    "error",
+                )
 
         copy_log_button.clicked.connect(copy_visible_console)
         self.copy_log_button = copy_log_button
