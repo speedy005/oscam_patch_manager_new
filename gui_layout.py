@@ -480,6 +480,8 @@ class PatchManagerLayoutMixin:
                 return
 
             btn = entry[0] if isinstance(entry, tuple) else entry
+            # Beschriftung aus der aktuell gewählten Sprache übernehmen.
+            base_text = self.get_t(key, base_text)
             text = base_text
             if revision:
                 text = f"{base_text} ({revision})"
@@ -661,7 +663,7 @@ class PatchManagerLayoutMixin:
             ),
             (
                 "streamboard_checkout",
-                "Streamboard Revision" if is_de else "Streamboard Revision",
+                "streamboard_checkout",
                 "#00BFFF",
                 self.checkout_streamboard_revision,
                 "white",
@@ -671,7 +673,7 @@ class PatchManagerLayoutMixin:
             ),
             (
                 "oscam_emu_revision",
-                "OSCam-Emu Revision",
+                "oscam_emu_revision",
                 "#00BFFF",
                 self.checkout_emu_revision,
                 "white",
@@ -965,7 +967,7 @@ class PatchManagerLayoutMixin:
         # ---------------------------------------------------------
         for key, (btn, text_key) in self.option_buttons.items():
 
-            new_text = self.get_t(text_key, text_key)
+            new_text = self.get_t(key, text_key)
 
             btn.setText(new_text)
             btn.setProperty("text_key", text_key)

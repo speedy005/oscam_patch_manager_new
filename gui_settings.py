@@ -1791,7 +1791,7 @@ class PatchManagerSettingsMixin:
                 if isinstance(val, (list, tuple)) and len(val) >= 2:
                     try:
                         prefix = "💻 " if "terminal" in str(key).lower() else ""
-                        val[0].setText(f"{prefix}{get_t(val[1])}")
+                        val[0].setText(f"{prefix}{get_t(key, val[1])}")
                     except RuntimeError:
                         pass
         # Backup-Button übersetzen
@@ -1811,66 +1811,43 @@ class PatchManagerSettingsMixin:
             get_t("github_config_header", "GitHub-Konfiguration" if lang == "de" else "GitHub Configuration"),
         )
 
-        # --- C) DIE 3 NEUEN ORDNER-BUTTONS & INSTALLATIONS-BUTTONS ---
-        safe_ui(
-            "btn_open_work",
-            "setText",
-            "📁 Arbeitsordner" if lang == "de" else "📁 Working Folder",
-        )
-        safe_ui(
-            "btn_open_temp", "setText", "📁 Temp-Repo" if lang == "de" else "📁 Temp Repo"
-        )
-        safe_ui("btn_open_emu", "setText", "📁 Emu-Git" if lang == "de" else "📁 Emu Git")
+        # --- C) ORDNER-BUTTONS ---
+        safe_ui("btn_open_work", "setText", get_t("open_work_folder_button"))
+        safe_ui("btn_open_temp", "setText", get_t("open_temp_repo_button"))
+        safe_ui("btn_open_emu", "setText", get_t("open_emu_git_button"))
 
-        # HIER ERGÄNZT: Die Übersetzungen für S3, S4 und NCam
-        safe_ui(
-            "btn_s3", 
-            "setText", 
-            get_t("install_s3", "🚀 S3 Installieren" if lang == "de" else "🚀 Install S3")
-        )
-        safe_ui(
-            "btn_s4", 
-            "setText", 
-            get_t("install_s4", "🚀 S4 Installieren" if lang == "de" else "🚀 Install S4")
-        )
-        safe_ui(
-            "btn_ncam", 
-            "setText", 
-            get_t("install_ncam", "🚀 NCam Installieren" if lang == "de" else "🚀 Install NCam-speedy")
-        )
+        safe_ui("btn_s3", "setText", get_t("install_s3", "🚀 Install S3"))
+        safe_ui("btn_s4", "setText", get_t("install_s4", "🚀 Install S4"))
+        safe_ui("btn_ncam", "setText", get_t("install_ncam", "🚀 Install NCam"))
 
         # --- D) FUNKTIONS-BUTTONS ---
+        safe_ui("btn_check_tools", "setText", get_t("check_tools_button"))
+        safe_ui("btn_check_commit", "setText", get_t("check_commit_button"))
         safe_ui(
-            "btn_check_tools", "setText",
-            get_t("check_tools_button", "🛠️ Tools prüfen" if lang == "de" else "🛠️ Check Tools")
-        )
-        safe_ui(
-            "btn_check_commit", "setText",
-            get_t("check_commit_button", "🔄 Commit prüfen" if lang == "de" else "🔄 Check Commit")
-        )
-        safe_ui(
-            "btn_patch_online", "setText",
-            "🌐 " + str(get_t(
-                "patch_online_download",
-                "Patches aus Git laden" if lang == "de" else "Load Patches from Git"
-            ))
+            "btn_patch_online",
+            "setText",
+            "🌐 " + str(get_t("patch_online_download")),
         )
 
         # Patch Autor
-        if hasattr(self, "btn_modifier"):
-            auth_text = "👤 Patch Autor" if lang == "de" else "👤 Patch Author"
-            current_name = getattr(self, "patch_modifier", "speedy005")
-            tip = (
-                f"Autor: {current_name}" if lang == "de" else f"Author: {current_name}"
-            )
-            safe_ui("btn_modifier", "setText", auth_text)
-            safe_ui("btn_modifier", "setToolTip", tip)
+        current_name = getattr(self, "patch_modifier", "speedy005")
+        safe_ui("btn_modifier", "setText", get_t("modifier_button_text"))
+        safe_ui(
+            "btn_modifier",
+            "setToolTip",
+            f"{get_t('modifier_button_text')}: {current_name}",
+        )
 
         # Repo URL
-        if hasattr(self, "btn_repo_url"):
-            safe_ui("btn_repo_url", "setText", get_t("repo_url_button", "🌐 Repo URL"))
-            repo_tip = "Emu-Repo URL ändern" if lang == "de" else "Change Emu-Repo URL"
-            safe_ui("btn_repo_url", "setToolTip", repo_tip)
+        safe_ui("btn_repo_url", "setText", get_t("repo_url_button"))
+        safe_ui(
+            "btn_repo_url",
+            "setToolTip",
+            get_t("repo_url_tooltip", "Emu-Repo-URL ändern"),
+        )
+
+        # Backup
+        safe_ui("btn_backup_gui", "setText", get_t("backup_button_text"))
 
         # --- PATCH-ORDNER / PATCH-KOPIERBUTTONS ---
         safe_ui("header_btn_s3_ncam", "setText", get_t("patch_folder_s3_ncam", "S3-NCam-Bonecrew-Pfad" if lang == "de" else "S3-NCam-Bonecrew path"))
