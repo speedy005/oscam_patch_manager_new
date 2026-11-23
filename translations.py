@@ -569,7 +569,6 @@ TEXTS = {
         "patch_emu_git_apply_failed": "❌ Patch konnte nicht angewendet werden",
         "patch_emu_git_applied": "✅ Patch erfolgreich committet: {commit_msg}",
         "patch_emu_git_revision_failed": "⚠️ Git-Revision konnte nicht ermittelt werden: {error}",
-        "patch_emu_git_done": "✅ Oscam Emu Git erfolgreich gepatcht",
         "edit_patch_header": "Edit Patch Header",
         "patch_emu_git_revision": "\U0001f4dd Git-Revision: {sha}",
         "patch_emu_git_start": "🚀 OSCam-Emu-Git Patch-Prozess wird gestartet...",
@@ -680,7 +679,6 @@ TEXTS = {
         "patch_emu_git_apply_failed": "❌ Fehler: Der oscam-emu.patch konnte nicht angewendet werden!",
         "patch_emu_git_done": "🎉 OScam-Emu Git erfolgreich vorbereitet und lokal committed!",
         "patch_emu_git_done": "🎉 OScam-Emu Git erfolgreich gepatcht!",
-        "rev_label": "📝 Git-Revision:",
         # Falls du weitere Keys aus der Log-Funktion brauchst:
         "git_rev_info": "📝 Git-Revision: {revision}",
         # online check
