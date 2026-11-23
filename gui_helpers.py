@@ -185,6 +185,8 @@ class ResponsiveGridReflow(QObject):
                     button_width = max(
                         widget.sizeHint().width(),
                         widget.minimumSizeHint().width(),
+                        widget.minimumWidth(),
+                        widget.minimumSize().width(),
                     )
                     column_widths[col] = max(
                         column_widths[col], button_width

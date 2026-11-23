@@ -565,6 +565,31 @@ def main():
                                 flush=True,
                             )
 
+                        for name in (
+                            "btn_patch_online",
+                            "btn_check_commit",
+                            "btn_modifier",
+                            "btn_check_tools",
+                            "btn_fix_perms",
+                        ):
+                            button = getattr(main_window, name, None)
+                            if button is None:
+                                print(f"{name}: NICHT VORHANDEN", flush=True)
+                                continue
+
+                            parent = button.parentWidget()
+                            print(
+                                f"{name}: text={button.text()!r}, "
+                                f"visible={button.isVisible()}, "
+                                f"geometry={button.geometry()}, "
+                                f"sizeHint={button.sizeHint()}, "
+                                f"minimumSizeHint={button.minimumSizeHint()}, "
+                                f"minimum={button.minimumWidth()}, "
+                                f"maximum={button.maximumWidth()}, "
+                                f"parent={parent.objectName() if parent else None}",
+                                flush=True,
+                            )
+
                         print("========== ENDE BUTTON SICHTBARKEIT ==========", flush=True)
                         
                         from pathlib import Path

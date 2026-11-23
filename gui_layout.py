@@ -86,7 +86,7 @@ class PatchManagerLayoutMixin:
                     ancestor = ancestor.parentWidget()
 
                 if is_patch_grid_button:
-                    btn.setMinimumWidth(410)
+                    btn.setMinimumWidth(0)
                     btn.setSizePolicy(
                         QSizePolicy.Policy.Expanding,
                         QSizePolicy.Policy.Fixed,

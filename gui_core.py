@@ -684,8 +684,6 @@ class PatchManagerCoreMixin:
                 self.commit_label.setFixedWidth(100 if compact else 140)
             if hasattr(self, "commit_spin"):
                 self.commit_spin.setFixedWidth(65 if compact else 75)
-            if hasattr(self, "btn_check_tools"):
-                self.btn_check_tools.setFixedWidth(165 if compact else 220)
         except RuntimeError:
             # Widgets können während des Schließens bereits zerstört sein.
             pass

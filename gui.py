@@ -4438,14 +4438,8 @@ class PatchManagerGUI(
         if int(self.commit_spin.value()) != int(saved_commits):
             self.commit_spin.setValue(saved_commits)
 
-        self.btn_check_tools = QPushButton(
-            self.get_t("check_tools_button", "🛠️ Tools prüfen")
-        )
-        self.btn_check_tools.setFixedSize(220, 45)
-
-        # --- 0. Container Erstellung (Korrektur: QGroupBox statt QFrame) ---
-        controls_group = QGroupBox("")
-        controls_group_layout = QVBoxLayout(controls_group)
+        # Der Funktionsbutton wird weiter unten einmalig erstellt.
+        # controls_group wurde bereits oben als QFrame angelegt.
 
         # Stylesheet: Macht den Kasten extrem flach und rückt den Titel bündig
         controls_group.setStyleSheet(
@@ -4884,7 +4878,7 @@ class PatchManagerGUI(
             button.setProperty("pin_right", button is exit_button)
             # Alle Buttons im PATCH-&-BUILD-Grid bekommen natürliche Textbreite.
             # Alte setFixedSize()-Vorgaben (z.B. 440 px) werden aufgehoben.
-            button.setMinimumWidth(410)
+            button.setMinimumWidth(0)
             button.setMaximumWidth(16777215)
             button.setMinimumHeight(45)
             button.setMaximumHeight(45)
@@ -4903,6 +4897,33 @@ class PatchManagerGUI(
         reflow = getattr(self, "_patch_grid_reflow", None)
         if reflow is not None:
             reflow.reflow()
+
+        # Tools-Button nach dem Reflow sicher auf volle Grid-Breite setzen.
+        if self.btn_check_tools is not None:
+            self.btn_check_tools.setMinimumWidth(0)
+            self.btn_check_tools.setMaximumWidth(16777215)
+            self.btn_check_tools.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed,
+            )
+
+        print("\n[BUTTON WIDTH CHECK]", flush=True)
+        for name, btn in [
+            ("Patch Online", self.btn_patch_online),
+            ("Patch erstellen", self.buttons.get("patch_create")),
+            ("Patch prüfen", self.buttons.get("patch_check")),
+            ("Tools prüfen", self.btn_check_tools),
+            ("Patch Autor", self.btn_modifier),
+        ]:
+            if btn:
+                print(
+                    name,
+                    "Größe:", btn.size(),
+                    "Minimum:", btn.minimumWidth(),
+                    "Maximum:", btn.maximumWidth(),
+                    "Parent:", btn.parent().objectName() if btn.parent() else None,
+                    flush=True,
+                )
 
         # Weitere Werkzeuge in einer separaten, responsiven Sektion.
 
