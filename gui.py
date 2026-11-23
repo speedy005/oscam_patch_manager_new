@@ -401,7 +401,9 @@ class PatchManagerGUI(
         self.live_indicator = QLabel()
         # Initialer Text
         self.live_indicator.setText(
-            "<span style='color:#ff0000;'>●</span> <span style='color:#ffffff;'>LIVE | System Monitor</span>"
+            "<span style='color:#ff0000;'>●</span> <span style='color:#ffffff;'>"
+            + self.TEXT.get("live_system_monitor", "LIVE | System Monitor")
+            + "</span>"
         )
         self.live_indicator.setStyleSheet(
             """
@@ -428,9 +430,10 @@ class PatchManagerGUI(
             self.color_box.blockSignals(False)
             self.color_box.currentIndexChanged.connect(self.change_colors)
         self.color_box.setToolTip(
-            "Farbschema der Oberfläche auswählen"
-            if str(getattr(self, "LANG", self.cfg.get("language", "de"))).lower() in ("de", "0")
-            else "Choose the interface color theme"
+            self.TEXT.get(
+                "color_theme_tooltip",
+                "Choose the interface color theme"
+            )
         )
         self.color_box.setToolTipDuration(10000)
 
@@ -627,30 +630,29 @@ class PatchManagerGUI(
 
                 if hasattr(self, "music_button"):
                     self.music_button.setText(
-                        ("🎵 Musik ausschalten" if self.music_button.isChecked() else "🎵 Musik einschalten")
-                        if is_de else
-                        ("🎵 Music off" if self.music_button.isChecked() else "🎵 Music on")
+                        lang_dict.get(
+                            "music_off" if self.music_button.isChecked() else "music_on",
+                            "🎵 Music off" if self.music_button.isChecked() else "🎵 Music on",
+                        )
                     )
                     self.music_button.setToolTip(
-                        "Hintergrundmusik aus dem Ordner sounds ein- oder ausschalten."
-                        if is_de else
-                        "Toggle background music from the sounds folder."
+                        lang_dict.get(
+                            "music_toggle_tooltip",
+                            "Toggle background music from the sounds folder.",
+                        )
                     )
 
                 if hasattr(self, "music_title_combo"):
                     self._refresh_background_music_titles()
                 if hasattr(self, "music_player_button"):
                     self.music_player_button.setText(
-                        "🎚 Player öffnen" if is_de else "🎚 Open player"
+                        lang_dict.get("music_player_button", "🎚 Open Player")
                     )
                     self.music_player_button.setToolTip(
-                        "Separaten Cyber Music Player öffnen"
-                        if is_de else "Open the separate Cyber Music Player"
-                    )
-                    self.music_player_button.setToolTip(
-                        "Separaten Cyber Music Player öffnen"
-                        if is_de else
-                        "Open the separate Cyber Music Player"
+                        lang_dict.get(
+                            "music_player_tooltip",
+                            "Open the separate Cyber Music Player",
+                        )
                     )
 
                 # Auch ein bereits geöffnetes Player-Fenster live umschalten.
@@ -686,47 +688,51 @@ class PatchManagerGUI(
                         )
                     )
                 if hasattr(self, "cyber_center_button"):
-                    self.cyber_center_button.setText("OSCAM CONTROL CENTER")
+                    self.cyber_center_button.setText(
+                        lang_dict.get("cyber_center_button", "OSCAM CONTROL CENTER")
+                    )
                     self.cyber_center_button.setToolTip(
-                        "Zentrale für alle OSCam-Control-Center-Funktionen"
-                        if is_de else
-                        "Central hub for all OSCam Control Center features"
+                        lang_dict.get(
+                            "cyber_center_tooltip",
+                            "Central hub for all OSCam Control Center features",
+                        )
                     )
                 if hasattr(self, "patch_diff_button"):
                     self.patch_diff_button.setText(
-                        "PATCH VERGLEICHEN" if is_de else "COMPARE PATCHES"
+                        self.TEXT.get("patch_diff_button", "COMPARE PATCHES")
                     )
                     self.patch_diff_button.setToolTip(
-                        "Zwei Patch-Dateien oder Git-Commits vergleichen"
-                        if is_de else
-                        "Compare two patch files or Git commits"
+                        lang_dict.get(
+                            "patch_diff_tooltip",
+                            "Compare two patch files or Git commits",
+                        )
                     )
                 if hasattr(self, "achievement_button"):
                     self.achievement_button.setText(
-                        "🏆 ERFOLGE" if is_de else "🏆 ACHIEVEMENTS"
+                        self.TEXT.get("achievement_button", "🏆 ACHIEVEMENTS")
                     )
                     self.achievement_button.setToolTip(
-                        "Deine OSCam-Erfolge und Fortschritte anzeigen"
-                        if is_de else
-                        "View your OSCam achievements and progress"
+                        lang_dict.get(
+                            "achievement_tooltip",
+                            "View your OSCam achievements and progress",
+                        )
                     )
                 if hasattr(self, "ai_assistant_button"):
                     self.ai_assistant_button.setText(
-                        "🤖 KI-ASSISTENT" if is_de else "🤖 AI ASSISTANT"
+                        self.TEXT.get("ai_assistant_button", "🤖 AI ASSISTANT")
                     )
                     self.ai_assistant_button.setToolTip(
-                        "KI-Chat für Patch-Analyse und Fehlersuche öffnen"
-                        if is_de else
-                        "Open AI chat for patch analysis and troubleshooting"
+                        lang_dict.get(
+                            "ai_assistant_tooltip",
+                            "Open AI chat for patch analysis and troubleshooting",
+                        )
                     )
                 if hasattr(self, "weather_button"):
                     self.weather_button.setText(
-                        "🌤 Wetter anzeigen" if is_de else "🌤 Show weather"
+                        lang_dict.get("weather_button", "🌤 Show weather")
                     )
                     self.weather_button.setToolTip(
-                        "Aktuelles Wetter und 5-Tage-Vorhersage anzeigen"
-                        if is_de else
-                        "Show current weather and 5-day forecast"
+                        lang_dict.get("weather_tooltip", "Show current weather and 5-day forecast")
                     )
 
                 # BUILD-LOG-Analyse und Systemdiagnose ebenfalls live umschalten.
@@ -747,12 +753,7 @@ class PatchManagerGUI(
 
                 if hasattr(self, "header_label"):
                     self.header_label.setText(
-                        strip_icons(
-                            lang_dict.get(
-                                "settings_header",
-                                "Einstellungen" if is_de else "Settings",
-                            )
-                        )
+                        strip_icons(lang_dict.get("settings_title", "Settings"))
                     )
 
                 # OSCam-Status kurz hervorheben
@@ -785,11 +786,11 @@ class PatchManagerGUI(
                 # Gruppentitel an die gewählte Sprache anpassen
                 for box in self.findChildren(QGroupBox):
                     title = box.title()
-                    if "Settings" in title or "Einstellungen" in title:
-                        box.setTitle("Einstellungen" if is_de else "Settings")
+                    if any(term in title for term in ("Settings", "Einstellungen")):
+                        box.setTitle(lang_dict.get("settings_title", "Settings"))
                     if any(term in title for term in ("Configuration", "Konfiguration", "GitHub")):
                         box.setTitle(
-                            "GitHub Konfiguration" if is_de else "GitHub Configuration"
+                            lang_dict.get("github_configuration_title", "GitHub Configuration")
                         )
 
                 if hasattr(self, "btn_modifier"):
@@ -836,11 +837,10 @@ class PatchManagerGUI(
                     try:
                         # Abschlusstext unmittelbar vor der Animation anhand
                         # der aktuell gewählten Sprache aktualisieren.
-                        current_is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
-                        current_text = (
-                            "🛠️ Was bauen wir heute?"
-                            if current_is_de
-                            else "🛠️ What are we building today?"
+                        current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
+                        current_dict = TEXTS.get(current_lang, TEXTS.get("en", {}))
+                        current_text = current_dict.get(
+                            "final_label", "🛠️ What are we building today?"
                         )
                         final_geom = pbar.geometry() if pbar is not None else QRect(20, 20, 400, 40)
                         final_label = getattr(self, "final_label", None)
@@ -3416,14 +3416,13 @@ class PatchManagerGUI(
         path_button_layout.addWidget(self.header_btn_s3_ncam)
 
         # Player direkt unter dem S3-Patch-Pfad platzieren.
-        self.music_player_button = QPushButton("🎚 Player öffnen" if lang == "de" else "🎚 Open player")
+        self.music_player_button = QPushButton(self.TEXT.get("music_player_button", "🎚 Open Player"))
         self.music_player_button.setMinimumSize(240, 50)
         self.music_player_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.music_player_button.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         self.music_player_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.music_player_button.setToolTip(
-            "Separaten Cyber Music Player öffnen"
-            if lang == "de" else "Open the separate Cyber Music Player"
+            self.TEXT.get("music_player_tooltip", "Open the separate Cyber Music Player")
         )
         self.music_player_button.clicked.connect(self.open_external_music_player)
         self._music_player_window = None
@@ -3449,9 +3448,7 @@ class PatchManagerGUI(
         self.header_btn_patch_ncam.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
         self.header_btn_patch_ncam.setIconSize(QSize(20, 20))
         self.header_btn_patch_ncam.setToolTip(
-            "Kopiert oscam-emu.patch in den konfigurierten S3-NCam-Bonecrew-Patch-Ordner."
-            if str(getattr(self, "LANG", "de")).lower().startswith("de")
-            else "Copies oscam-emu.patch to the configured S3-NCam-Bonecrew patch folder."
+            self.TEXT.get("patch_copy_s3_ncam_tooltip", "Copies oscam-emu.patch to the configured S3-NCam-Bonecrew patch folder.")
         )
         self.header_btn_patch_ncam.clicked.connect(
             lambda checked=False: self.copy_patch_to_target("ncam")
@@ -3465,9 +3462,7 @@ class PatchManagerGUI(
         self.header_btn_patch_s4.setIcon(self.style().standardIcon(QApplication.style().StandardPixmap.SP_FileIcon))
         self.header_btn_patch_s4.setIconSize(QSize(20, 20))
         self.header_btn_patch_s4.setToolTip(
-            "Kopiert oscam-emu.patch in den konfigurierten S4-Patch-Ordner."
-            if str(getattr(self, "LANG", "de")).lower().startswith("de")
-            else "Copies oscam-emu.patch to the configured S4 patch folder."
+            self.TEXT.get("patch_copy_s4_tooltip", "Copies oscam-emu.patch to the configured S4 patch folder.")
         )
         self.header_btn_patch_s4.clicked.connect(
             lambda checked=False: self.copy_patch_to_target("s4")
@@ -3476,7 +3471,7 @@ class PatchManagerGUI(
 
         # --- WETTERBUTTON ---
         self.weather_button = QPushButton(
-            "🌤 Wetter anzeigen" if lang == "de" else "🌤 Show weather"
+            self.TEXT.get("weather_button", "🌤 Show weather")
         )
         self.weather_button.setMinimumSize(240, 50)
         self.weather_button.setSizePolicy(
@@ -3485,9 +3480,7 @@ class PatchManagerGUI(
         self.weather_button.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.weather_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.weather_button.setToolTip(
-            "Aktuelles Wetter und 5-Tage-Vorhersage anzeigen"
-            if lang == "de"
-            else "Show current weather and 5-day forecast"
+            self.TEXT.get("weather_tooltip", "Show current weather and 5-day forecast")
         )
         self.weather_button.clicked.connect(
             lambda checked=False: open_weather_window(self)
@@ -3538,7 +3531,7 @@ class PatchManagerGUI(
         self.music_player_button.setStyleSheet(action_button_style)
 
         # --- LOG SPEICHERN ---
-        log_text = "Log speichern" if lang == "de" else "Save Log"
+        log_text = self.TEXT.get("log_button", "💾 Save Log")
 
         self.log_button = QPushButton(log_text)
         self.log_button.setMinimumSize(120, 50)
@@ -3551,9 +3544,7 @@ class PatchManagerGUI(
         )
         self.log_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.log_button.setToolTip(
-            "Speichert den aktuellen Log-/Protokollinhalt in einer Datei."
-            if str(getattr(self, "LANG", "de")).lower().startswith("de")
-            else "Saves the current log output to a file."
+            self.TEXT.get("log_tooltip", "Saves the current log output to a file.")
         )
         self.log_button.setStyleSheet(action_button_style)
 
@@ -3564,7 +3555,9 @@ class PatchManagerGUI(
         self._music_settings = QSettings("speedy005", "OSCamPatchManager")
 
         # --- HINTERGRUNDMUSIK (sounds-Ordner im Tool-Verzeichnis) ---
-        self.music_button = QPushButton("🎵 Musik einschalten" if lang == "de" else "🎵 Music on")
+        self.music_button = QPushButton(
+            self.TEXT.get("music_button", "🎵 Music on")
+        )
         self.music_button.setCheckable(True)
         self.music_button.setMinimumSize(120, 50)
         self.music_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
@@ -3577,9 +3570,7 @@ class PatchManagerGUI(
         self.music_button.setFixedSize(240, 50)
 
         self.music_button.setToolTip(
-            "Hintergrundmusik aus dem Ordner sounds ein- oder ausschalten."
-            if lang == "de" else
-            "Toggle background music from the sounds folder."
+            self.TEXT.get("music_tooltip", "Toggle background music from the sounds folder.")
         )
         # Erst alle Musik-Attribute und die Titelauswahl initialisieren.
         # Das Wiederherstellen von "playing" kann toggled direkt auslösen.
@@ -3590,7 +3581,7 @@ class PatchManagerGUI(
         self.music_title_combo.setMinimumWidth(200)
         self.music_title_combo.setMaximumWidth(240)
         self.music_title_combo.setToolTip(
-            "Musiktitel auswählen" if lang == "de" else "Choose a music track"
+            self.TEXT.get("music_title_tooltip", "Choose a music track")
         )
         self.music_title_combo.setStyleSheet(
             "QComboBox { padding: 5px 8px; border-radius: 6px; }"
@@ -3653,7 +3644,7 @@ class PatchManagerGUI(
             QTimer.singleShot(700, self._retry_background_music_restore)
 
         # --- STATS ---
-        self.telemetry_cb = QPushButton("Stats")
+        self.telemetry_cb = QPushButton(self.TEXT.get("stats_checkbox", "Stats"))
         self.telemetry_cb.setCheckable(True)
         self.telemetry_cb.setMinimumSize(58, 32)
         self.telemetry_cb.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
@@ -3663,9 +3654,7 @@ class PatchManagerGUI(
         )
         self.telemetry_cb.setCursor(Qt.CursorShape.PointingHandCursor)
         self.telemetry_cb.setToolTip(
-            "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten."
-            if lang == "de" else
-            "Allow/disallow anonymous usage statistics (Hit-Counter)."
+            self.TEXT.get("stats_tooltip", "Allow/disallow anonymous usage statistics (Hit-Counter).")
         )
         self.telemetry_cb.setAccessibleName(
             "Stats aktivieren oder deaktivieren"
@@ -3674,7 +3663,9 @@ class PatchManagerGUI(
         self.telemetry_cb.toggled.connect(self.on_telemetry_changed)
 
         # --- OSCAM-GIT-URL ---
-        self.oscam_source_button = QPushButton("Oscam Git URL")
+        self.oscam_source_button = QPushButton(
+            self.TEXT.get("oscam_source_button", "OSCam Git URL")
+        )
         self.oscam_source_button.setFixedSize(440, 45)
         self.oscam_source_button.setFont(
             QFont("Segoe UI", 8, QFont.Weight.Bold)
@@ -3685,9 +3676,7 @@ class PatchManagerGUI(
             Qt.CursorShape.PointingHandCursor
         )
         self.oscam_source_button.setToolTip(
-            "Quelle für Create Patch und OSCam-Emu-Git Patch auswählen"
-            if lang == "de" else
-            "Choose source for Create Patch and OSCam-Emu-Git Patch"
+            self.TEXT.get("oscam_source_tooltip", "Choose source for Create Patch and OSCam-Emu-Git Patch")
         )
         self.oscam_source_button.setStyleSheet(action_button_style)
         self.oscam_source_button.clicked.connect(self.choose_oscam_source)
@@ -3810,7 +3799,7 @@ class PatchManagerGUI(
         # INFO + PROGRESS
         # ---------------------------------------------------------
         # Große Live-Konsole als visueller Mittelpunkt der Oberfläche
-        console_panel = QGroupBox("LIVE SYSTEM CONSOLE  /  STATUS & LOGS")
+        console_panel = QGroupBox(self.TEXT.get("console_panel_title", "LIVE SYSTEM CONSOLE / STATUS & LOGS"))
         self.console_panel = console_panel
         console_layout = QVBoxLayout(console_panel)
         console_layout.setContentsMargins(6, 5, 6, 5)
@@ -3840,10 +3829,9 @@ class PatchManagerGUI(
         console_tools.setSpacing(2)
 
         is_de = str(getattr(self, "LANG", LANG)).lower() == "de"
-        copy_log_button = QPushButton("LOG KOPIEREN" if is_de else "COPY LOG")
+        copy_log_button = QPushButton(self.TEXT.get("copy_log_button", "COPY LOG"))
         copy_log_button.setToolTip(
-            "Gesamte sichtbare Konsolenausgabe in die Zwischenablage kopieren"
-            if is_de else "Copy all visible console output to the clipboard"
+            self.TEXT.get("copy_log_tooltip", "Copy all visible console output to the clipboard")
         )
         def copy_visible_console():
             """Kopiert ausschließlich den aktuell sichtbaren Konsoleninhalt."""
@@ -3855,43 +3843,37 @@ class PatchManagerGUI(
         copy_log_button.clicked.connect(copy_visible_console)
         self.copy_log_button = copy_log_button
 
-        analyze_build_logs_button = QPushButton("BUILD-LOG ANALYSIEREN" if is_de else "ANALYZE BUILD LOG")
+        analyze_build_logs_button = QPushButton(self.TEXT.get("analyze_build_logs_button", "ANALYZE BUILD LOG"))
         analyze_build_logs_button.setToolTip(
-            "Das neueste Build-Protokoll auf typische Fehler und Warnungen prüfen"
-            if is_de else "Check the newest build log for common errors and warnings"
+            self.TEXT.get("analyze_build_logs_tooltip", "Check the newest build log for common errors and warnings")
         )
         analyze_build_logs_button.clicked.connect(self.analyze_latest_build_log)
         self.analyze_build_logs_button = analyze_build_logs_button
 
-        diagnostics_button = QPushButton("SYSTEM-DIAGNOSE" if is_de else "SYSTEM DIAGNOSTICS")
+        diagnostics_button = QPushButton(self.TEXT.get("diagnostics_button", "SYSTEM DIAGNOSTICS"))
         diagnostics_button.setToolTip(
-            "System, Tool-Verzeichnisse und vorhandene Build-Logs prüfen; startet keinen Build"
-            if is_de else "Check system, tool directories and existing build logs; does not start a build"
+            self.TEXT.get("diagnostics_tooltip", "Check system, tool directories and existing build logs; does not start a build")
         )
         diagnostics_button.clicked.connect(self.open_diagnostics_dialog)
         self.diagnostics_button = diagnostics_button
 
-        log_history_button = QPushButton("BUILD-LOG-VERLAUF" if is_de else "BUILD LOG HISTORY")
+        log_history_button = QPushButton(self.TEXT.get("log_history_button", "BUILD LOG HISTORY"))
         log_history_button.setToolTip(
-            "Alle Build-Logs nach Status, Zeit und Fehlerhinweisen vergleichen"
-            if is_de else "Compare all build logs by status, time and error indicators"
+            self.TEXT.get("log_history_tooltip", "Compare all build logs by status, time and error indicators")
         )
         log_history_button.clicked.connect(self.open_build_log_history)
         self.log_history_button = log_history_button
 
-        clear_console_button = QPushButton("KONSOLE LEEREN" if is_de else "CLEAR CONSOLE")
+        clear_console_button = QPushButton(self.TEXT.get("clear_console_button", "CLEAR CONSOLE"))
         clear_console_button.setToolTip(
-            "Nur die sichtbare Konsolenausgabe leeren; Logdateien bleiben unverändert"
-            if is_de else "Clear only the visible console output; log files remain unchanged"
+            self.TEXT.get("clear_console_tooltip", "Clear only the visible console output; log files remain unchanged")
         )
         clear_console_button.clicked.connect(self.info_text.clear)
         self.clear_console_button = clear_console_button
 
-        cyber_center_button = QPushButton("OSCAM CONTROL CENTER")
+        cyber_center_button = QPushButton(self.TEXT.get("cyber_center_button", "OSCAM CONTROL CENTER"))
         cyber_center_button.setToolTip(
-            "Zentrale für alle OSCam-Control-Center-Funktionen"
-            if is_de else
-            "Central hub for all OSCam Control Center features"
+            self.TEXT.get("cyber_center_tooltip", "Central hub for all OSCam Control Center features")
         )
         cyber_center_button.clicked.connect(
             lambda checked=False: _open_cyber_center(self)
@@ -3899,12 +3881,10 @@ class PatchManagerGUI(
         self.cyber_center_button = cyber_center_button
 
         patch_diff_button = QPushButton(
-            "PATCH VERGLEICHEN" if is_de else "COMPARE PATCHES"
+            self.TEXT.get("patch_diff_button", "COMPARE PATCHES")
         )
         patch_diff_button.setToolTip(
-            "Zwei Patch-Dateien oder Git-Commits vergleichen"
-            if is_de else
-            "Compare two patch files or Git commits"
+            self.TEXT.get("patch_diff_tooltip", "Compare two patch files or Git commits")
         )
         patch_diff_button.clicked.connect(
             lambda checked=False: _open_patch_diff_viewer(self)
@@ -3912,12 +3892,10 @@ class PatchManagerGUI(
         self.patch_diff_button = patch_diff_button
 
         achievement_button = QPushButton(
-            "🏆 ERFOLGE" if is_de else "🏆 ACHIEVEMENTS"
+            self.TEXT.get("achievement_button", "🏆 ACHIEVEMENTS")
         )
         achievement_button.setToolTip(
-            "Deine OSCam-Erfolge und Fortschritte anzeigen"
-            if is_de else
-            "View your OSCam achievements and progress"
+            self.TEXT.get("achievement_tooltip", "View your OSCam achievements and progress")
         )
         achievement_button.clicked.connect(
             lambda checked=False: _open_achievement_system(self)
@@ -3925,12 +3903,10 @@ class PatchManagerGUI(
         self.achievement_button = achievement_button
 
         ai_assistant_button = QPushButton(
-            "🤖 KI-ASSISTENT" if is_de else "🤖 AI ASSISTANT"
+            self.TEXT.get("ai_assistant_button", "🤖 AI ASSISTANT")
         )
         ai_assistant_button.setToolTip(
-            "KI-Chat für Patch-Analyse und Fehlersuche öffnen"
-            if is_de else
-            "Open AI chat for patch analysis and troubleshooting"
+            self.TEXT.get("ai_assistant_tooltip", "Open AI chat for patch analysis and troubleshooting")
         )
         ai_assistant_button.clicked.connect(
             lambda checked=False: _open_ai_assistant(self)
@@ -3980,7 +3956,6 @@ class PatchManagerGUI(
         for tool_button, labels, icon_name in zip(
             tool_buttons, icon_labels, icon_names
         ):
-            tool_button.setText(labels[0] if is_de else labels[1])
 
             pixmap = getattr(
                 QStyle.StandardPixmap,
@@ -4074,7 +4049,7 @@ class PatchManagerGUI(
         status_bar_layout.setSpacing(12)
 
         # FIX 1: Feste Breite und statische Attribute verhindern das "Zucken" des Textes
-        self.status_info_label = QLabel("SYSTEM STATUS:")
+        self.status_info_label = QLabel(self.TEXT.get("system_status", "SYSTEM STATUS:"))
         self.status_info_label.setFixedWidth(220)  # Reserviert festen Platz
         self.status_info_label.setAttribute(Qt.WidgetAttribute.WA_StaticContents)
         self.status_info_label.setStyleSheet(
@@ -4126,7 +4101,7 @@ class PatchManagerGUI(
                     any(shutil.which(c) for c in ["paplay", "pw-play", "aplay"])
                     or platform.system() == "Windows"
                 )
-                display_name = "SOUND"
+                display_name = self.TEXT.get("sound", "SOUND")
             elif tool in ["ssl", "usb"]:
                 if platform.system() == "Linux" and shutil.which("dpkg"):
                     pkg = "libssl-dev" if tool == "ssl" else "libusb-1.0-0-dev"
@@ -4218,7 +4193,7 @@ class PatchManagerGUI(
         # ---------------------------------------------------------
         # BUTTONS
         # ---------------------------------------------------------
-        self.btn_matrix = QPushButton("📟 MATRIX MODE")
+        self.btn_matrix = QPushButton(self.TEXT.get("matrix_mode", "📟 MATRIX MODE"))
         self.btn_matrix.setFixedSize(260 if hd_mode else 300, self.UI_BUTTON_H)
         self.btn_matrix.setStyleSheet(
             "QPushButton { background-color: #000; color: #00FF41; border: 1px solid #008F11; border-radius: 6px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #008F11; color: black; }"
@@ -4227,7 +4202,7 @@ class PatchManagerGUI(
             self.btn_matrix.clicked.connect(lambda checked=False: self.toggle_matrix())
         status_bar_layout.addWidget(self.btn_matrix)
 
-        self.btn_theme = QPushButton("🌓 THEME")
+        self.btn_theme = QPushButton(self.TEXT.get("theme_button", "🌓 THEME"))
         self.btn_theme.setFixedSize(160 if hd_mode else 200, self.UI_BUTTON_H)
         self.btn_theme.setStyleSheet(
             "QPushButton { background-color: #444; color: red; border: 1px solid #666; border-radius: 6px; font-size: 18px; font-weight: bold; } QPushButton:hover { background-color: #555; border: 1px solid #F37804; }"
@@ -4375,9 +4350,7 @@ class PatchManagerGUI(
         )
         self.language_box.currentIndexChanged.connect(self.change_language)
         self.language_box.setToolTip(
-            "Sprache der Oberfläche auswählen"
-            if str(self.cfg.get("language", "de")).lower() == "de"
-            else "Choose the interface language"
+            self.TEXT.get("language_box_tooltip", "Choose the interface language")
         )
         self.language_box.setToolTipDuration(10000)
 
@@ -4419,9 +4392,7 @@ class PatchManagerGUI(
         self.commit_spin.setValue(self.cfg.get("commit_count", 10))
         self.commit_spin.valueChanged.connect(self.commit_value_changed)
         self.commit_spin.setToolTip(
-            "Anzahl der Commits für die Anzeige bzw. Auswertung festlegen"
-            if str(getattr(self, "LANG", self.cfg.get("language", "de"))).lower() in ("de", "0")
-            else "Set the number of commits to display or analyze"
+            self.TEXT.get("commit_spin_tooltip", "Set the number of commits to display or analyze")
         )
         self.commit_spin.setToolTipDuration(10000)
 
@@ -4502,7 +4473,7 @@ class PatchManagerGUI(
         # --- 2. Ordner-Buttons (Oben) ---
         f_icon = self.style().standardIcon(self.style().StandardPixmap.SP_DirIcon)
 
-        self.btn_open_work = QPushButton(" Arbeitsordner")
+        self.btn_open_work = QPushButton(" " + self.TEXT.get("work_folder_button", "Work Folder"))
         self.btn_open_work.setIcon(f_icon)
         self.btn_open_work.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_open_work.setFixedSize(B_WIDTH, B_HEIGHT)
@@ -4513,7 +4484,7 @@ class PatchManagerGUI(
             )
         )
 
-        self.btn_open_temp = QPushButton(" Temp-Repo")
+        self.btn_open_temp = QPushButton(" " + self.TEXT.get("temp_repo_button", "Temp Repo"))
         self.btn_open_temp.setIcon(f_icon)
         self.btn_open_temp.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_open_temp.setFixedSize(B_WIDTH, B_HEIGHT)
@@ -4524,7 +4495,7 @@ class PatchManagerGUI(
             )
         )
 
-        self.btn_open_emu = QPushButton(" Emu-Git")
+        self.btn_open_emu = QPushButton(" " + self.TEXT.get("emu_git_button", "Emu Git"))
         self.btn_open_emu.setIcon(f_icon)
         self.btn_open_emu.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_open_emu.setFixedSize(B_WIDTH, B_HEIGHT)
@@ -4536,19 +4507,19 @@ class PatchManagerGUI(
         )
 
         # --- 3. Funktions-Buttons (Unten) ---
-        self.btn_check_tools = QPushButton("🛠️ Tools prüfen")
+        self.btn_check_tools = QPushButton(self.TEXT.get("check_tools_button", "🛠️ Check Tools"))
         self.btn_check_tools.setIconSize(QSize(I_SIZE, I_SIZE))  # Icon-Größe für Emojis
         self.btn_check_tools.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_check_tools.setStyleSheet(button_style)
         self.btn_check_tools.clicked.connect(self.run_full_system_check)
 
-        self.btn_modifier = QPushButton("👤 Patch Autor")
+        self.btn_modifier = QPushButton("👤 " + self.TEXT.get("patch_author", "Patch Author"))
         self.btn_modifier.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_modifier.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_modifier.setStyleSheet(button_style)
         self.btn_modifier.clicked.connect(self.change_modifier_name)
 
-        self.btn_repo_url = QPushButton("🌐 Repo URL")
+        self.btn_repo_url = QPushButton(self.TEXT.get("repo_url_button", "🌐 Repo URL"))
         self.btn_repo_url.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_repo_url.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_repo_url.setStyleSheet(button_style)
@@ -4556,7 +4527,6 @@ class PatchManagerGUI(
 
         # --- Konfiguration (kannst du zentral anpassen) ---
         self.font_size_buttons = 12  # Hier die gewünschte Schriftgröße in Pixeln ändern
-        current_lang = getattr(self, "lang", "de")  # Erkennt deine gewählte Sprache
 
         # 1. FARBSCHEMA ERMITTELN (Passend zu deinem toggle_theme)
         is_dark = "#2F2F2F" in self.styleSheet() or not self.styleSheet()
@@ -4569,8 +4539,7 @@ class PatchManagerGUI(
             c1, c2, b_color = "#3498db", "#2980b9", "#1c5980"
 
         # 2. TEXTE FÜR MEHRSPRACHIGKEIT
-        lang = getattr(self, "LANG", "de").lower()
-        text_patch_online = "🌐 Patch Online " if lang == "de" else "🌐 Load Patch "
+        text_patch_online = self.TEXT.get("patch_online_button", "🌐 Load Patch")
 
         # 3. BUTTON ERSTELLEN
         self.btn_patch_online = QPushButton(text_patch_online)
@@ -4607,19 +4576,19 @@ class PatchManagerGUI(
             self.btn_patch_online.clicked.connect(self.handle_online_patch_button)
 
         # --- Bestehender Button: Commit Check ---
-        self.btn_check_commit = QPushButton("🔄 Commit Check")
+        self.btn_check_commit = QPushButton(self.TEXT.get("commit_check_button", "🔄 Commit Check"))
         self.btn_check_commit.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_check_commit.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_check_commit.setStyleSheet(button_style)
         self.btn_check_commit.clicked.connect(self.check_for_new_commit)
 
         # --- Manuelles Projekt-Backup ---
-        self.btn_backup_gui = QPushButton("💾 Backup erstellen")
+        self.btn_backup_gui = QPushButton(self.TEXT.get("backup_button", "💾 Create Backup"))
         self.btn_backup_gui.setIconSize(QSize(I_SIZE, I_SIZE))
         self.btn_backup_gui.setFixedSize(B_WIDTH, B_HEIGHT)
         self.btn_backup_gui.setStyleSheet(button_style)
         self.btn_backup_gui.setToolTip(
-            "Erstellt backup/backup_gi.zip mit dem aktuellen Projektstand"
+            self.TEXT.get("backup_tooltip", "Creates backup/backup_gi.zip with the current project state")
         )
         self.btn_backup_gui.clicked.connect(self.create_gi_backup)
 
@@ -4674,7 +4643,7 @@ class PatchManagerGUI(
         # Aktuelle Akzentfarbe aus dem Theme laden (z.B. Neongelb)
         t_fg = current_diff_colors.get("fg", "#EAFF00")
 
-        title_text = " Einstellungen" if self.LANG == "de" else " Settings"
+        title_text = " " + self.TEXT.get("settings_title", "Settings")
         self.header_label = QLabel(title_text)
 
         # 'white' durch die Theme-Variable {t_fg} ersetzt
@@ -4807,7 +4776,7 @@ class PatchManagerGUI(
         main_layout.addWidget(controls_group)
 
         # --- UNTERE SEKTION: klare Priorität für Patch-Aktionen ---
-        self.grid_container = QGroupBox("PATCH & BUILD")
+        self.grid_container = QGroupBox(self.TEXT.get("patch_build_title", "PATCH & BUILD"))
         self.grid_container.setObjectName("patchBuildPanel")
         self.grid_container.setStyleSheet("""
             QGroupBox#patchBuildPanel {
@@ -5219,7 +5188,6 @@ class PatchManagerGUI(
         widget = info_widget or getattr(self, "info_text", None)
         pbar = getattr(self, "progress_bar", None)
         current_lang = str(getattr(self, "LANG", "de")).lower()[:2]
-        is_de = current_lang == "de"
         
 
         # --- Styles ---
@@ -5295,12 +5263,7 @@ class PatchManagerGUI(
         # --- Start Progress ---
         set_progress(
             20,
-            "⏳ "
-            + (
-                get_txt("loading_config", "Konfiguration wird geladen...")
-                if is_de
-                else "Loading configuration..."
-            ),
+            "⏳ " + get_txt("loading_config", "Loading configuration..."),
         )
         play_sound("open")
 
@@ -5336,7 +5299,7 @@ class PatchManagerGUI(
                 cancel_btn.setText(get_txt("cancel", "Abbrechen"))
 
         set_progress(
-            80, "🔧 " + (get_txt("config_ready", "Bereit") if is_de else "Ready")
+            80, "🔧 " + get_txt("config_ready", "Configuration ready")
         )
 
         # --- Dialog ausführen ---
@@ -5345,7 +5308,7 @@ class PatchManagerGUI(
             self.append_info(widget, msg, "success")
             play_sound("save")
             finalize_pbar(
-                "✅ " + (get_txt("saved", "Gespeichert!") if is_de else "Saved!")
+                "✅ " + get_txt("saved", "Saved!")
             )
         else:
             finalize_pbar("%p%")
