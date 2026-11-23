@@ -623,7 +623,7 @@ class PatchManagerLayoutMixin:
             ),
             (
                 "s3_menu",
-                "s3_simplebuild",
+                "S3 Simplebuild",
                 "#EAFF00",
                 self.start_s3_menu,
                 "black",
@@ -633,7 +633,7 @@ class PatchManagerLayoutMixin:
             ),
             (
                 "s4_menu",
-                "s4_simplebuild",
+                "S4 Simplebuild",
                 "#00E5FF",
                 self.start_s4_menu,
                 "black",
