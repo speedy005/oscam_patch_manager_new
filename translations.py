@@ -35,7 +35,7 @@ LANG = "de"
 TEXTS = {
     "en": {
         # Grid Buttons / Patch Aktionen
-        "fix_permissions": "Fix Permissions",
+        "fix_permissions": "Berechtigungen reparieren",
         "restart_tool_admin": "Restart with administrator rights",
         "backup_button_text": "💾 Create Backup",
         "patch_create": "Create Patch",
@@ -1205,3 +1205,9 @@ for _emu_lang, _emu_values in _EMU_GIT_BUTTON_TRANSLATIONS.items():
     TEXTS.setdefault(_emu_lang, {}).update(_emu_values)
 
 del _EMU_GIT_BUTTON_TRANSLATIONS, _emu_lang, _emu_values
+
+
+TEXTS["it"]["final_label"] = "🛠️ Cosa costruiamo oggi?"
+
+
+TEXTS["it"]["final_label"] = "🛠️ Cosa costruiamo oggi?"

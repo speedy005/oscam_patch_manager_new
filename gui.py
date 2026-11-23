@@ -1441,8 +1441,14 @@ class PatchManagerGUI(
         if pbar is None:
             return
 
-        is_de = str(getattr(self, "LANG", "de")).lower().startswith("de")
-        text = "🛠️ Was bauen wir heute?" if is_de else "🛠️ What are we building today?"
+        lang = str(getattr(self, "LANG", "de")).lower()[:2]
+        text = {
+            "de": "🛠️ Was bauen wir heute?",
+            "it": "🛠️ Cosa costruiamo oggi?",
+            "pl": "🛠️ Co dzisiaj tworzymy?",
+            "tr": "🛠️ Bugün ne oluşturuyoruz?",
+            "gr": "🛠️ Τι θα δημιουργήσουμε σήμερα?",
+        }.get(lang, "🛠️ What are we building today?")
 
         label = getattr(self, "final_label", None)
         if label is None:
