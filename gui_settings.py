@@ -288,9 +288,10 @@ class PatchManagerSettingsMixin:
 
         try:
             selected = self.language_box.currentText().upper()
+            selected_code = selected.strip().lower()[:2]
             self.LANG = (
-                "de"
-                if any(token in selected for token in ("DE", "DEU", "DEUTSCH"))
+                selected_code
+                if selected_code in ("de", "en", "it", "pl", "tr", "gr")
                 else "en"
             )
             # Persist language immediately so it survives a normal restart.

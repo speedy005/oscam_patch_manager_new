@@ -344,7 +344,7 @@ class PatchManagerGUI(
         QTimer.singleShot(100, self.update_ui_texts)
 
         stored_lang = str(self.current_config.get("language", "de")).lower()
-        self.LANG = stored_lang if stored_lang in ["en", "de"] else "de"
+        self.LANG = stored_lang if stored_lang in ("de", "en", "it", "pl", "tr", "gr") else "de"
 
         # TEXT muss VOR init_ui() verfügbar sein.
         # init_ui() erzeugt bereits Buttons/Labels und verwendet dafür
@@ -915,9 +915,10 @@ class PatchManagerGUI(
 
         try:
             selected = self.language_box.currentText().upper()
+            selected_code = selected.strip().lower()[:2]
             self.LANG = (
-                "de"
-                if any(token in selected for token in ("DE", "DEU", "DEUTSCH"))
+                selected_code
+                if selected_code in ("de", "en", "it", "pl", "tr", "gr")
                 else "en"
             )
             # Persist language immediately so it survives a normal restart.
@@ -1810,38 +1811,52 @@ class PatchManagerGUI(
         if hasattr(self, "final_label") and self.final_label:
             self.final_label.hide()
 
-        is_de = lang_code.lower() == "de"
+        lang_code = str(lang_code).lower()[:2]
+        is_de = lang_code == "de"
         text_msg = "Sprache wird umgestellt..." if is_de else "Switching language..."
-                # 3. Flagge als echtes SVG-Bild statt Emoji anzeigen
-        from PyQt6.QtCore import QByteArray, Qt
-        from PyQt6.QtGui import QPixmap
-        from PyQt6.QtSvg import QSvgRenderer
-        from PyQt6.QtGui import QPainter
 
-        if is_de:
-            flag_svg = """
-            <svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"
-                 viewBox="0 0 120 80">
-                <rect width="120" height="26.67" y="0" fill="#000000"/>
-                <rect width="120" height="26.67" y="26.67" fill="#DD0000"/>
-                <rect width="120" height="26.66" y="53.34" fill="#FFCE00"/>
-            </svg>
-            """
-        else:
-            flag_svg = """
-            <svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"
-                 viewBox="0 0 60 30">
+        # 3. Passende Länderflagge als SVG anzeigen
+        from PyQt6.QtCore import QByteArray, Qt
+        from PyQt6.QtGui import QPixmap, QPainter
+        from PyQt6.QtSvg import QSvgRenderer
+
+        flags = {
+            "de": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">
+                <rect width="60" height="13.33" fill="#000000"/>
+                <rect y="13.33" width="60" height="13.33" fill="#DD0000"/>
+                <rect y="26.66" width="60" height="13.34" fill="#FFCE00"/>
+            </svg>""",
+            "en": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30">
                 <rect width="60" height="30" fill="#012169"/>
-                <path d="M0 0 L60 30 M60 0 L0 30"
-                      stroke="#FFFFFF" stroke-width="6"/>
-                <path d="M0 0 L60 30 M60 0 L0 30"
-                      stroke="#C8102E" stroke-width="2.5"/>
-                <path d="M30 0 V30 M0 15 H60"
-                      stroke="#FFFFFF" stroke-width="10"/>
-                <path d="M30 0 V30 M0 15 H60"
-                      stroke="#C8102E" stroke-width="5"/>
-            </svg>
-            """
+                <path d="M0 0 L60 30 M60 0 L0 30" stroke="#FFFFFF" stroke-width="6"/>
+                <path d="M0 0 L60 30 M60 0 L0 30" stroke="#C8102E" stroke-width="2.5"/>
+                <path d="M30 0 V30 M0 15 H60" stroke="#FFFFFF" stroke-width="10"/>
+                <path d="M30 0 V30 M0 15 H60" stroke="#C8102E" stroke-width="5"/>
+            </svg>""",
+            "it": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">
+                <rect width="20" height="40" fill="#009246"/>
+                <rect x="20" width="20" height="40" fill="#FFFFFF"/>
+                <rect x="40" width="20" height="40" fill="#CE2B37"/>
+            </svg>""",
+            "pl": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">
+                <rect width="60" height="20" fill="#FFFFFF"/>
+                <rect y="20" width="60" height="20" fill="#DC143C"/>
+            </svg>""",
+            "tr": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">
+                <rect width="60" height="40" fill="#E30A17"/>
+                <circle cx="25" cy="20" r="10" fill="#FFFFFF"/>
+                <circle cx="29" cy="20" r="8" fill="#E30A17"/>
+                <polygon points="40,13 41.8,18 47,18 42.8,21.2 44.5,26 40,23 35.5,26 37.2,21.2 33,18 38.2,18" fill="#FFFFFF"/>
+            </svg>""",
+            "gr": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">
+                <rect width="60" height="40" fill="#0D5EAF"/>
+                <path d="M0 4.44 H60 M0 13.33 H60 M0 22.22 H60 M0 31.11 H60" stroke="#FFFFFF" stroke-width="4.44"/>
+                <rect width="22" height="22" fill="#0D5EAF"/>
+                <path d="M11 0 V22 M0 11 H22" stroke="#FFFFFF" stroke-width="4.5"/>
+            </svg>""",
+        }
+
+        flag_svg = flags.get(lang_code, flags["en"])
 
         pixmap = QPixmap(120, 80)
         pixmap.fill(Qt.GlobalColor.transparent)
@@ -4330,7 +4345,7 @@ class PatchManagerGUI(
        
 
         self.language_box = QComboBox()
-        self.language_box.addItems(["EN", "DE"])
+        self.language_box.addItems(["DE", "EN", "IT", "PL", "TR", "GR"])
         self.language_box.setFixedSize(80, B_HEIGHT)
         self.language_box.setStyleSheet(
             f"""
@@ -4347,11 +4362,10 @@ class PatchManagerGUI(
         )
 
         # Sprach-Logik (Einmalig)
-        saved_lang = self.cfg.get("language", "de").lower()
-        (
-            self.language_box.setCurrentIndex(0)
-            if saved_lang == "en"
-            else self.language_box.setCurrentIndex(1)
+        saved_lang = str(self.cfg.get("language", "de")).lower()
+        saved_index = self.language_box.findText(saved_lang.upper())
+        self.language_box.setCurrentIndex(
+            saved_index if saved_index >= 0 else self.language_box.findText("DE")
         )
         self.language_box.currentIndexChanged.connect(self.change_language)
         self.language_box.setToolTip(
@@ -4804,7 +4818,7 @@ class PatchManagerGUI(
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 0px 5px;
-                top: 0px;
+                top: -10px;
             }
         """)
         self.layout_grid_buttons = QGridLayout(self.grid_container)
