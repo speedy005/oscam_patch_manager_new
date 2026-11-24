@@ -573,10 +573,13 @@ import os, shutil, platform, subprocess, tempfile, re
 class S4InstallWorker(QThread):
     finished_signal = pyqtSignal(bool, str)
 
-    def __init__(self, base_target_dir):
+    def __init__(self, base_target_dir, language="en"):
         super().__init__()
-        # Das ist der vom User gewählte Basis-Pfad (z.B. C:\opt oder /opt)
         self.base_target_dir = os.path.normpath(base_target_dir)
+        self.language = str(language).lower()[:2]
+        if self.language not in TEXTS:
+            self.language = "en"
+        self.texts = TEXTS.get(self.language, TEXTS.get("en", {}))
 
     def run(self):
         # Windows verwendet das separate Bootstrap-Modul; Linux bleibt beim
@@ -587,13 +590,13 @@ class S4InstallWorker(QThread):
                     "s4", self.base_target_dir, log=_windows_msys2_log_adapter(self)
                 )
                 self.finished_signal.emit(
-                    True, f"SimpleBuild 4 erfolgreich installiert!\nPfad: {installed_path}"
+                    True, self.texts["s4_success_path"].format(path=installed_path)
                 )
             except Exception as e:
                 error_msg = str(e)
                 if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
-                    error_msg += "\n\nTipp: Wählen Sie einen anderen Installationsort oder prüfen Sie die Windows-Berechtigungen."
-                self.finished_signal.emit(False, f"SimpleBuild 4 Fehler:\n{error_msg}")
+                    error_msg += self.texts["s4_permission_windows"]
+                self.finished_signal.emit(False, self.texts["s4_error"].format(name="SimpleBuild 4", error=error_msg))
             return
 
         temp_clone = None
@@ -643,14 +646,14 @@ class S4InstallWorker(QThread):
                 except:
                     pass
 
-            self.finished_signal.emit(True, f"{proj_name} erfolgreich in '{sub_folder}' installiert!")
+            self.finished_signal.emit(True, self.texts["s4_success_folder"].format(name=proj_name, folder=sub_folder))
 
         except Exception as e:
             error_msg = str(e)
             if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
-                error_msg += "\n\nTipp: Starten Sie das Programm als Admin oder wählen Sie einen anderen Installationsort."
+                error_msg += self.texts["s4_permission_linux"]
             
-            self.finished_signal.emit(False, f"{proj_name} Fehler: {error_msg}")
+            self.finished_signal.emit(False, self.texts["s4_error"].format(name=proj_name, error=error_msg))
 
         finally:
             if temp_clone and os.path.exists(temp_clone):

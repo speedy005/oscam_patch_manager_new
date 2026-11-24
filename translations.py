@@ -1707,3 +1707,145 @@ _NCAM_GUI_TRANSLATIONS = {
 }
 for _lang, _values in _NCAM_GUI_TRANSLATIONS.items():
     TEXTS.setdefault(_lang, {}).update(_values)
+
+# SimpleBuild 4 Install Worker und GUI
+_S4_INSTALL_TRANSLATIONS = {
+    "en": {
+        "s4_success_path": "SimpleBuild 4 installed successfully!\nPath: {path}",
+        "s4_success_folder": "{name} successfully installed in '{folder}'!",
+        "s4_error": "{name} error: {error}",
+        "s4_permission_windows": "\n\nTip: Choose another installation location or check Windows permissions.",
+        "s4_permission_linux": "\n\nTip: Run the program as administrator or choose another installation location.",
+        "s4_dialog_title": "SimpleBuild 4 Setup",
+        "s4_path_label": "Path",
+        "s4_installing": "⏳ Installing...",
+    },
+    "de": {
+        "s4_success_path": "SimpleBuild 4 erfolgreich installiert!\nPfad: {path}",
+        "s4_success_folder": "{name} erfolgreich in '{folder}' installiert!",
+        "s4_error": "{name} Fehler: {error}",
+        "s4_permission_windows": "\n\nTipp: Wählen Sie einen anderen Installationsort oder prüfen Sie die Windows-Berechtigungen.",
+        "s4_permission_linux": "\n\nTipp: Starten Sie das Programm als Admin oder wählen Sie einen anderen Installationsort.",
+        "s4_dialog_title": "SimpleBuild 4 Installation",
+        "s4_path_label": "Pfad",
+        "s4_installing": "⏳ Installation läuft...",
+    },
+    "it": {
+        "s4_success_path": "SimpleBuild 4 installato con successo!\nPercorso: {path}",
+        "s4_success_folder": "{name} installato con successo in '{folder}'!",
+        "s4_error": "Errore {name}: {error}",
+        "s4_permission_windows": "\n\nSuggerimento: scegli un'altra posizione di installazione o controlla i permessi di Windows.",
+        "s4_permission_linux": "\n\nSuggerimento: avvia il programma come amministratore o scegli un'altra posizione.",
+        "s4_dialog_title": "Installazione SimpleBuild 4",
+        "s4_path_label": "Percorso",
+        "s4_installing": "⏳ Installazione in corso...",
+    },
+    "gr": {
+        "s4_success_path": "Το SimpleBuild 4 εγκαταστάθηκε με επιτυχία!\nΔιαδρομή: {path}",
+        "s4_success_folder": "Το {name} εγκαταστάθηκε με επιτυχία στο '{folder}'!",
+        "s4_error": "Σφάλμα {name}: {error}",
+        "s4_permission_windows": "\n\nΣυμβουλή: Επιλέξτε άλλη τοποθεσία εγκατάστασης ή ελέγξτε τα δικαιώματα των Windows.",
+        "s4_permission_linux": "\n\nΣυμβουλή: Εκτελέστε το πρόγραμμα ως διαχειριστής ή επιλέξτε άλλη τοποθεσία.",
+        "s4_dialog_title": "Εγκατάσταση SimpleBuild 4",
+        "s4_path_label": "Διαδρομή",
+        "s4_installing": "⏳ Η εγκατάσταση βρίσκεται σε εξέλιξη...",
+    },
+    "pl": {
+        "s4_success_path": "SimpleBuild 4 został pomyślnie zainstalowany!\nŚcieżka: {path}",
+        "s4_success_folder": "{name} został pomyślnie zainstalowany w '{folder}'!",
+        "s4_error": "Błąd {name}: {error}",
+        "s4_permission_windows": "\n\nWskazówka: Wybierz inną lokalizację instalacji lub sprawdź uprawnienia systemu Windows.",
+        "s4_permission_linux": "\n\nWskazówka: Uruchom program jako administrator lub wybierz inną lokalizację.",
+        "s4_dialog_title": "Instalacja SimpleBuild 4",
+        "s4_path_label": "Ścieżka",
+        "s4_installing": "⏳ Instalacja trwa...",
+    },
+    "tr": {
+        "s4_success_path": "SimpleBuild 4 başarıyla kuruldu!\nYol: {path}",
+        "s4_success_folder": "{name}, '{folder}' konumuna başarıyla kuruldu!",
+        "s4_error": "{name} hatası: {error}",
+        "s4_permission_windows": "\n\nİpucu: Başka bir kurulum konumu seçin veya Windows izinlerini kontrol edin.",
+        "s4_permission_linux": "\n\nİpucu: Programı yönetici olarak çalıştırın veya başka bir konum seçin.",
+        "s4_dialog_title": "SimpleBuild 4 Kurulumu",
+        "s4_path_label": "Yol",
+        "s4_installing": "⏳ Kurulum devam ediyor..."
+    },
+}
+for _lang, _values in _S4_INSTALL_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+_S4_PATH_TRANSLATIONS = {
+    "en": {
+        "s4_browse_hint": "Select SimpleBuild 4 folder",
+        "s4_path_set": "S4 path set",
+        "s4_path_error_title": "Error",
+        "s4_path_error_message": "The executable S4 file was not found in this folder!",
+    },
+    "de": {
+        "s4_browse_hint": "SimpleBuild 4 Ordner wählen",
+        "s4_path_set": "S4-Pfad gesetzt",
+        "s4_path_error_title": "Fehler",
+        "s4_path_error_message": "Die ausführbare S4-Datei wurde in diesem Ordner nicht gefunden!",
+    },
+    "it": {
+        "s4_browse_hint": "Seleziona la cartella di SimpleBuild 4",
+        "s4_path_set": "Percorso S4 impostato",
+        "s4_path_error_title": "Errore",
+        "s4_path_error_message": "Il file eseguibile S4 non è stato trovato in questa cartella!",
+    },
+    "gr": {
+        "s4_browse_hint": "Επιλέξτε φάκελο SimpleBuild 4",
+        "s4_path_set": "Η διαδρομή S4 ορίστηκε",
+        "s4_path_error_title": "Σφάλμα",
+        "s4_path_error_message": "Δεν βρέθηκε το εκτελέσιμο αρχείο S4 σε αυτόν τον φάκελο!",
+    },
+    "pl": {
+        "s4_browse_hint": "Wybierz folder SimpleBuild 4",
+        "s4_path_set": "Ustawiono ścieżkę S4",
+        "s4_path_error_title": "Błąd",
+        "s4_path_error_message": "W tym folderze nie znaleziono pliku wykonywalnego S4!",
+    },
+    "tr": {
+        "s4_browse_hint": "SimpleBuild 4 klasörünü seçin",
+        "s4_path_set": "S4 yolu ayarlandı",
+        "s4_path_error_title": "Hata",
+        "s4_path_error_message": "Bu klasörde S4 çalıştırılabilir dosyası bulunamadı!",
+    },
+}
+for _lang, _values in _S4_PATH_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+_S4_INSTALL_DIALOG_TRANSLATIONS = {
+    "en": {
+        "s4_install_folder_hint": "Select S4 installation folder",
+        "s4_write_error_title": "Error",
+        "s4_write_error_message": "No write permissions in this folder!\n{error}",
+    },
+    "de": {
+        "s4_install_folder_hint": "S4-Installationsordner wählen",
+        "s4_write_error_title": "Fehler",
+        "s4_write_error_message": "Keine Schreibrechte in diesem Ordner!\n{error}",
+    },
+    "it": {
+        "s4_install_folder_hint": "Seleziona la cartella di installazione di S4",
+        "s4_write_error_title": "Errore",
+        "s4_write_error_message": "Nessun permesso di scrittura in questa cartella!\n{error}",
+    },
+    "gr": {
+        "s4_install_folder_hint": "Επιλέξτε φάκελο εγκατάστασης S4",
+        "s4_write_error_title": "Σφάλμα",
+        "s4_write_error_message": "Δεν υπάρχουν δικαιώματα εγγραφής σε αυτόν τον φάκελο!\n{error}",
+    },
+    "pl": {
+        "s4_install_folder_hint": "Wybierz folder instalacyjny S4",
+        "s4_write_error_title": "Błąd",
+        "s4_write_error_message": "Brak uprawnień do zapisu w tym folderze!\n{error}",
+    },
+    "tr": {
+        "s4_install_folder_hint": "S4 kurulum klasörünü seçin",
+        "s4_write_error_title": "Hata",
+        "s4_write_error_message": "Bu klasörde yazma izni yok!\n{error}",
+    },
+}
+for _lang, _values in _S4_INSTALL_DIALOG_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)

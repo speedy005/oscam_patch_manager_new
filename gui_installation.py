@@ -922,26 +922,7 @@ class PatchManagerInstallationMixin:
         from PyQt6.QtWidgets import QFileDialog, QMessageBox
         import os, platform
 
-        lang = getattr(self, "LANG", "de").lower()[:2]
-        t = {
-            "de": {
-                "hint": "SimpleBuild 4 Ordner wählen", 
-                "ok": "S4 Pfad gesetzt",
-                "err_title": "Fehler",
-                "err_msg": "Die ausführbare S4-Datei wurde in diesem Ordner nicht gefunden!"
-            },
-            "en": {
-                "hint": "Select S4 folder", 
-                "ok": "S4 path set",
-                "err_title": "Error",
-                "err_msg": "The executable S4 file was not found in this folder!"
-            },
-        }.get(lang, {
-            "hint": "Select SimpleBuild 4 folder", 
-            "ok": "S4 path set",
-            "err_title": "Error",
-            "err_msg": "The executable S4 file was not found in this folder!"
-        })
+        t = TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {}))
 
         is_win = platform.system() == "Windows"
 
@@ -951,7 +932,7 @@ class PatchManagerInstallationMixin:
         if not os.path.exists(start_path):
             start_path = os.path.expanduser("~")
 
-        chosen_dir = QFileDialog.getExistingDirectory(self, t["hint"], start_path)
+        chosen_dir = QFileDialog.getExistingDirectory(self, t["s4_browse_hint"], start_path)
 
         if not chosen_dir:
             return  # Abbruch durch den Nutzer
@@ -990,7 +971,7 @@ class PatchManagerInstallationMixin:
                 
             QMessageBox.information(self, "OK", f"{t['ok']}:\n{self.S4_PATH}")
         else:
-            QMessageBox.warning(self, t["err_title"], t["err_msg"])
+            QMessageBox.warning(self, t["s4_path_error_title"], t["s4_path_error_message"])
 
     def start_s4_install(self):
         """Startet die SimpleBuild 4 Installation über Worker, Pfad wählbar und OS-optimiert."""
@@ -1000,7 +981,7 @@ class PatchManagerInstallationMixin:
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
 
-        is_de = getattr(self, "LANG", "de") == "de"
+        s4_texts = TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {}))
         is_win = platform.system() == "Windows"
 
         # 1. Intelligenten Startpfad für den Dialog wählen
@@ -1014,7 +995,7 @@ class PatchManagerInstallationMixin:
 
         chosen_dir = QFileDialog.getExistingDirectory(
             self,
-            "Wähle S4 Installationsordner" if is_de else "Select S4 Installation Folder",
+            s4_texts["s4_install_folder_hint"],
             start_path,
         )
 
@@ -1037,10 +1018,9 @@ class PatchManagerInstallationMixin:
 
         except Exception as e:
             QMessageBox.critical(
-                self, 
-                "Error", 
-                f"Keine Schreibrechte in diesem Ordner!\n{str(e)}" if is_de 
-                else f"No write permissions in this folder!\n{str(e)}"
+                self,
+                s4_texts["s4_write_error_title"],
+                s4_texts["s4_write_error_message"].format(error=str(e))
             )
             return
 
@@ -1050,14 +1030,14 @@ class PatchManagerInstallationMixin:
 
         # 2. UI Feedback mit korrekter deutscher Übersetzung
         self.btn_s4.setEnabled(False)
-        busy_text = "⏳ Installation läuft..." if is_de else "⏳ Installing..."
+        busy_text = TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {}))["s4_installing"]
         self.btn_s4.setText(busy_text)
     
         if hasattr(self, "log"): # Falls deine GUI eine Log-Funktion hat
            self.log("s4_patch_create_clone_start", "info") 
 
         # 3. Worker starten
-        self.s4_worker = S4InstallWorker(self.S4_PATH)
+        self.s4_worker = S4InstallWorker(self.S4_PATH, language=getattr(self, "LANG", "en"))
         self.s4_worker.finished_signal.connect(self.on_s4_finished)
         self.s4_worker.start()
 
@@ -1066,7 +1046,7 @@ class PatchManagerInstallationMixin:
         import os
         from PyQt6.QtWidgets import QMessageBox
 
-        is_de = getattr(self, "LANG", "de") == "de"
+        s4_texts = TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {}))
         self.btn_s4.setEnabled(True)
 
         if success:
@@ -1093,8 +1073,8 @@ class PatchManagerInstallationMixin:
 
             QMessageBox.information(
                 self, 
-                "S4 Installation" if is_de else "S4 Setup", 
-                f"{message}\n\nPfad: {self.S4_PATH}" if is_de else f"{message}\n\nPath: {self.S4_PATH}"
+                s4_texts["s4_dialog_title"], 
+                f"{message}\n\n{s4_texts[chr(115)+chr(52)+chr(95)+chr(112)+chr(97)+chr(116)+chr(104)+chr(95)+chr(108)+chr(97)+chr(98)+chr(101)+chr(108)]}: {self.S4_PATH}"
             )
         else:
             # Fehler-Zustand: Wir updaten das UI, damit der Button orange bleibt (bereit für neuen Versuch)
@@ -1103,7 +1083,7 @@ class PatchManagerInstallationMixin:
                 
             QMessageBox.critical(
                 self, 
-                "SimpleBuild 4 Installation" if is_de else "SimpleBuild 4 Setup", 
+                s4_texts["s4_dialog_title"], 
                 message
             )
 
