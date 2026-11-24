@@ -19,7 +19,7 @@ class BuildStatisticsDialog(QDialog):
 
     def __init__(self, parent=None, language="de", colors=None):
         super().__init__(parent)
-        self.is_de = str(language).lower().startswith("de")
+        self.language = str(language).lower()[:2] if str(language).lower()[:2] in ("de", "en", "it", "gr", "pl", "tr") else "en"
         self.colors = colors or {}
         self.log_dir = Path(__file__).resolve().parent / "build_logs"
         self.records = []
@@ -33,7 +33,60 @@ class BuildStatisticsDialog(QDialog):
         self.refresh_statistics()
 
     def tr(self, de, en):
-        return de if self.is_de else en
+        translations = {
+            "Leseansicht der vorhandenen Build-Logs. Es werden keine Builds gestartet oder Logs verändert.": {
+                "it": "Visualizzazione in sola lettura dei log di build esistenti. Non vengono avviate build né modificati i log.",
+                "gr": "Προβολή μόνο για ανάγνωση των υπαρχόντων αρχείων καταγραφής build. Δεν εκτελούνται build ούτε τροποποιούνται αρχεία καταγραφής.",
+                "pl": "Widok tylko do odczytu istniejących logów kompilacji. Nie są uruchamiane kompilacje ani modyfikowane logi.",
+                "tr": "Mevcut derleme günlüklerinin salt okunur görünümü. Derleme başlatılmaz veya günlükler değiştirilmez.",
+            },
+            "Gesamt": {"it": "Totale", "gr": "Σύνολο", "pl": "Łącznie", "tr": "Toplam"},
+            "Erfolgreich": {"it": "Riusciti", "gr": "Επιτυχημένα", "pl": "Udane", "tr": "Başarılı"},
+            "Fehlgeschlagen": {"it": "Non riusciti", "gr": "Απέτυχαν", "pl": "Nieudane", "tr": "Başarısız"},
+            "Unvollständig": {"it": "Incompleti", "gr": "Ημιτελή", "pl": "Niekompletne", "tr": "Tamamlanmamış"},
+            "Erfolgsquote": {"it": "Percentuale di successo", "gr": "Ποσοστό επιτυχίας", "pl": "Wskaźnik powodzenia", "tr": "Başarı oranı"},
+            "Variante:": {"it": "Variante:", "gr": "Παραλλαγή:", "pl": "Wariant:", "tr": "Varyant:"},
+            "Alle": {"it": "Tutte", "gr": "Όλα", "pl": "Wszystkie", "tr": "Tümü"},
+            "Aktualisieren": {"it": "Aggiorna", "gr": "Ανανέωση", "pl": "Odśwież", "tr": "Yenile"},
+            "Datum / Start": {"it": "Data / inizio", "gr": "Ημερομηνία / έναρξη", "pl": "Data / początek", "tr": "Tarih / başlangıç"},
+            "Variante": {"it": "Variante", "gr": "Παραλλαγή", "pl": "Wariant", "tr": "Varyant"},
+            "Ergebnis": {"it": "Risultato", "gr": "Αποτέλεσμα", "pl": "Wynik", "tr": "Sonuç"},
+            "Log-Sitzung": {"it": "Sessione log", "gr": "Συνεδρία καταγραφής", "pl": "Sesja logów", "tr": "Günlük oturumu"},
+            "Logdatei": {"it": "File di log", "gr": "Αρχείο καταγραφής", "pl": "Plik logu", "tr": "Günlük dosyası"},
+            "Schließen": {"it": "Chiudi", "gr": "Κλείσιμο", "pl": "Zamknij", "tr": "Kapat"},
+        }
+        if self.language == "de":
+            return de
+        if self.language == "en":
+            return en
+        if de.startswith("BUILD-STATISTIK"):
+            return {
+                "it": "STATISTICHE BUILD – Panoramica e cronologia",
+                "gr": "ΣΤΑΤΙΣΤΙΚΑ BUILD – Επισκόπηση και ιστορικό",
+                "pl": "STATYSTYKI KOMPILACJI – Przegląd i historia",
+                "tr": "DERLEME İSTATİSTİKLERİ – Genel bakış ve geçmiş",
+            }.get(self.language, en)
+        if de.startswith("Build-Statistik"):
+            return {
+                "it": "Statistiche build", "gr": "Στατιστικά build",
+                "pl": "Statystyki kompilacji", "tr": "Derleme istatistikleri",
+            }.get(self.language, en)
+        if de.startswith("Laufzeit = Log-Sitzungsdauer"):
+            return {
+                "it": "Durata della sessione di log, non necessariamente il tempo effettivo di build",
+                "gr": "Διάρκεια συνεδρίας καταγραφής, όχι απαραίτητα καθαρός χρόνος build",
+                "pl": "Czas sesji logów, niekoniecznie sam czas kompilacji",
+                "tr": "Günlük oturumu süresi; mutlaka gerçek derleme süresi değildir",
+            }.get(self.language, en)
+        if "Logdateien | Laufzeit" in de:
+            count = de.split(" ", 1)[0]
+            return {
+                "it": f"{count} file di log | Durata = tempo della sessione di log",
+                "gr": f"{count} αρχεία καταγραφής | Διάρκεια = χρόνος συνεδρίας καταγραφής",
+                "pl": f"{count} plików logów | Czas = czas sesji logów",
+                "tr": f"{count} günlük dosyası | Süre = günlük oturumu süresi",
+            }.get(self.language, en)
+        return translations.get(de, {}).get(self.language, en)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -184,17 +237,25 @@ class BuildStatisticsDialog(QDialog):
             return "S3"
         return "Other"
 
-    @staticmethod
-    def _duration(seconds):
+    def _duration(self, seconds):
         if seconds is None:
             return "–"
         minutes, secs = divmod(seconds, 60)
         hours, minutes = divmod(minutes, 60)
+        units = {
+            "de": ("Std.", "Min.", "s"),
+            "en": ("h", "min", "s"),
+            "it": ("h", "min", "s"),
+            "gr": ("ώ", "λεπ.", "δ"),
+            "pl": ("godz.", "min", "s"),
+            "tr": ("sa", "dk", "sn"),
+        }.get(self.language, ("h", "min", "s"))
+        hour, minute, second = units
         if hours:
-            return f"{hours} h {minutes:02d} min"
+            return f"{hours} {hour} {minutes:02d} {minute}"
         if minutes:
-            return f"{minutes} min {secs} s"
-        return f"{secs} s"
+            return f"{minutes} {minute} {secs} {second}"
+        return f"{secs} {second}"
 
     def _read_log(self, path):
         try:

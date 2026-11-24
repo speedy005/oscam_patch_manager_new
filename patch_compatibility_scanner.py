@@ -88,7 +88,7 @@ class PatchCompatibilityDialog(QDialog):
 
     def __init__(self, parent=None, language="de", colors=None):
         super().__init__(parent)
-        self.language = "de" if str(language).lower().startswith("de") else "en"
+        self.language = str(language).lower()[:2] if str(language).lower()[:2] in ("de", "en", "it", "gr", "pl", "tr") else "en"
         self.colors = colors if isinstance(colors, dict) else {}
         self.patch_paths = []
 
@@ -172,14 +172,52 @@ class PatchCompatibilityDialog(QDialog):
         """)
 
     def _tr(self, de, en):
-        return de if self.language == "de" else en
+        translations = {
+            "Patch-Kompatibilitätsprüfung": ["Verifica compatibilità patch", "Έλεγχος συμβατότητας patch", "Kontrola zgodności patchy", "Yama Uyumluluk Denetleyicisi"],
+            "Mehrere Unified-Diff-Patches gemeinsam auf Konflikte prüfen.": ["Controlla più patch Unified-Diff per individuare conflitti.", "Έλεγχος πολλών patch Unified-Diff για συγκρούσεις.", "Sprawdź wiele patchy Unified-Diff pod kątem konfliktów.", "Birden fazla Unified-Diff yamasını çakışmalara karşı denetle."],
+            "Patch-Dateien hinzufügen": ["Aggiungi file patch", "Προσθήκη αρχείων patch", "Dodaj pliki patch", "Yama dosyaları ekle"],
+            "Auswahl entfernen": ["Rimuovi selezionati", "Αφαίρεση επιλεγμένων", "Usuń zaznaczone", "Seçilenleri kaldır"],
+            "Kompatibilität prüfen": ["Verifica compatibilità", "Έλεγχος συμβατότητας", "Sprawdź zgodność", "Uyumluluğu denetle"],
+            "Prüfergebnisse erscheinen hier.": ["I risultati appariranno qui.", "Τα αποτελέσματα θα εμφανιστούν εδώ.", "Wyniki pojawią się tutaj.", "Tarama sonuçları burada görünecek."],
+            "Schließen": ["Chiudi", "Κλείσιμο", "Zamknij", "Kapat"],
+            "Patch-Dateien auswählen": ["Seleziona file patch", "Επιλογή αρχείων patch", "Wybierz pliki patch", "Yama dosyalarını seç"],
+            "Hinweis": ["Avviso", "Ειδοποίηση", "Uwaga", "Bilgi"],
+            "Bitte mindestens zwei Patch-Dateien auswählen.": ["Seleziona almeno due file patch.", "Επιλέξτε τουλάχιστον δύο αρχεία patch.", "Wybierz co najmniej dwa pliki patch.", "Lütfen en az iki yama dosyası seçin."],
+            "Lesefehler:\n": ["Errori di lettura:\n", "Σφάλματα ανάγνωσης:\n", "Błędy odczytu:\n", "Okuma hataları:\n"],
+            "DOPPELTE ÄNDERUNG": ["MODIFICA DUPLICATA", "ΔΙΠΛΗ ΑΛΛΑΓΗ", "DUPLIKAT ZMIANY", "YİNELENEN DEĞİŞİKLİK"],
+            "Ausgangszeile: ": ["Riga originale: ", "Αρχική γραμμή: ", "Linia oryginalna: ", "Orijinal satır: "],
+            "MÖGLICHER KONFLIKT": ["POSSIBILE CONFLITTO", "ΠΙΘΑΝΗ ΣΥΓΚΡΟΥΣΗ", "MOŻLIWY KONFLIKT", "OLASI ÇAKIŞMA"],
+            "bis ": ["a ", "έως ", "do ", "ile "],
+            "Keine überlappenden oder doppelten Änderungen erkannt.\nDas ist keine Garantie für vollständige Kompatibilität.": [
+                "Nessuna modifica sovrapposta o duplicata rilevata.\nCiò non garantisce la piena compatibilità.",
+                "Δεν εντοπίστηκαν επικαλυπτόμενες ή διπλές αλλαγές.\nΑυτό δεν εγγυάται πλήρη συμβατότητα.",
+                "Nie wykryto nakładających się ani zduplikowanych zmian.\nNie gwarantuje to pełnej zgodności.",
+                "Örtüşen veya yinelenen değişiklik bulunamadı.\nBu, tam uyumluluğu garanti etmez."
+            ],
+            "Dateien (*.patch *.diff);;Alle Dateien (*)": [
+                "File (*.patch *.diff);;Tutti i file (*)",
+                "Αρχεία (*.patch *.diff);;Όλα τα αρχεία (*)",
+                "Pliki (*.patch *.diff);;Wszystkie pliki (*)",
+                "Dosyalar (*.patch *.diff);;Tüm dosyalar (*)"
+            ],
+        }
+
+        if self.language == "de":
+            return de
+        if self.language == "en":
+            return en
+
+        values = translations.get(de)
+        if values:
+            return values[{"it": 0, "gr": 1, "pl": 2, "tr": 3}[self.language]]
+        return en
 
     def add_files(self):
         paths, _ = QFileDialog.getOpenFileNames(
             self,
             self._tr("Patch-Dateien auswählen", "Select patch files"),
             "",
-            "Patch-Dateien (*.patch *.diff);;Alle Dateien (*)"
+            self._tr("Dateien (*.patch *.diff);;Alle Dateien (*)", "Files (*.patch *.diff);;All files (*)")
         )
         for path in paths:
             if path not in self.patch_paths:

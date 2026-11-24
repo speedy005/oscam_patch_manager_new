@@ -22,6 +22,14 @@ ACHIEVEMENTS = [
         "title_en": "First Patch",
         "description_de": "Erstelle deinen ersten Patch.",
         "description_en": "Create your first patch.",
+        "title_it": "Prima patch",
+        "description_it": "Crea la tua prima patch.",
+        "title_gr": "Πρώτο patch",
+        "description_gr": "Δημιούργησε το πρώτο σου patch.",
+        "title_pl": "Pierwszy patch",
+        "description_pl": "Utwórz swój pierwszy patch.",
+        "title_tr": "İlk yama",
+        "description_tr": "İlk yamanı oluştur.",
         "event": "patch_created",
         "target": 1,
         "icon": "🏆",
@@ -32,6 +40,14 @@ ACHIEVEMENTS = [
         "title_en": "Patch Collector",
         "description_de": "Erstelle 10 Patches.",
         "description_en": "Create 10 patches.",
+        "title_it": "Collezionista di patch",
+        "description_it": "Crea 10 patch.",
+        "title_gr": "Συλλέκτης patch",
+        "description_gr": "Δημιούργησε 10 patch.",
+        "title_pl": "Kolekcjoner patchy",
+        "description_pl": "Utwórz 10 patchy.",
+        "title_tr": "Yama koleksiyoncusu",
+        "description_tr": "10 yama oluştur.",
         "event": "patch_created",
         "target": 10,
         "icon": "🧩",
@@ -42,6 +58,14 @@ ACHIEVEMENTS = [
         "title_en": "Patch Expert",
         "description_de": "Erstelle 50 Patches.",
         "description_en": "Create 50 patches.",
+        "title_it": "Esperto di patch",
+        "description_it": "Crea 50 patch.",
+        "title_gr": "Ειδικός στα patch",
+        "description_gr": "Δημιούργησε 50 patch.",
+        "title_pl": "Ekspert patchy",
+        "description_pl": "Utwórz 50 patchy.",
+        "title_tr": "Yama uzmanı",
+        "description_tr": "50 yama oluştur.",
         "event": "patch_created",
         "target": 50,
         "icon": "💎",
@@ -52,6 +76,14 @@ ACHIEVEMENTS = [
         "title_en": "Successful Build",
         "description_de": "Schließe deinen ersten Build erfolgreich ab.",
         "description_en": "Complete your first successful build.",
+        "title_it": "Build riuscita",
+        "description_it": "Completa con successo la tua prima build.",
+        "title_gr": "Επιτυχής δημιουργία",
+        "description_gr": "Ολοκλήρωσε με επιτυχία την πρώτη σου δημιουργία.",
+        "title_pl": "Pierwszy udany build",
+        "description_pl": "Pomyślnie ukończ swój pierwszy build.",
+        "title_tr": "İlk başarılı derleme",
+        "description_tr": "İlk derlemeni başarıyla tamamla.",
         "event": "build_success",
         "target": 1,
         "icon": "🔨",
@@ -62,6 +94,14 @@ ACHIEVEMENTS = [
         "title_en": "Build Master",
         "description_de": "Schließe 10 Builds erfolgreich ab.",
         "description_en": "Complete 10 successful builds.",
+        "title_it": "Maestro delle build",
+        "description_it": "Completa con successo 10 build.",
+        "title_gr": "Μάστορας δημιουργιών",
+        "description_gr": "Ολοκλήρωσε με επιτυχία 10 δημιουργίες.",
+        "title_pl": "Mistrz buildów",
+        "description_pl": "Pomyślnie ukończ 10 buildów.",
+        "title_tr": "Derleme ustası",
+        "description_tr": "10 derlemeyi başarıyla tamamla.",
         "event": "build_success",
         "target": 10,
         "icon": "🚀",
@@ -143,10 +183,18 @@ def get_progress():
 class AchievementDialog(QDialog):
     def __init__(self, parent=None, language="de"):
         super().__init__(parent)
-        self.language = language
-        is_de = language == "de"
+        self.language = str(language).lower()[:2]
+        lang = self.language
 
-        self.setWindowTitle("OSCam Achievement-System")
+        dialog_titles = {
+            "de": "OSCam Erfolgssystem",
+            "en": "OSCam Achievement System",
+            "it": "Sistema obiettivi OSCam",
+            "gr": "Σύστημα επιτευγμάτων OSCam",
+            "pl": "System osiągnięć OSCam",
+            "tr": "OSCam Başarım Sistemi",
+        }
+        self.setWindowTitle(dialog_titles.get(lang, dialog_titles["en"]))
         self.resize(620, 600)
         self.setMinimumSize(480, 400)
 
@@ -162,7 +210,15 @@ class AchievementDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        title = QLabel("🏆 OSCam Achievement-System")
+        header_titles = {
+            "de": "🏆 OSCam Erfolgssystem",
+            "en": "🏆 OSCam Achievement System",
+            "it": "🏆 Obiettivi OSCam",
+            "gr": "🏆 Επιτεύγματα OSCam",
+            "pl": "🏆 Osiągnięcia OSCam",
+            "tr": "🏆 OSCam Başarımları",
+        }
+        title = QLabel(header_titles.get(lang, header_titles["en"]))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("font-size: 20px; font-weight: bold; padding: 12px;")
         layout.addWidget(title)
@@ -181,7 +237,15 @@ class AchievementDialog(QDialog):
 
         buttons = QHBoxLayout()
         buttons.addStretch(1)
-        close_button = QPushButton("Schließen" if is_de else "Close")
+        close_labels = {
+            "de": "Schließen",
+            "en": "Close",
+            "it": "Chiudi",
+            "gr": "Κλείσιμο",
+            "pl": "Zamknij",
+            "tr": "Kapat",
+        }
+        close_button = QPushButton(close_labels.get(lang, close_labels["en"]))
         close_button.clicked.connect(self.accept)
         buttons.addWidget(close_button)
         layout.addLayout(buttons)
@@ -209,15 +273,19 @@ class AchievementDialog(QDialog):
         super().closeEvent(event)
 
     def refresh(self):
-        is_de = self.language == "de"
+        lang = self.language
         progress = get_progress()
         unlocked_count = sum(1 for item in progress if item["unlocked"])
 
-        self.summary.setText(
-            f"{unlocked_count} / {len(progress)} Erfolge freigeschaltet"
-            if is_de else
-            f"{unlocked_count} / {len(progress)} achievements unlocked"
-        )
+        summaries = {
+            "de": f"{unlocked_count} / {len(progress)} Erfolge freigeschaltet",
+            "en": f"{unlocked_count} / {len(progress)} achievements unlocked",
+            "it": f"{unlocked_count} / {len(progress)} obiettivi sbloccati",
+            "gr": f"{unlocked_count} / {len(progress)} επιτεύγματα ξεκλειδωμένα",
+            "pl": f"{unlocked_count} / {len(progress)} osiągnięć odblokowanych",
+            "tr": f"{unlocked_count} / {len(progress)} başarı açıldı",
+        }
+        self.summary.setText(summaries.get(lang, summaries["en"]))
 
         while self.items_layout.count():
             child = self.items_layout.takeAt(0)
@@ -230,10 +298,18 @@ class AchievementDialog(QDialog):
             card_layout = QVBoxLayout(card)
             card_layout.setContentsMargins(12, 10, 12, 10)
 
-            title_text = item["title_de"] if is_de else item["title_en"]
-            description = item["description_de"] if is_de else item["description_en"]
-            status = "FREIGESCHALTET" if is_de else "UNLOCKED"
-            locked = "Noch gesperrt" if is_de else "Locked"
+            title_text = item.get(f"title_{lang}", item["title_en"])
+            description = item.get(f"description_{lang}", item["description_en"])
+
+            status_labels = {
+                "de": ("FREIGESCHALTET", "Noch gesperrt"),
+                "en": ("UNLOCKED", "Locked"),
+                "it": ("SBLOCCATO", "Bloccato"),
+                "gr": ("ΞΕΚΛΕΙΔΩΘΗΚΕ", "Κλειδωμένο"),
+                "pl": ("ODBLOKOWANO", "Zablokowane"),
+                "tr": ("AÇILDI", "Kilitli"),
+            }
+            status, locked = status_labels.get(lang, status_labels["en"])
 
             heading = QLabel(f'{item["icon"]}  {title_text}  {"✓" if item["unlocked"] else "🔒"}')
             heading.setStyleSheet("font-weight: bold; font-size: 14px;")

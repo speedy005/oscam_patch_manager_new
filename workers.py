@@ -22,6 +22,7 @@ from PyQt6.QtCore import QDateTime, QEasingCurve, QObject, QPoint, QPropertyAnim
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPolygon, QTextCursor
 from PyQt6.QtWidgets import QApplication, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QFrame, QGraphicsColorizeEffect, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QSlider, QTextEdit, QVBoxLayout, QWidget, QWidgetItem
 from datetime import datetime, timezone
+from translations import TEXTS
 
 class OSCamUpdateWorker(QThread):
     """Prüft im Hintergrund, ob im Streamboard-Git neue Commits vorliegen."""
@@ -288,8 +289,13 @@ class S3InstallWorker(QThread):
         project_name=None,
         sub_folder="s3",
         parent=None,
+        language="en",
     ):
         super().__init__(parent)
+        self.language = str(language).lower()[:2]
+        if self.language not in TEXTS:
+            self.language = "en"
+        self.texts = TEXTS.get(self.language, TEXTS.get("en", {}))
 
         self.base_target_dir = os.path.normpath(
             os.path.expanduser(base_target_dir)
@@ -317,9 +323,9 @@ class S3InstallWorker(QThread):
         temp_clone = None
 
         try:
-            self._log(f"Projekt: {self.project_name}")
-            self._log(f"Repository: {self.repo_url}")
-            self._log(f"Zielbasis: {self.base_target_dir}")
+            self._log(self.texts["s3_worker_project"].format(name=self.project_name))
+            self._log(self.texts["s3_worker_repository"].format(url=self.repo_url))
+            self._log(self.texts["s3_worker_target"].format(path=self.base_target_dir))
 
             # Unter Windows zunächst das Bootstrap-Modul verwenden.
             if platform.system() == "Windows":
@@ -333,9 +339,7 @@ class S3InstallWorker(QThread):
 
                 self.finished_signal.emit(
                     True,
-                    f"{self.project_name} erfolgreich installiert!\n"
-                    f"Repository: {self.repo_url}\n"
-                    f"Pfad: {installed_path}",
+                    self.texts["s3_worker_success"].format(name=self.project_name, url=self.repo_url, path=installed_path),
                 )
                 return
 
@@ -355,7 +359,7 @@ class S3InstallWorker(QThread):
                 prefix="s3_install_clone_"
             )
 
-            self._log("Git-Repository wird geklont ...")
+            self._log(self.texts["s3_worker_cloning"])
 
             result = subprocess.run(
                 [
@@ -374,10 +378,10 @@ class S3InstallWorker(QThread):
             if result.returncode != 0:
                 details = (result.stderr or result.stdout or "").strip()
                 raise RuntimeError(
-                    f"Git Clone fehlgeschlagen:\n{details}"
+                    self.texts["s3_worker_clone_failed"].format(details=details)
                 )
 
-            self._log("Repository erfolgreich geklont.")
+            self._log(self.texts["s3_worker_cloned"])
 
             # Git-Metadaten aus der Installation entfernen.
             git_dir = os.path.join(temp_clone, ".git")
@@ -401,7 +405,7 @@ class S3InstallWorker(QThread):
                 else:
                     shutil.copy2(source, destination)
 
-            self._log("Dateien wurden kopiert.")
+            self._log(self.texts["s3_worker_copied"])
 
             # Ausführungsrechte setzen.
             if platform.system() == "Linux":
@@ -417,16 +421,11 @@ class S3InstallWorker(QThread):
                 )
 
                 if result.returncode != 0:
-                    self._log(
-                        "Warnung: Dateirechte konnten nicht vollständig "
-                        "gesetzt werden."
-                    )
+                    self._log(self.texts["s3_worker_permission_warning"])
 
             self.finished_signal.emit(
                 True,
-                f"{self.project_name} erfolgreich installiert!\n"
-                f"Repository: {self.repo_url}\n"
-                f"Pfad: {final_destination}",
+                self.texts["s3_worker_success"].format(name=self.project_name, url=self.repo_url, path=final_destination),
             )
 
         except Exception as e:
@@ -437,15 +436,13 @@ class S3InstallWorker(QThread):
                 or "[Errno 13]" in error_msg
                 or "WinError 5" in error_msg
             ):
-                error_msg += (
-                    "\n\nTipp: Wählen Sie einen anderen "
-                    "Installationsordner oder prüfen Sie die "
-                    "Dateiberechtigungen."
-                )
+                error_msg += self.texts["s3_worker_permission_tip"]
 
             self.finished_signal.emit(
                 False,
-                f"{self.project_name} Fehler:\n{error_msg}",
+                self.texts["s3_worker_error"].format(
+                    name=self.project_name, error=error_msg
+                ),
             )
 
         finally:
@@ -464,9 +461,13 @@ from PyQt6.QtCore import QThread, pyqtSignal
 class NcamBonecrewInstallWorker(QThread):
     finished_signal = pyqtSignal(bool, str)
 
-    def __init__(self, base_target_dir):
+    def __init__(self, base_target_dir, language="en"):
         super().__init__()
         self.base_target_dir = os.path.normpath(base_target_dir)
+        self.language = str(language).lower()[:2]
+        if self.language not in TEXTS:
+            self.language = "en"
+        self.texts = TEXTS.get(self.language, TEXTS.get("en", {}))
 
     def run(self):
         # Windows verwendet das separate Bootstrap-Modul; Linux bleibt beim
@@ -477,13 +478,13 @@ class NcamBonecrewInstallWorker(QThread):
                     "ncam", self.base_target_dir, log=_windows_msys2_log_adapter(self)
                 )
                 self.finished_signal.emit(
-                    True, f"NCam Bonecrew erfolgreich installiert!\nPfad: {installed_path}"
+                    True, self.texts["ncam_success_path"].format(name="NCam Bonecrew", path=installed_path)
                 )
             except Exception as e:
                 error_msg = str(e)
                 if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
-                    error_msg += "\n\nTipp: Wählen Sie einen anderen Installationsort oder prüfen Sie die Windows-Berechtigungen."
-                self.finished_signal.emit(False, f"NCam Bonecrew Fehler:\n{error_msg}")
+                    error_msg += self.texts["ncam_permission_tip"]
+                self.finished_signal.emit(False, self.texts["ncam_error"].format(name="NCam Bonecrew", error=error_msg))
             return
 
         temp_clone = None
@@ -522,7 +523,7 @@ class NcamBonecrewInstallWorker(QThread):
             # Deshalb prüfen wir, ob die wichtige Hauptdatei 's3' trotzdem erzeugt wurde.
             if result.returncode != 0 and not os.path.exists(os.path.join(temp_clone, "s3")):
                 git_err = result.stderr.strip() if result.stderr else f"Exit-Code {result.returncode}"
-                raise Exception(f"Git-Fehler: {git_err}")
+                raise Exception(self.texts["ncam_git_error"].format(error=git_err))
 
             # 2. .git Ordner bereinigen (Windows Fix)
             git_dir = os.path.join(temp_clone, ".git")
@@ -549,14 +550,14 @@ class NcamBonecrewInstallWorker(QThread):
                 except:
                     pass
 
-            self.finished_signal.emit(True, f"{proj_name} erfolgreich in '{sub_folder}' installiert!")
+            self.finished_signal.emit(True, self.texts["ncam_success_folder"].format(name=proj_name, folder=sub_folder))
 
         except Exception as e:
             error_msg = str(e)
             if "Permission denied" in error_msg or "[Errno 13]" in error_msg:
-                error_msg += "\n\nTipp: Starten Sie das Programm als Admin oder wählen Sie einen anderen Installationsort."
+                error_msg += self.texts["ncam_permission_tip"]
             
-            self.finished_signal.emit(False, f"{proj_name} Fehler:\n{error_msg}")
+            self.finished_signal.emit(False, self.texts["ncam_error"].format(name=proj_name, error=error_msg))
 
         finally:
             if temp_clone and os.path.exists(temp_clone):

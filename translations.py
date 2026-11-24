@@ -65,8 +65,6 @@ TEXTS = {
         "change_old_dir": "Select S3 Patch Folder",
         "oscam_emu_revision": "OSCam-Emu Revision",
         # Commits
-        "loading_commits": "Loading commits...",
-        "commits_loaded": "Commits successfully loaded",
         # Githup Upload
         "github_config_load": "Loading GitHub configuration...",
         "github_emu_git_missing": "Error: GitHub configuration incomplete (URL, token, or user missing).",
@@ -81,9 +79,6 @@ TEXTS = {
         "git_config_user": "Setting git user data ({user_name})...",
         "git_adding_files": "Indexing files for upload...",
         "git_committing": "Creating commit...",
-        "github_upload_start": "Starting upload to GitHub (push)...",
-        "github_emu_git_uploaded": "Upload completed successfully!",
-        "github_emu_git_revision": "Uploaded revision {sha}. Message: {commit_msg}",
         "github_upload_failed": "Failed to upload to GitHub!",
         # ... tool first start check ...
         "log_start_header": "--- OSCam Emu Patch Generator v{} ---",
@@ -99,18 +94,9 @@ TEXTS = {
         "settings_header": "⚙️ Settings",
         "github_config_header": "📁 GitHub Configuration",
         # --- Labels ---
-        "language_label": "Language:",
-        "color_label": "Style / Color:",
-        "commit_count_label": "Show Commits:",
         # --- Buttons & Tooltips ---
-        "modifier_button_text": "👤 Patch Author",
         "modifier_tooltip_prefix": "Created by:",
-        "check_tools_button": "🛠️ Check Tools",
         # --- System-Check Log ---
-        "missing": "MISSING!",
-        "net_check": "Checking connection...",
-        "net_online": "Online",
-        "net_offline": "Offline",
         "upd_check": "🔍 Tool Update Check...",
         "sound_active": "Active",
         "sound_inactive": "Inactive",
@@ -124,7 +110,6 @@ TEXTS = {
         "zip_failed": "❌ Error while zipping: {error}",
         # OSCam-Emu Git Patch
         "patch_creation_finished": "Patch creation finished.",
-        "patch_emu_git_check_git": "🔎 Checking Git...",
         "patch_emu_git_prepare": "🧹 Preparing workspace...",
         "patch_emu_git_clone": "🌐 Cloning Streamboard...",
         "patch_emu_git_head": "📌 Determining current Streamboard revision...",
@@ -138,14 +123,10 @@ TEXTS = {
         "patch_emu_git_success": "✅ OSCam-Emu Git patched successfully",
         "patch_emu_git_failed": "❌ OSCam-Emu Git patching failed",
         "patch_emu_git_start": "🔹 Creating OSCam-Emu Git Patch... (Path: {path})",
-        "patch_emu_git_deleted": "✅ Old OSCam-Emu Git folder deleted: {path}",
-        "delete_failed": "❌ Failed to delete folder: {path}",
-        "patch_emu_git_clone_failed": "❌ Git clone failed",
         "patch_emu_git_applied": "✅ Patch successfully committed: {commit_msg}",
         "patch_emu_git_revision_failed": "⚠️ Failed to get Git revision: {error}",
         "patch_emu_git_revision": "🧾 Git revision: {sha}",
         "github_patch_uploaded": "✅ Patch successfully uploaded: {patch_version}",
-        "github_upload_failed": "❌ GitHub upload failed.",
         "github_emu_git_uploaded": "✅ OSCam-Emu Git successfully uploaded!",
         "git_revision_failed": "⚠️ Git revision could not be determined: {error}",
         "github_emu_git_revision": "📊 Current Status: Revision {sha} ({commit_msg})",
@@ -160,23 +141,16 @@ TEXTS = {
         "patch_dl_save": "Patch saved at: ",
         # Patch modifier
         "ok_button": "OK",
-        "config_saved": "Settings updated",
-        "auth_label": "Author",
-        "repo_label": "Repository",
         "lang_label": "Language",
         "dir_label": "Patch Directory",
         "auto_update_label": "Auto-Update",
         "cancel_button": "Cancel",
-        "mod_dialog_title": "Change Author",
-        "mod_dialog_label": "Patch Author Name:",
         "mod_changed_success": "✅ Modifier changed to: {name}",
         "repo_dialog_title": "Repository Selection",
         "repo_dialog_label": "Select the desired Repo URL:",
         # Patch anwenden
         "executing_cmd": "Executing command:",
         "cmd_failed": "Command failed with exit code:",
-        "executing_git_apply": "🚀 Applying patch: {patch}",
-        "executing_git_check": "🔍 Checking patch compatibility: {patch}",
         # --- Patch Status ---
         # online check
         "net_check": "Checking internet connection...",
@@ -187,25 +161,17 @@ TEXTS = {
         "patch_emu_git_apply_failed": "❌ Failed to apply patch!",
         # Tool Start
         "start": "Starting System-Check...",
-        "missing": "MISSING!",
         "ready": "All required system tools are ready.",
         "up_to_date": "Plugin is up to date",
         "config": "🛠️ Active Configuration:",
         "author": "Patch Author",
         "repo": "Repository",
-        "missing": "MISSING!",
         "tools_ready": "All required system tools are ready.",
-        "upd_ok": "Plugin is up to date",
-        "active_conf": "🛠️ Active Configuration:",
-        "patch_author": "Patch Author",
         "no_update_found": "No update available....",
-        "upd_ok": "✅ Plugin is up to date",
         "upd_btn_current": "v{v} (Latest)",
         "upd_btn_new": "Update: v{v} available",
         "active_conf": "🛠️ Active Configuration:",
         "patch_author": "Patch Author",
-        "repository": "Repository",
-        "update_error": "Update check failed",
         "repository": "Repository",
         # change autor repo
         "config_saved": "Settings updated",
@@ -214,7 +180,6 @@ TEXTS = {
         "start_check": "Starting system check...",
         "found": "found",
         "missing": "MISSING!",
-        "info_title": "About OSCam Emu Toolkit",
         "mod_dialog_title": "Change Patch Author",
         "mod_dialog_label": "Author name:",
         # check box
@@ -222,20 +187,13 @@ TEXTS = {
         "stats_tooltip": "Allow/Disallow anonymous usage statistics (Hit-Counter).",
         # For the update check
         "new_version_available": "New version available",
-        "update_title": "Update Available",
-        "update_msg": "A new version was found. Do you want to update now?",
         # Exit / Confirmation
         "exit": "Exit",
-        "yes": "Yes",
-        "no": "No",
         "cancel": "Cancel",
         # "plugin_update": "Plugin Update",
         "btn_plugin_update": "Plugin Update",
         "state_plugin_uptodate": "Up to date",
         "check_tools_button": "🛠️ Check Tools",
-        "new_version_label": "New",
-        "old_version_label": "Installed",
-        "upd_ok": "Plugin is up to date",
         "update_title": "Update Available",
         "update_msg": "A new version has been found. Do you want to update now?",
         "new_version_label": "New",
@@ -254,7 +212,6 @@ TEXTS = {
         "update_fail": "Update failed: {error}",
         "update_success": "✅ Update installed successfully! Please restart the tool.",
         "update_available_msg": "Current version: {current}\nNew version: {latest}",
-        "restart_required_msg": "The update was installed successfully. The tool must be restarted.\nRestart now?",
         # "restart_tool_info": "ℹ️ Restarting application...",
         "restart_tool_cancelled": "ℹ️ Restart cancelled by user.",
         "update_started": "ℹ️ Update check started...",
@@ -272,8 +229,6 @@ TEXTS = {
         # s3 install check
 
         "s3_install_button": "Install S3",
-        "s3_tooltip": "Left-click: Install/Update\nRight-click: Select path manually",
-        "restarting_check": "Restarting system check...",
         #s3 simplebuild
         "s3_choice_title": "Select S3 Simplebuild",
         "s3_choice_text": "Which S3 menu would you like to launch?",
@@ -296,7 +251,6 @@ TEXTS = {
         "credits_label": "Credits / Authors",
         "close": "Close",
         # update on start
-        "version_current": "Version {version} is up to date.",
         "update_check_failed": "Update check failed: {error}",
         "update_available_title": "Update Available",
         "update_no_update": "ℹ️ No update available",
@@ -370,13 +324,9 @@ TEXTS = {
         "patch_create_clone_start": "⚠️ Cloning git repository...",
         "patch_create_clone_failed": "❌ Failed to clone git repository",
         "patch_create_no_changes": "ℹ️ No changes found between STREAM_REPO and EMU_REPO",
-        "patch_create_success": "✅ Patch successfully created: {patch_file}",
-        "patch_version_from_header": "✅ Patch version from header: {patch_version}",
-        "patch_create_failed": "❌ Patch creation failed: {error}",
         "plugin_update": "Update available: {current} → {latest}",
         "executing_git_apply": "🚀 Applying patch: {patch}",
         "executing_git_check": "🔍 Checking patch compatibility: {patch}",
-        "check_commit_button": "🔄 Check for new commit",
         # Commits
         "loading_commits": "Lade Commits...",
         "commits_loaded": "Commits erfolgreich geladen",
@@ -387,10 +337,7 @@ TEXTS = {
         "update_success_msg": "Update successful! The tool will now restart.",
         "no_old_patch": "ℹ️ No old patch found.",
         "new_patch_installed": "✅ New patch successfully installed: {path}",
-        "patch_check_ok": "✅ Patch can be applied: no conflicts found",
         "github_dialog_title": "GitHub Emu Configuration",
-        "patch_check_fail": "❌ Patch cannot be applied: conflicts or errors found",
-        "patch_failed": "❌ Patch failed: {path}",
         # Oscam online check
         "oscam_uptodate": "OSCam Git is up to date.",
         "oscam_update_found": "Update available!",
@@ -400,9 +347,6 @@ TEXTS = {
         "check_commit_button_short": "🔄 Check Commit",
         "check_commit_title": "OSCam Commit Check",
         "check_commit_current_hash": "Current Hash:",
-        "check_commit_current": "Current Hash:",
-        "check_commit_old": "Old Hash:",
-        "check_commit_new": "New Hash:",
         "check_commit_no_hash": "Error: No commit hash found.",
         "check_commit_up_to_date": "No new commit found.",
         "check_commit_current": "Current status:",
@@ -430,18 +374,13 @@ TEXTS = {
         "patch_checked": "✅ Patch successfully checked",
         "patch_header_created": "📝 Patch header inserted",
         # Clean Patch Folder
-        "oscam_emu_git_missing": "⚠️ Folder not found: {path}",
         "clean_done": "✅ Cleanup completed successfully!",
-        "oscam_emu_git_missing": "⚠️ Folder does not exist: {path}",
         "oscam_emu_git_patch_start": "🔹 Creating OSCam-Emu Git Patch...",
-        "git_patch_success": "✅ Git Patch created successfully! Revision: {rev}",
         "git_patch_success": "✅ Patch created successfully! Git Revision: {rev}",
         "patch_version_from_header": "Patch version from header: {patch_version}",
-        "patch_create_success": "Patch successfully created: {patch_file}",
         "cleaning_oscam_emu_git": "🔹 Emptying OSCam-Emu Git folder...",
         "oscam_emu_git_deleted": "✅ OSCam-Emu Git folder successfully deleted.",
         "oscam_emu_git_missing": "⚠️ OSCam-Emu Git folder not found: {path}",
-        "delete_failed": "❌ Failed to delete: {path}",
         "oscam_emu_git_clearing": "🔹 Emptying OSCam-Emu Git folder...",
         "oscam_emu_git_cleared": "✅ Cleanup completed successfully!",
         "patch_check_ok": "✅ Patch check successful (Patch applies)! ",
@@ -554,19 +493,10 @@ TEXTS = {
         "s3_choice_speedy005": "S3 Speedy005",
         "button_cancel": "Abbrechen",
         # OSCam-Emu Git Patch
-        "patch_emu_git_done": "🎉 OScam-Emu Git erfolgreich gepatcht!",
-        "patch_emu_git_start": "🚀 Starte OScam-Emu Patch-Prozess...",
-        "patch_emu_git_clone_failed": "❌ Fehler: Clone fehlgeschlagen!",
-        "patch_emu_git_start": "🔹 OSCam-Emu Git Patch wird erstellt... (Pfad: {path})",
         "patch_emu_git_deleted": "✅ Alter OSCam-Emu Git Ordner gelöscht: {path}",
-        "delete_failed": "❌ Löschen des Ordners fehlgeschlagen: {path}",
-        "patch_emu_git_clone_failed": "❌ Git-Klon fehlgeschlagen",
-        "patch_emu_git_apply_failed": "❌ Patch konnte nicht angewendet werden",
         "patch_emu_git_applied": "✅ Patch erfolgreich committet: {commit_msg}",
         "patch_emu_git_revision_failed": "⚠️ Git-Revision konnte nicht ermittelt werden: {error}",
-        "edit_patch_header": "Edit Patch Header",
         "patch_emu_git_revision": "\U0001f4dd Git-Revision: {sha}",
-        "patch_emu_git_start": "🚀 OSCam-Emu-Git Patch-Prozess wird gestartet...",
         "patch_emu_git_check_git": "🔎 Git wird geprüft...",
         "patch_emu_git_prepare": "🧹 Arbeitsumgebung wird vorbereitet...",
         "patch_emu_git_clone": "🌐 Streamboard wird geklont...",
@@ -578,23 +508,9 @@ TEXTS = {
         "patch_emu_git_commit": "💾 Patch wird committed...",
         "patch_emu_git_replace": "📦 Fertiges Repository wird übernommen...",
         "patch_emu_git_validate": "🔎 Repository wird geprüft...",
-        "patch_emu_git_success": "✅ OSCam-Emu-Git erfolgreich gepatcht",
         "patch_emu_git_failed": "❌ OSCam-Emu-Git konnte nicht gepatcht werden",
         # Active autor repo
-        "config_active_header": "🛠️ <b>Active Configuration:</b>",
-        "current_author": "👤 Patch Author:",
-        "current_repo": "🌐 Repository:",
-        "settings_saved_info": "✅ Settings have been saved permanently.",
         # --- GitHub Dialog ---
-        "github_dialog_title": "GitHub Configuration",
-        "patch_repo_label": "Patch Repository:",
-        "patch_branch_label": "Patch Branch:",
-        "emu_repo_label": "EMU Repository:",
-        "emu_branch_label": "EMU Branch:",
-        "github_username_label": "GitHub User:",
-        "github_token_label": "Token / PAT:",
-        "github_user_name_label": "Git Name:",
-        "github_user_email_label": "Git Email:",
         # Active autor repo
         "ok_button": "OK",
         "repo_dialog_title": "Repository Auswahl",
@@ -608,29 +524,10 @@ TEXTS = {
         "config_saved": "Einstellungen aktualisiert",
         "auth_label": "Autor",
         "repo_label": "Repository",
-        "start_check": "Starte System-Check...",
-        "found": "gefunden",
-        "missing": "FEHLT!",
-        "upd_check": "🔍 Tooltest Update Check...",
-        "info_title": "Über OSCam Emu Toolkit",
-        "mod_dialog_title": "Patch Autor ändern",
-        "mod_dialog_label": "Name des Autors:",
         # Matrix
-        "matrix_system": "System",
-        "matrix_engaged": "Wake up, Neo... Matrix Mode engaged. ■",
-        "matrix_disabled": "Matrix Mode disabled.",
-        "btn_matrix_on": "📟 MATRIX MODE",
-        "btn_matrix_off": "🔙 EXIT MATRIX",
-        "matrix_sys": "System",
-        "matrix_on": "Wake up, Neo... Matrix Mode engaged. ■",
-        "matrix_off": "Matrix Mode disabled.",
-        "matrix_btn_enter": "📟 MATRIX MODE",
-        "matrix_btn_exit": "🔙 EXIT MATRIX",
         # pacht erstellen
         "patch_creating": "🔨 Patch wird erstellt",
         "patch_created": "✅ Patch erstellt",
-        "patch_failed": "❌ Patch-Erstellung fehlgeschlagen",
-        "check_commit_button": "🔄 Check for new commit",
         "streamboard_preparing": "🔄 Streamboard wird vorbereitet",
         "stream_master_head": "Ermittle exakten {description} master-HEAD (Timeout je Quelle: 35 s)...",
         "stream_source_retry": "Quelle nicht erreichbar, nächste Quelle wird versucht: {candidate} ({error})",
@@ -645,8 +542,6 @@ TEXTS = {
         "patch_header_created": "📝 Patch-Header eingefügt",
         # Exit / Confirmation
         "exit": "Beenden",
-        "yes": "Ja",
-        "no": "Nein",
         "cancel": "Abbrechen",
         "github_upload_start": "🚀 GitHub Upload gestartet, bitte warten...",
         "github_config_load": "Lade GitHub-Konfiguration...",
@@ -660,7 +555,6 @@ TEXTS = {
         "git_adding_files": "Indiziere Dateien für den Upload...",
         "git_committing": "Erstelle Commit...",
         "exit_question": "Möchten Sie das Tool wirklich schließen?",
-        "update_current_version": "✅ Sie nutzen bereits die aktuelle Version: {version}",
         "update_started": "ℹ️ Update gestartet…",
         "backup_created": "✅ Backup erfolgreich erstellt: {file}",
         # "restart_tool_info": "ℹ️ Tool wird neu gestartet…",
@@ -671,45 +565,28 @@ TEXTS = {
         # oscam em git patch
         "patch_emu_git_start": "🚀 Starte OScam-Emu Patch-Prozess...\n📂 Pfad: {path}",
         "patch_emu_git_clone_failed": "❌ Fehler: Streamboard-Repository konnte nicht geklont werden!",
-        "patch_emu_git_apply_failed": "❌ Fehler: Der oscam-emu.patch konnte nicht angewendet werden!",
-        "patch_emu_git_done": "🎉 OScam-Emu Git erfolgreich vorbereitet und lokal committed!",
-        "patch_emu_git_done": "🎉 OScam-Emu Git erfolgreich gepatcht!",
         # Falls du weitere Keys aus der Log-Funktion brauchst:
         "git_rev_info": "📝 Git-Revision: {revision}",
         # online check
-        "net_check": "Prüfe Internetverbindung...",
-        "net_online": "Online",
-        "net_offline": "Offline",
         # ... check tools first start ...
         "log_start_header": "--- OSCam Emu Patch Generator v{} ---",
         "log_sys_info": "System: {} {}",
         "log_dep_check": "Check: Git ({}), Patch ({}), Sound ({})",
         "log_status_ok": "Status: All dependencies loaded. Ready.",
         "ok": "OK",
-        "missing": "MISSING",
         "active": "Active",
         "inactive": "Inactive",
         # --- Header & GroupBoxes ---
         "settings_header": "⚙️ Einstellungen",
         "github_config_header": "📁 GitHub Konfiguration",
         # Matrix mode
-        "matrix_btn_exit": "🔙 MATRIX BEENDEN",
         # --- Labels ---
-        "language_label": "Sprache:",
-        "color_label": "Design / Farbe:",
-        "commit_count_label": "Commits anzeigen:",
         # --- Buttons & Tooltips ---
-        "modifier_button_text": "👤 Patch Autor",
         "modifier_tooltip_prefix": "Erstellt von:",
-        "check_tools_button": "🛠️ Tools prüfen",
         # --- System-Check Log ---
-        "start_check": "Starte System-Check...",
-        "found": "OK",
-        "missing": "FEHLT!",
         "net_check": "Prüfe Internetverbindung...",
         "net_online": "Online",
         "net_offline": "Offline",
-        "upd_check": "🔍 Tool Update Check...",
         "final_label": "🛠️ Was bauen wir heute?",
         "language_done": "✅ Sprache umgestellt!",
         "language_switch": "Sprache wird angepasst...",
@@ -722,8 +599,6 @@ TEXTS = {
         # Patch anwenden
         "executing_cmd": "Führe Befehl aus:",
         "cmd_failed": "Befehl fehlgeschlagen mit Code:",
-        "executing_git_apply": "🚀 Wende Patch an: {patch}",
-        "executing_git_check": "🔍 Prüfe Patch-Kompatibilität: {patch}",
         # Oscam update check
         "oscam_uptodate": "OSCam Git ist aktuell.",
         "oscam_update_found": "Update verfügbar!",
@@ -754,10 +629,7 @@ TEXTS = {
         "patch_dl_save": "Patch gespeichert unter: ",
         # Tool Start
         "start": "Starte System-Check...",
-        "found": "gefunden",
-        "missing": "FEHLT!",
         "ready": "Alle benötigten System-Tools sind bereit.",
-        "upd_check": "🔍 Tooltest Update Check...",
         "up_to_date": "Plugin ist aktuell",
         "config": "🛠️ Aktive Konfiguration:",
         "author": "Patch Autor",
@@ -767,10 +639,6 @@ TEXTS = {
         "missing": "FEHLT!",
         "tools_ready": "Alle benötigten System-Tools sind bereit.",
         "upd_check": "🔍 Tooltest Update Check...",
-        "upd_ok": "Plugin ist aktuell",
-        "active_conf": "🛠️ Aktive Konfiguration:",
-        "patch_author": "Patch Autor",
-        "repository": "Repository",
         # check box
         "stats_checkbox": "Stats",
         "stats_tooltip": "Anonyme Nutzungsstatistik (Hit-Counter) erlauben/verbieten.",
@@ -778,19 +646,12 @@ TEXTS = {
         "new_version_available": "Neue Version verfügbar",
         "update_title": "Update verfügbar",
         "update_msg": "Eine neue Version wurde gefunden. Möchtest du jetzt aktualisieren?",
-        "update_title": "Update verfügbar",
-        "update_msg": "Eine neue Version wurde gefunden. Möchtest du jetzt aktualisieren?",
-        "new_version_label": "Neu",
         "no_update_found": "Kein Update vorhanden....",
-        "upd_ok": "✅ Plugin ist aktuell",
         "upd_btn_current": "v{v} (Aktuell)",
         "upd_btn_new": "Update: v{v} verfügbar",
         "active_conf": "🛠️ Aktive Konfiguration:",
         "patch_author": "Patch Autor",
         "repository": "Repository",
-        "update_error": "Update-Check fehlgeschlagen",
-        "old_version_label": "Installiert",
-        "upd_ok": "Plugin ist aktuell",
         # Matrix
         "matrix_system": "System",
         "matrix_engaged": "Wake up, Neo... Matrix-Modus aktiviert. ■",
@@ -803,9 +664,6 @@ TEXTS = {
         "matrix_btn_enter": "📟 MATRIX MODE",
         "matrix_btn_exit": "🔙 EXIT MATRIX",
         # Updates
-        "restart_required_msg": "Das Update wurde erfolgreich installiert. Das Tool muss neu gestartet werden.\nJetzt neu starten?",
-        "restart_required_title": "Neustart erforderlich",
-        "update_success": "✅ Update erfolgreich! Bitte Plugin neu starten.",
         "update_fail": "Update fehlgeschlagen: {error}",
         "update_not_available": "Keine neue Version verfügbar.",
         "update_check_start": "Prüfe auf Updates ...",
@@ -830,8 +688,6 @@ TEXTS = {
         # check for new commits
         "check_commit_button_short": "🔄 Commit Check",
         "check_commit_current_hash": "Aktueller Hash:",
-        "check_commit_current": "Aktueller Hash:",
-        "check_commit_new": "Neuer Hash:",
         "check_commit_title": "OSCam Commit-Check",
         "check_commit_no_hash": "Fehler: Kein Commit-Hash gefunden.",
         "check_commit_up_to_date": "Kein neuer Commit vorhanden.",
@@ -864,12 +720,9 @@ TEXTS = {
         "update_declined": "Update abgebrochen.",
         "update_no_update": "ℹ️ Kein Update vorhanden",
         "tools_ok": "✅ Alle benötigten System-Tools sind bereits installiert.",
-        "tools_missing": "⚠️ Folgende Tools fehlen: {tools}. Installation wird vorbereitet...",
         "check_tools_button": "🛠️ Tools prüfen",
-        "checking_tools": "Starte System-Check...",
         "restart_required_title": "Neustart erforderlich",
         "restart_tool_question": "Möchten Sie das Tool jetzt neu starten?",
-        "patch_emu_git_success": "✅ OSCam Emu Git successfully patched",
         "restart_required_msg": "Das Tool muss neu gestartet werden. Jetzt neu starten?",
         "yes": "Ja",
         "no": "Nein",
@@ -881,7 +734,6 @@ TEXTS = {
         # s4 install
         "s4_install_button": "S4 Installieren",
         "s4_tooltip": "Linksklick: Install/Update\nRechtsklick: Pfad manuell wählen",
-        "restarting_check": "System-Check wird neu gestartet...",
         "s4_ok": "S4 OK",
         "s4_install": "S4 Installieren",
         # s3 install
@@ -924,10 +776,6 @@ TEXTS = {
         "patch_create_clone_start": "⚠️ TEMP_REPO existiert nicht, Repository wird geklont...",
         "patch_create_clone_failed": "❌ Klonen fehlgeschlagen, Patch-Erstellung abgebrochen.",
         "patch_create_no_changes": "ℹ️ Keine Änderungen zwischen STREAM_REPO und EMU_REPO gefunden",
-        "patch_create_success": "✅ Patch erfolgreich erstellt: {patch_file}",
-        "patch_version_from_header": "✅ Patch-Version aus Header: {patch_version}",
-        "patch_create_failed": "❌ Patch-Erstellung fehlgeschlagen: {error}",
-        "git_patch_success": "✅ Git Patch erfolgreich erstellt! Revision: {rev}",
         # Statistik
         "STATS_TITLE": "TOOL STATISTIK",
         "STATS_GITHUB": "GitHub:",
@@ -941,17 +789,13 @@ TEXTS = {
         "stats_total": "Gesamt:",
         # Patch ordner leeren
         "temp_patch_git_already_deleted": "Patch-Git-Ordner war bereits gelöscht oder nicht vorhanden.",
-        "patch_file_deleted": "Patch-Datei wurde erfolgreich entfernt: {path}",
         "patch_file_already_deleted": "Keine Patch-Datei zum Löschen gefunden: {path}",
         "clean_done": "Bereinigung des Patch Temp Ordners erfolgreich abgeschlossen! ✨",
-        "oscam_emu_git_missing": "⚠️ Ordner nicht gefunden: {path}",
         "temp_repo_deleted": "Temporäres Repository erfolgreich gelöscht: {path}",
         "oscam_emu_git_patch_start": "🔹 OSCam-Emu Git Patch wird erstellt...",
         "patch_file_deleted": "Patch-Datei gelöscht: {path}",
         "cleaning_oscam_emu_git": "🔹 OSCam-Emu Git Ordner wird geleert...",
         "oscam_emu_git_deleted": "✅ OSCam-Emu Git Ordner erfolgreich gelöscht.",
-        "oscam_emu_git_missing": "⚠️ OSCam-Emu Git Ordner nicht gefunden: {path}",
-        "delete_failed": "❌ Fehler beim Löschen: {path}",
         "patch_emu_git_success": "✅ OSCam Emu Git erfolgreich gepatcht",
         # "zip_file_deleted": "ZIP-Archiv entfernt: {path}",
         # Backup
@@ -963,9 +807,6 @@ TEXTS = {
         "new_patch_installed": "✅ Neuer Patch erfolgreich installiert: {path}",
         "update_downloading": "Lade Update herunter...",
         "update_success_msg": "Update erfolgreich! Das Tool wird nun neu gestartet.",
-        "github_dialog_title": "GitHub Emu Konfiguration",
-        "patch_check_ok": "✅ Patch kann angewendet werden: keine Konflikte gefunden",
-        "patch_check_fail": "❌ Patch kann nicht angewendet werden: Konflikte vorhanden oder Fehler",
         "patch_failed": "❌ Patch-Erstellung fehlgeschlagen",
         # Github config
         "github_dialog_title": "GitHub Konfiguration",
@@ -982,15 +823,11 @@ TEXTS = {
         "executing_git_apply": "🚀 Wende Patch an: {patch}",
         "executing_git_check": "🔍 Prüfe Patch-Kompatibilität: {patch}",
         # Clean Patch Folder
-        "oscam_emu_git_missing": "⚠️ Ordner nicht gefunden: {path}",
-        "delete_failed": "❌ Fehler: Konnte {path} nicht löschen. Fehler: {error}",
         "git_patch_success": "✅ Patch erfolgreich erstellt! Git Revision: {rev}",
         "oscam_emu_git_missing": "⚠️ Ordner existiert nicht: {path}",
-        "delete_failed": "❌ Löschen fehlgeschlagen: {path} (Fehler: {error})",
         "github_patch_uploaded": "✅ Patch erfolgreich hochgeladen: {patch_version}",
         "github_upload_failed": "❌ Fehler beim Hochladen auf GitHub.",
         "patch_version_from_header": "Patch-Version aus Header: {patch_version}",
-        "patch_create_success": "Patch erfolgreich erstellt: {patch_file}",
         "oscam_emu_git_clearing": "🔹 OSCam-Emu Git Ordner wird geleert...",
         "oscam_emu_git_cleared": "✅ Bereinigung erfolgreich abgeschlossen!",
         "patch_check_ok": "✅ Patch-Check erfolgreich (Patch passt)! ",
@@ -1088,7 +925,6 @@ TEXTS["tr"].update({'patch_emu_git_start': '🚀 OSCam-Emu Git patch işlemi ba�
 
 TEXTS["tr"].update({'repository': 'Depo', 'update_error': 'Güncelleme kontrol hatası: {error}', 'info_title': 'Program hakkında', 'stats_checkbox': 'İstatistikler', 'stats_tooltip': 'Anonim kullanım istatistiklerine izin ver veya devre dışı bırak.', 'new_version_available': 'Yeni sürüm mevcut', 'update_title': 'Güncelleme mevcut', 'update_msg': 'Yeni bir sürüm mevcut. Programı şimdi güncellemek ister misiniz?', 'exit': 'Çıkış', 'yes': 'Evet', 'no': 'Hayır', 'cancel': 'İptal', 'btn_plugin_update': 'Eklentiyi güncelle', 'state_plugin_uptodate': 'Güncel', 'new_version_label': 'Yeni', 'old_version_label': 'Yüklü', 'state_plugin_update_available': 'Güncelleme mevcut: {current} → {latest}', 'log_update_check_start': 'Güncellemeler kontrol ediliyor…', 'log_update_uptodate': '✅ Yüklü sürüm: {version}', 'log_update_declined': 'Güncelleme atlandı', 'log_update_failed': '❌ Güncelleme kontrol edilemedi: {error}', 'update_box_title': 'Yazılım güncellemesi', 'update_box_msg': 'Yeni bir sürüm mevcut!\n\nYeni: v{latest}\nMevcut: v{current}\n\nŞimdi güncellensin mi?', 'msg_update_available_title': 'Güncelleme mevcut', 'msg_update_available_text': 'Yeni bir sürüm mevcut ({latest}).\nYüklü sürüm: {current}.\nŞimdi güncellensin mi?', 'update_fail': 'Güncelleme başarısız: {error}', 'update_success': '✅ Güncelleme başarıyla yüklendi! Lütfen programı yeniden başlatın.', 'update_available_msg': 'Mevcut sürüm: {current}\nYeni sürüm: {latest}', 'restart_required_msg': 'Programın yeniden başlatılması gerekiyor. Şimdi yeniden başlatılsın mı?', 'restart_tool_cancelled': 'ℹ️ Kullanıcı yeniden başlatmayı iptal etti.', 'update_started': 'ℹ️ Güncelleme kontrolü başlatıldı...', 'update_backup_done': '✅ Eski eklenti dosyalarının yedeği oluşturuldu.', 'update_download_failed': '❌ İndirme başarısız: {error}', 'update_extract_failed': '❌ Yeni sürüm çıkarılamadı: {error}', 'update_done': '✅ {version} sürümüne güncelleme başarıyla tamamlandı.', 'restart_tool': 'Programı yeniden başlat', 'update_check_done': 'Tamamlandı', 'backup_created': '✅ Yedek oluşturuldu: {file}', 'exit_question': 'Programı kapatmak istediğinizden emin misiniz?', 'update_check_start': 'Güncelleme kontrolü başlatılıyor...', 'github_version_available': 'Yeni sürüm mevcut: {version}', 'github_version_fetch_failed': 'Sürüm kontrol edilemedi: {error}', 's3_install_button': "S3'ü yükle", 's3_tooltip': 'Sol tıklama: yükle/güncelle\nSağ tıklama: yolu elle seç', 'restarting_check': 'Sistem kontrolü yeniden başlatılıyor...', 's3_choice_title': 'S3 Simplebuild seçin', 's3_choice_text': 'Hangi S3 menüsünü başlatmak istiyorsunuz?', 's3_choice_info': "Gorgone 's3' klasörünü kullanır.\nSpeedy005 's3_speedy005' klasörünü kullanır.", 's3_choice_gorgone': 'S3 Gorgone', 's3_choice_speedy005': 'S3 Speedy005', 'button_cancel': 'İptal', 's4_install_button': "S4'ü yükle", 'log_exported': '✅ Günlük şuraya kaydedildi:', 'log_save_error': '❌ Günlük kaydedilirken hata oluştu:', 'credits_label': 'Teşekkürler / Katkıda bulunanlar', 'close': 'Kapat', 'version_current': '{version} sürümü güncel.', 'update_check_failed': 'Güncelleme kontrol edilemedi: {error}', 'update_available_title': 'Güncelleme mevcut', 'update_no_update': 'ℹ️ Kullanılabilir güncelleme yok', 'installed_version': 'Yüklü sürüm:', 'new_version_found': 'Yeni sürüm bulundu', 'git_status': "Commit'leri göster", 'edit_patch_header': 'Patch başlığını düzenle', 'github_emu_config_button': 'GitHub yapılandırmasını düzenle', 'github_upload_patch': 'Patch dosyasını yükle', 'github_upload_emu': "OSCam-Emu Git'i yükle", 'oscam_emu_git_patch': "OSCam-Emu Git patch'i", 'oscam_emu_git_clear': "OSCam-Emu Git'i temizle", 'oscam_emu_patch_upload': "OSCam-Emu patch'ini yükle", 'update_declined': 'Güncelleme reddedildi.', 'update_current_version': '✅ Yüklü sürüm: {version}', 'restart_required_title': 'Yeniden başlatma gerekli', 'save': 'Kaydet', 'matrix_btn_exit': "🔙 MATRIX'TEN ÇIK"})
 
-TEXTS["tr"].update({'repository': 'Depo', 'update_error': 'Güncelleme kontrol hatası: {error}', 'info_title': 'Program hakkında', 'stats_checkbox': 'İstatistikler', 'stats_tooltip': 'Anonim kullanım istatistiklerine izin ver veya devre dışı bırak.', 'new_version_available': 'Yeni sürüm mevcut', 'update_title': 'Güncelleme mevcut', 'update_msg': 'Yeni bir sürüm mevcut. Programı şimdi güncellemek ister misiniz?', 'exit': 'Çıkış', 'yes': 'Evet', 'no': 'Hayır', 'cancel': 'İptal', 'btn_plugin_update': 'Eklentiyi güncelle', 'state_plugin_uptodate': 'Güncel', 'new_version_label': 'Yeni', 'old_version_label': 'Yüklü', 'state_plugin_update_available': 'Güncelleme mevcut: {current} → {latest}', 'log_update_check_start': 'Güncellemeler kontrol ediliyor…', 'log_update_uptodate': '✅ Yüklü sürüm: {version}', 'log_update_declined': 'Güncelleme atlandı', 'log_update_failed': '❌ Güncelleme kontrol edilemedi: {error}', 'update_box_title': 'Yazılım güncellemesi', 'update_box_msg': 'Yeni bir sürüm mevcut!\n\nYeni: v{latest}\nMevcut: v{current}\n\nŞimdi güncellensin mi?', 'msg_update_available_title': 'Güncelleme mevcut', 'msg_update_available_text': 'Yeni bir sürüm mevcut ({latest}).\nYüklü sürüm: {current}.\nŞimdi güncellensin mi?', 'update_fail': 'Güncelleme başarısız: {error}', 'update_success': '✅ Güncelleme başarıyla yüklendi! Lütfen programı yeniden başlatın.', 'update_available_msg': 'Mevcut sürüm: {current}\nYeni sürüm: {latest}', 'restart_required_msg': 'Programın yeniden başlatılması gerekiyor. Şimdi yeniden başlatılsın mı?', 'restart_tool_cancelled': 'ℹ️ Kullanıcı yeniden başlatmayı iptal etti.', 'update_started': 'ℹ️ Güncelleme kontrolü başlatıldı...', 'update_backup_done': '✅ Eski eklenti dosyalarının yedeği oluşturuldu.', 'update_download_failed': '❌ İndirme başarısız: {error}', 'update_extract_failed': '❌ Yeni sürüm çıkarılamadı: {error}', 'update_done': '✅ {version} sürümüne güncelleme başarıyla tamamlandı.', 'restart_tool': 'Programı yeniden başlat', 'update_check_done': 'Tamamlandı', 'backup_created': '✅ Yedek oluşturuldu: {file}', 'exit_question': 'Programı kapatmak istediğinizden emin misiniz?', 'update_check_start': 'Güncelleme kontrolü başlatılıyor...', 'github_version_available': 'Yeni sürüm mevcut: {version}', 'github_version_fetch_failed': 'Sürüm kontrol edilemedi: {error}', 's3_install_button': "S3'ü yükle", 's3_tooltip': 'Sol tıklama: yükle/güncelle\nSağ tıklama: yolu elle seç', 'restarting_check': 'Sistem kontrolü yeniden başlatılıyor...', 's3_choice_title': 'S3 Simplebuild seçin', 's3_choice_text': 'Hangi S3 menüsünü başlatmak istiyorsunuz?', 's3_choice_info': "Gorgone 's3' klasörünü kullanır.\nSpeedy005 's3_speedy005' klasörünü kullanır.", 's3_choice_gorgone': 'S3 Gorgone', 's3_choice_speedy005': 'S3 Speedy005', 'button_cancel': 'İptal', 's4_install_button': "S4'ü yükle", 'log_exported': '✅ Günlük şuraya kaydedildi:', 'log_save_error': '❌ Günlük kaydedilirken hata oluştu:', 'credits_label': 'Teşekkürler / Katkıda bulunanlar', 'close': 'Kapat', 'version_current': '{version} sürümü güncel.', 'update_check_failed': 'Güncelleme kontrol edilemedi: {error}', 'update_available_title': 'Güncelleme mevcut', 'update_no_update': 'ℹ️ Kullanılabilir güncelleme yok', 'installed_version': 'Yüklü sürüm:', 'new_version_found': 'Yeni sürüm bulundu', 'git_status': "Commit'leri göster", 'edit_patch_header': 'Patch başlığını düzenle', 'github_emu_config_button': 'GitHub yapılandırmasını düzenle', 'github_upload_patch': 'Patch dosyasını yükle', 'github_upload_emu': "OSCam-Emu Git'i yükle", 'oscam_emu_git_patch': "OSCam-Emu Git patch'i", 'oscam_emu_git_clear': "OSCam-Emu Git'i temizle", 'oscam_emu_patch_upload': "OSCam-Emu patch'ini yükle", 'update_declined': 'Güncelleme reddedildi.', 'update_current_version': '✅ Yüklü sürüm: {version}', 'restart_required_title': 'Yeniden başlatma gerekli', 'save': 'Kaydet', 'matrix_btn_exit': "🔙 MATRIX'TEN ÇIK"})
 
 TEXTS["tr"].update({'log_start_header': '--- OSCam Emu Patch Oluşturucu v{} ---', 'patch_emu_git_done': "✅ OSCam Emu Git patch'i başarıyla uygulandı", 's3_choice_gorgone': 'S3 Gorgone', 's3_choice_speedy005': 'S3 Speedy005', 'STATS_TITLE': 'ARAÇ İSTATİSTİKLERİ', 'STATS_GITHUB': 'GitHub:', 'STATS_LOCAL': 'Yerel:', 'STATS_TOTAL': 'Toplam:', 'foot_ok': 'Tamam', 'foot_ready': 'Hazır', 'stats_title': 'ARAÇ İSTATİSTİKLERİ', 'stats_github': 'GitHub:', 'stats_local': 'Yerel:', 'stats_total': 'Toplam:', 'temp_repo_deleted': 'Geçici depo silindi: {path}', 'patch_file_deleted': 'Patch dosyası silindi: {path}', 'temp_repo_already_deleted': 'Geçici depo bulunamadı (zaten temiz): {path}', 'final_label': '🛠️ Bugün ne oluşturuyoruz?', 'info_tooltip': 'Bilgi / Yardım', 'restart_tool_question': 'Aracı şimdi yeniden başlatmak istiyor musunuz?', 'info_text': "Bu araç, kapsamlı bir OSCam Emu Patch Manager uygulamasıdır.\n\nÖzellikler:\n- Patch oluştur: OSCam kaynak kodundan bir patch oluşturur.\n- Patch yenile: Mevcut patch'i günceller.\n- Patch kontrolü: Patch'in doğru şekilde uygulanıp uygulanamayacağını denetler.\n- Patch uygula: Patch'i yerel OSCam-Emu Git deposuna uygular.\n- Patch'i ZIP'le: Patch'i bir ZIP dosyasına paketler.\n- Patch yedeği: Eski patch'in yedeğini alır ve üzerine yeni sürümü yazar.\n- Patch klasörünü temizle: Patch klasöründeki geçici dosyaları siler (önemli dosyalar korunur).\n- OSCam-Emu Git patch'i: Patch'i doğrudan OSCam-Emu Git deposuna uygular.\n- OSCam-Emu Git'i temizle: Yerel OSCam-Emu Git klasörünü siler.\n- GitHub'a yükle: Patch'i veya OSCam-Emu Git klasörünü GitHub'a yükler.\n- GitHub kimlik bilgilerini yönet: Kullanıcı adını, token'ı, depo URL'sini ve dalı yapılandırır.\n- Dil ve renk değiştir: GUI dilini değiştirir ve düğme/ilerleme çubuğu renklerini ayarlar.\n- İlerleme göstergesi: İşlem ilerlemesini ilerleme çubuğunda gösterir.\n- Commit'leri göster: Yerel depodaki en son commit'leri görüntüler.\n\n⚠️ Not: Patch yükleme sırasında yalnızca `oscam-emu.patch` dosyasının üzerine yazılır; diğer tüm dosyalar değiştirilmeden kalır.", 'patch_create_start': 'ℹ️ Patch oluşturma başlatıldı...', 'patch_create_clone_start': '⚠️ Git deposu klonlanıyor...', 'patch_create_clone_failed': '❌ Git deposu klonlanamadı', 'patch_create_no_changes': 'ℹ️ STREAM_REPO ile EMU_REPO arasında değişiklik bulunamadı', 'patch_create_success': '✅ Patch başarıyla oluşturuldu: {patch_file}', 'patch_version_from_header': 'Başlıktaki patch sürümü: {patch_version}', 'patch_create_failed': '❌ Patch oluşturulurken hata oluştu: {error}', 'plugin_update': 'Güncelleme mevcut: {current} → {latest}', 'check_commit_button': '🔄 Yeni commit kontrol et', 'backup_old_start': "ℹ️ Eski patch'in yedeği oluşturuluyor…", 'backup_done': '✅ Yedek başarıyla oluşturuldu: {path}', 'update_downloading': 'Güncelleme indiriliyor...', 'update_success_msg': 'Güncelleme başarılı! Araç şimdi yeniden başlatılacak.', 'no_old_patch': 'ℹ️ Eski patch bulunamadı.', 'new_patch_installed': '✅ Yeni patch başarıyla yüklendi: {path}', 'patch_check_ok': '✅ Patch kontrolü başarılı (Patch uygulanabiliyor)! ', 'github_dialog_title': 'GitHub Emu Yapılandırması', 'patch_check_fail': '❌ Patch kontrolü başarısız (Patch uygulanamıyor)!', 'patch_failed': '❌ Patch oluşturulamadı', 'oscam_uptodate': 'OSCam Git güncel.', 'oscam_update_found': 'Güncelleme mevcut!', 'oscam_check_start': '🔍 OSCam deposu kontrol ediliyor...', 'oscam_server_error': '❌ Hata: OSCam sunucusuna ulaşılamıyor.', 'check_commit_button_short': '🔄 Commit kontrol et', 'check_commit_title': 'OSCam Commit Kontrolü', 'check_commit_current_hash': 'Mevcut Hash:', 'check_commit_current': 'Mevcut durum:', 'check_commit_old': 'Eski:', 'check_commit_new': 'Yeni:', 'check_commit_no_hash': 'Hata: Commit hash bulunamadı.', 'check_commit_up_to_date': 'Yeni commit bulunamadı.', 'check_commit_new_found': 'Yeni commit bulundu!', 'check_commit_error': 'Kontrol sırasında hata:', 'check_commit_tooltip': "Streamboard deposunda yeni bir commit olup olmadığını kontrol etmek için buraya tıklayın. Yeni bir commit bulunursa son commit hash'i gösterilir.", 'patch_creating': '🔨 Patch oluşturuluyor', 'patch_created': '✅ Patch oluşturuldu', 'streamboard_preparing': '🔄 Streamboard hazırlanıyor', 'stream_master_head': 'Tam {description} master HEAD sürümü belirleniyor (kaynak başına zaman aşımı: 35 sn)...', 'stream_source_retry': 'Kaynağa ulaşılamıyor, sonraki kaynak deneniyor: {candidate} ({error})', 'stream_source_check': 'Streamboard kaynağı kontrol ediliyor: {url}', 'stream_source_alternative': 'Alternatif Streamboard kaynağı kullanılıyor: {url}', 'stream_source_failed': 'Streamboard kaynağı başarısız oldu: {url} ({error})', 'streamboard_updated': '✅ Streamboard güncellendi', 'emu_updated': '✅ OSCam-Emu güncellendi', 'streamboard_imported': '✅ Streamboard revizyonu içe aktarıldı', 'patch_diff_created': '🔧 Patch farkı oluşturuldu', 'patch_checked': '✅ Patch başarıyla kontrol edildi', 'patch_header_created': '📝 Patch başlığı eklendi', 'oscam_emu_git_missing': '⚠️ OSCam-Emu Git klasörü bulunamadı: {path}', 'clean_done': '✅ Temizlik başarıyla tamamlandı!', 'oscam_emu_git_patch_start': "🔹 OSCam-Emu Git patch'i oluşturuluyor...", 'git_patch_success': '✅ Patch başarıyla oluşturuldu! Git revizyonu: {rev}', 'cleaning_oscam_emu_git': '🔹 OSCam-Emu Git klasörü boşaltılıyor...', 'oscam_emu_git_deleted': '✅ OSCam-Emu Git klasörü başarıyla silindi.', 'oscam_emu_git_clearing': '🔹 OSCam-Emu Git klasörü boşaltılıyor...', 'oscam_emu_git_cleared': '✅ Temizlik başarıyla tamamlandı!', 'cleanup_start': '🔹 Çalışma dizini temizleniyor...', 'cleanup_success': '✅ Temizlik başarıyla tamamlandı! ✨', 'showing_commits': 'ℹ️ En son {count} commit gösteriliyor'})
 
@@ -1097,7 +933,6 @@ TEXTS["gr"].update({'repository': 'Αποθετήριο', 'update_error': 'Σφ�
 
 TEXTS["gr"].update({'STATS_TITLE': 'ΣΤΑΤΙΣΤΙΚΑ ΕΡΓΑΛΕΙΟΥ', 'STATS_GITHUB': 'GitHub:', 'STATS_LOCAL': 'Τοπικά:', 'STATS_TOTAL': 'Σύνολο:', 'foot_ok': 'OK', 'foot_ready': 'Έτοιμο', 'stats_title': 'ΣΤΑΤΙΣΤΙΚΑ ΕΡΓΑΛΕΙΟΥ', 'stats_github': 'GitHub:', 'stats_local': 'Τοπικά:', 'stats_total': 'Σύνολο:', 'temp_repo_deleted': 'Το προσωρινό αποθετήριο διαγράφηκε: {path}', 'patch_file_deleted': 'Το αρχείο patch διαγράφηκε: {path}', 'temp_repo_already_deleted': 'Δεν βρέθηκε προσωρινό αποθετήριο (έχει ήδη καθαριστεί): {path}', 'final_label': '🛠️ Τι θα δημιουργήσουμε σήμερα;', 'info_tooltip': 'Πληροφορίες / Βοήθεια', 'restart_tool_question': 'Θέλετε να επανεκκινήσετε το εργαλείο τώρα;', 'patch_create_start': 'ℹ️ Η δημιουργία patch ξεκίνησε...', 'patch_create_clone_start': '⚠️ Κλωνοποίηση αποθετηρίου Git...', 'patch_create_clone_failed': '❌ Αποτυχία κλωνοποίησης αποθετηρίου Git', 'patch_create_no_changes': 'ℹ️ Δεν βρέθηκαν αλλαγές μεταξύ STREAM_REPO και EMU_REPO', 'patch_create_success': '✅ Το patch δημιουργήθηκε με επιτυχία: {patch_file}', 'patch_version_from_header': 'Έκδοση patch από την κεφαλίδα: {patch_version}', 'patch_create_failed': '❌ Σφάλμα κατά τη δημιουργία patch: {error}', 'plugin_update': 'Διαθέσιμη ενημέρωση: {current} → {latest}', 'check_commit_button': '🔄 Έλεγχος για νέα commit', 'backup_old_start': 'ℹ️ Δημιουργία αντιγράφου ασφαλείας του παλιού patch…', 'backup_done': '✅ Το αντίγραφο ασφαλείας δημιουργήθηκε: {path}', 'update_downloading': 'Λήψη ενημέρωσης...', 'update_success_msg': 'Η ενημέρωση ολοκληρώθηκε! Το εργαλείο θα επανεκκινηθεί τώρα.', 'no_old_patch': 'ℹ️ Δεν βρέθηκε παλιό patch.', 'new_patch_installed': '✅ Το νέο patch εγκαταστάθηκε με επιτυχία: {path}', 'patch_check_ok': '✅ Ο έλεγχος patch ολοκληρώθηκε με επιτυχία (το patch εφαρμόζεται)! ', 'github_dialog_title': 'Ρυθμίσεις GitHub Emu', 'patch_check_fail': '❌ Ο έλεγχος patch απέτυχε (το patch δεν εφαρμόζεται)!', 'patch_failed': '❌ Η δημιουργία patch απέτυχε', 'oscam_uptodate': 'Το OSCam Git είναι ενημερωμένο.', 'oscam_update_found': 'Βρέθηκε διαθέσιμη ενημέρωση!', 'oscam_check_start': '🔍 Έλεγχος αποθετηρίου OSCam...', 'oscam_server_error': '❌ Σφάλμα: Ο διακομιστής OSCam δεν είναι προσβάσιμος.', 'check_commit_button_short': '🔄 Έλεγχος commit', 'check_commit_title': 'Έλεγχος commit OSCam', 'check_commit_current_hash': 'Τρέχον Hash:', 'check_commit_current': 'Τρέχουσα κατάσταση:', 'check_commit_old': 'Παλαιό:', 'check_commit_new': 'Νέο:', 'check_commit_no_hash': 'Σφάλμα: Δεν βρέθηκε hash commit.', 'check_commit_up_to_date': 'Δεν βρέθηκε νέο commit.', 'check_commit_new_found': 'Βρέθηκε νέο commit!', 'check_commit_error': 'Σφάλμα κατά τον έλεγχο:', 'patch_creating': '🔨 Δημιουργία patch', 'patch_created': '✅ Το patch δημιουργήθηκε', 'streamboard_preparing': '🔄 Προετοιμασία Streamboard', 'stream_master_head': 'Εντοπισμός του ακριβούς master HEAD του {description} (χρονικό όριο ανά πηγή: 35 s)...', 'stream_source_retry': 'Η πηγή δεν είναι προσβάσιμη, δοκιμή της επόμενης: {candidate} ({error})', 'stream_source_check': 'Έλεγχος πηγής Streamboard: {url}', 'stream_source_alternative': 'Χρήση εναλλακτικής πηγής Streamboard: {url}', 'stream_source_failed': 'Αποτυχία πηγής Streamboard: {url} ({error})', 'streamboard_updated': '✅ Το Streamboard ενημερώθηκε', 'emu_updated': '✅ Το OSCam-Emu ενημερώθηκε', 'streamboard_imported': '✅ Η αναθεώρηση Streamboard εισήχθη', 'patch_diff_created': '🔧 Δημιουργήθηκε το diff του patch', 'patch_checked': '✅ Το patch ελέγχθηκε με επιτυχία', 'patch_header_created': '📝 Προστέθηκε η κεφαλίδα του patch', 'oscam_emu_git_missing': '⚠️ Δεν βρέθηκε ο φάκελος OSCam-Emu Git: {path}', 'clean_done': '✅ Ο καθαρισμός ολοκληρώθηκε με επιτυχία!', 'oscam_emu_git_patch_start': '🔹 Δημιουργία patch OSCam-Emu Git...', 'git_patch_success': '✅ Το patch δημιουργήθηκε με επιτυχία! Αναθεώρηση Git: {rev}', 'cleaning_oscam_emu_git': '🔹 Εκκαθάριση φακέλου OSCam-Emu Git...', 'oscam_emu_git_deleted': '✅ Ο φάκελος OSCam-Emu Git διαγράφηκε με επιτυχία.', 'oscam_emu_git_clearing': '🔹 Εκκαθάριση φακέλου OSCam-Emu Git...', 'oscam_emu_git_cleared': '✅ Ο καθαρισμός ολοκληρώθηκε με επιτυχία!', 'cleanup_start': '🔹 Καθαρισμός καταλόγου εργασίας...', 'cleanup_success': '✅ Ο καθαρισμός ολοκληρώθηκε με επιτυχία! ✨', 'showing_commits': 'ℹ️ Εμφάνιση των τελευταίων {count} commit'})
 
-TEXTS["gr"].update({'STATS_TITLE': 'ΣΤΑΤΙΣΤΙΚΑ ΕΡΓΑΛΕΙΟΥ', 'STATS_GITHUB': 'GitHub:', 'STATS_LOCAL': 'Τοπικά:', 'STATS_TOTAL': 'Σύνολο:', 'foot_ok': 'OK', 'foot_ready': 'Έτοιμο', 'stats_title': 'ΣΤΑΤΙΣΤΙΚΑ ΕΡΓΑΛΕΙΟΥ', 'stats_github': 'GitHub:', 'stats_local': 'Τοπικά:', 'stats_total': 'Σύνολο:', 'temp_repo_deleted': 'Το προσωρινό αποθετήριο διαγράφηκε: {path}', 'patch_file_deleted': 'Το αρχείο patch διαγράφηκε: {path}', 'temp_repo_already_deleted': 'Δεν βρέθηκε προσωρινό αποθετήριο (έχει ήδη καθαριστεί): {path}', 'final_label': '🛠️ Τι θα δημιουργήσουμε σήμερα;', 'info_tooltip': 'Πληροφορίες / Βοήθεια', 'restart_tool_question': 'Θέλετε να επανεκκινήσετε το εργαλείο τώρα;', 'patch_create_start': 'ℹ️ Η δημιουργία patch ξεκίνησε...', 'patch_create_clone_start': '⚠️ Κλωνοποίηση αποθετηρίου Git...', 'patch_create_clone_failed': '❌ Αποτυχία κλωνοποίησης αποθετηρίου Git', 'patch_create_no_changes': 'ℹ️ Δεν βρέθηκαν αλλαγές μεταξύ STREAM_REPO και EMU_REPO', 'patch_create_success': '✅ Το patch δημιουργήθηκε με επιτυχία: {patch_file}', 'patch_version_from_header': 'Έκδοση patch από την κεφαλίδα: {patch_version}', 'patch_create_failed': '❌ Σφάλμα κατά τη δημιουργία patch: {error}', 'plugin_update': 'Διαθέσιμη ενημέρωση: {current} → {latest}', 'check_commit_button': '🔄 Έλεγχος για νέα commit', 'backup_old_start': 'ℹ️ Δημιουργία αντιγράφου ασφαλείας του παλιού patch…', 'backup_done': '✅ Το αντίγραφο ασφαλείας δημιουργήθηκε: {path}', 'update_downloading': 'Λήψη ενημέρωσης...', 'update_success_msg': 'Η ενημέρωση ολοκληρώθηκε! Το εργαλείο θα επανεκκινηθεί τώρα.', 'no_old_patch': 'ℹ️ Δεν βρέθηκε παλιό patch.', 'new_patch_installed': '✅ Το νέο patch εγκαταστάθηκε με επιτυχία: {path}', 'patch_check_ok': '✅ Ο έλεγχος patch ολοκληρώθηκε με επιτυχία (το patch εφαρμόζεται)! ', 'github_dialog_title': 'Ρυθμίσεις GitHub Emu', 'patch_check_fail': '❌ Ο έλεγχος patch απέτυχε (το patch δεν εφαρμόζεται)!', 'patch_failed': '❌ Η δημιουργία patch απέτυχε', 'oscam_uptodate': 'Το OSCam Git είναι ενημερωμένο.', 'oscam_update_found': 'Βρέθηκε διαθέσιμη ενημέρωση!', 'oscam_check_start': '🔍 Έλεγχος αποθετηρίου OSCam...', 'oscam_server_error': '❌ Σφάλμα: Ο διακομιστής OSCam δεν είναι προσβάσιμος.', 'check_commit_button_short': '🔄 Έλεγχος commit', 'check_commit_title': 'Έλεγχος commit OSCam', 'check_commit_current_hash': 'Τρέχον Hash:', 'check_commit_current': 'Τρέχουσα κατάσταση:', 'check_commit_old': 'Παλαιό:', 'check_commit_new': 'Νέο:', 'check_commit_no_hash': 'Σφάλμα: Δεν βρέθηκε hash commit.', 'check_commit_up_to_date': 'Δεν βρέθηκε νέο commit.', 'check_commit_new_found': 'Βρέθηκε νέο commit!', 'check_commit_error': 'Σφάλμα κατά τον έλεγχο:', 'patch_creating': '🔨 Δημιουργία patch', 'patch_created': '✅ Το patch δημιουργήθηκε', 'streamboard_preparing': '🔄 Προετοιμασία Streamboard', 'stream_master_head': 'Εντοπισμός του ακριβούς master HEAD του {description} (χρονικό όριο ανά πηγή: 35 s)...', 'stream_source_retry': 'Η πηγή δεν είναι προσβάσιμη, δοκιμή της επόμενης: {candidate} ({error})', 'stream_source_check': 'Έλεγχος πηγής Streamboard: {url}', 'stream_source_alternative': 'Χρήση εναλλακτικής πηγής Streamboard: {url}', 'stream_source_failed': 'Αποτυχία πηγής Streamboard: {url} ({error})', 'streamboard_updated': '✅ Το Streamboard ενημερώθηκε', 'emu_updated': '✅ Το OSCam-Emu ενημερώθηκε', 'streamboard_imported': '✅ Η αναθεώρηση Streamboard εισήχθη', 'patch_diff_created': '🔧 Δημιουργήθηκε το diff του patch', 'patch_checked': '✅ Το patch ελέγχθηκε με επιτυχία', 'patch_header_created': '📝 Προστέθηκε η κεφαλίδα του patch', 'oscam_emu_git_missing': '⚠️ Δεν βρέθηκε ο φάκελος OSCam-Emu Git: {path}', 'clean_done': '✅ Ο καθαρισμός ολοκληρώθηκε με επιτυχία!', 'oscam_emu_git_patch_start': '🔹 Δημιουργία patch OSCam-Emu Git...', 'git_patch_success': '✅ Το patch δημιουργήθηκε με επιτυχία! Αναθεώρηση Git: {rev}', 'cleaning_oscam_emu_git': '🔹 Εκκαθάριση φακέλου OSCam-Emu Git...', 'oscam_emu_git_deleted': '✅ Ο φάκελος OSCam-Emu Git διαγράφηκε με επιτυχία.', 'oscam_emu_git_clearing': '🔹 Εκκαθάριση φακέλου OSCam-Emu Git...', 'oscam_emu_git_cleared': '✅ Ο καθαρισμός ολοκληρώθηκε με επιτυχία!', 'cleanup_start': '🔹 Καθαρισμός καταλόγου εργασίας...', 'cleanup_success': '✅ Ο καθαρισμός ολοκληρώθηκε με επιτυχία! ✨', 'showing_commits': 'ℹ️ Εμφάνιση των τελευταίων {count} commit'})
 
 TEXTS["it"].update({'repository': 'Repository', 'update_error': 'Errore durante il controllo degli aggiornamenti: {error}', 'info_title': 'Informazioni sul programma', 'stats_checkbox': 'Statistiche', 'stats_tooltip': 'Consenti/Disattiva le statistiche anonime di utilizzo.', 'new_version_available': 'Nuova versione disponibile', 'update_title': 'Aggiornamento disponibile', 'update_msg': 'È disponibile una nuova versione. Vuoi aggiornare ora?', 'exit': 'Esci', 'yes': 'Sì', 'no': 'No', 'cancel': 'Annulla', 'btn_plugin_update': 'Aggiornamento plugin', 'state_plugin_uptodate': 'Aggiornato', 'new_version_label': 'Nuova', 'old_version_label': 'Installata', 'state_plugin_update_available': 'Aggiornamento disponibile: {current} → {latest}', 'log_update_check_start': 'Controllo degli aggiornamenti in corso…', 'log_update_uptodate': '✅ Versione installata: {version}', 'log_update_declined': 'Aggiornamento ignorato', 'log_update_failed': '❌ Controllo aggiornamenti non riuscito: {error}', 'update_box_title': 'Aggiornamento software', 'update_box_msg': 'È disponibile una nuova versione!\n\nNuova: v{latest}\nAttuale: v{current}\n\nVuoi aggiornare ora?', 'msg_update_available_title': 'Aggiornamento disponibile', 'msg_update_available_text': 'È disponibile una nuova versione ({latest}).\nVersione attualmente installata: {current}.\nVuoi aggiornare ora?', 'update_fail': 'Aggiornamento non riuscito: {error}', 'update_success': '✅ Aggiornamento installato correttamente! Riavvia il programma.', 'update_available_msg': 'Versione attuale: {current}\nNuova versione: {latest}', 'restart_required_msg': 'È necessario riavviare il programma. Riavviare ora?', 'restart_tool_cancelled': "ℹ️ Riavvio annullato dall'utente.", 'update_started': 'ℹ️ Controllo aggiornamenti avviato...', 'update_backup_done': '✅ Vecchi file del plugin salvati.', 'update_download_failed': '❌ Download non riuscito: {error}', 'update_extract_failed': '❌ Estrazione della nuova versione non riuscita: {error}', 'update_done': '✅ Aggiornamento alla versione {version} completato correttamente.', 'restart_tool': 'Riavvia programma', 'update_check_done': 'Completato', 'backup_created': '✅ Backup creato: {file}', 'exit_question': 'Vuoi davvero chiudere il programma?', 'update_check_start': 'Controllo degli aggiornamenti in corso...', 'github_version_available': 'Nuova versione disponibile: {version}', 'github_version_fetch_failed': 'Controllo della versione non riuscito: {error}', 's3_install_button': 'Installa S3', 's3_tooltip': 'Clic sinistro: installa/aggiorna\nClic destro: seleziona manualmente il percorso', 'restarting_check': 'Riavvio del controllo di sistema...', 's3_choice_title': 'Seleziona S3 Simplebuild', 's3_choice_text': 'Quale menu S3 vuoi avviare?', 's3_choice_info': "Gorgone utilizza la cartella 's3'.\nSpeedy005 utilizza la cartella 's3_speedy005'.", 's3_choice_gorgone': 'S3 Gorgone', 's3_choice_speedy005': 'S3 Speedy005', 'button_cancel': 'Annulla', 's4_install_button': 'Installa S4', 'log_exported': '✅ Log esportato in:', 'log_save_error': '❌ Errore durante il salvataggio del log:', 'credits_label': 'Crediti / Autori', 'close': 'Chiudi', 'version_current': 'La versione {version} è aggiornata.', 'update_check_failed': 'Controllo aggiornamenti non riuscito: {error}', 'update_available_title': 'Aggiornamento disponibile', 'update_no_update': 'ℹ️ Nessun aggiornamento disponibile', 'installed_version': 'La versione installata è', 'new_version_found': 'Nuova versione disponibile', 'git_status': 'Visualizza commit', 'edit_patch_header': 'Modifica intestazione patch', 'github_emu_config_button': 'Modifica configurazione GitHub', 'github_upload_patch': 'Carica file patch', 'github_upload_emu': 'Carica OSCam-Emu Git', 'oscam_emu_git_patch': 'Patch OSCam-Emu Git', 'oscam_emu_git_clear': 'Pulisci OSCam-Emu Git', 'oscam_emu_patch_upload': 'Carica patch OSCam-Emu', 'update_declined': 'Aggiornamento rifiutato.', 'update_current_version': '✅ Versione installata: {version}', 'restart_required_title': 'Riavvio necessario', 'save': 'Salva', 'matrix_btn_exit': '🔙 ESCI DA MATRIX'})
 
@@ -1157,7 +992,7 @@ TEXTS["tr"]["patch_author"] = "Patch yazarı"
 TEXTS["tr"]["patch_emu_git_prepare"] = "🧹 Çalışma alanı hazırlanıyor..."
 
 # Yunanca
-for _key in ("pat ch_emu_git_clone", "info_tool tip"):
+for _key in ("patch_emu_git_clone", "info_tooltip"):
     TEXTS["gr"].pop(_key, None)
 
 TEXTS["gr"]["patch_emu_git_clone"] = "🌐 Streamboard klonlanıyor..."
@@ -1611,3 +1446,264 @@ TEXTS.setdefault("it", {})["console_copy_error"] = 'Copia non riuscita: {error}'
 TEXTS.setdefault("pl", {})["console_copy_error"] = 'Kopiowanie nie powiodło się: {error}'
 TEXTS.setdefault("tr", {})["console_copy_error"] = 'Kopyalama başarısız: {error}'
 TEXTS.setdefault("gr", {})["console_copy_error"] = 'Η αντιγραφή απέτυχε: {error}'
+
+
+# GitHub Upload – Übersetzungen für alle sechs Sprachen
+TEXTS["de"].update({'github_credentials_missing': 'GitHub-Zugangsdaten fehlen.', 'github_patch_file_missing': 'Patch-Datei nicht gefunden:\n{patch_file}', 'github_clone_status': 'GitHub-Repository wird ohne Checkout geklont...', 'github_upload_status': 'oscam-emu.patch wird zu GitHub übertragen...', 'github_upload_success_header': 'PATCH ERFOLGREICH HOCHGELADEN', 'github_repository_label': 'GitHub-Repository: {repo_url}', 'github_branch_label': 'Branch: {branch}', 'github_file_label': 'Datei: oscam-emu.patch', 'github_version_label': 'Version: {patch_version}', 'github_url_label': 'GitHub-URL: {url}', 'github_upload_error_detail': 'GitHub-Upload-Fehler:\n{error}'})
+TEXTS["en"].update({'github_credentials_missing': 'GitHub credentials are missing.', 'github_patch_file_missing': 'Patch file not found:\n{patch_file}', 'github_clone_status': 'Cloning GitHub repository without checkout...', 'github_upload_status': 'Uploading oscam-emu.patch to GitHub...', 'github_upload_success_header': 'PATCH SUCCESSFULLY UPLOADED', 'github_repository_label': 'GitHub repository: {repo_url}', 'github_branch_label': 'Branch: {branch}', 'github_file_label': 'File: oscam-emu.patch', 'github_version_label': 'Version: {patch_version}', 'github_url_label': 'GitHub URL: {url}', 'github_upload_error_detail': 'GitHub upload error:\n{error}'})
+TEXTS["it"].update({'github_credentials_missing': 'Credenziali GitHub mancanti.', 'github_patch_file_missing': 'File patch non trovato:\n{patch_file}', 'github_clone_status': 'Clonazione del repository GitHub senza checkout...', 'github_upload_status': 'Caricamento di oscam-emu.patch su GitHub...', 'github_upload_success_header': 'PATCH CARICATA CON SUCCESSO', 'github_repository_label': 'Repository GitHub: {repo_url}', 'github_branch_label': 'Branch: {branch}', 'github_file_label': 'File: oscam-emu.patch', 'github_version_label': 'Versione: {patch_version}', 'github_url_label': 'URL GitHub: {url}', 'github_upload_error_detail': 'Errore di caricamento GitHub:\n{error}'})
+TEXTS["gr"].update({'github_credentials_missing': 'Λείπουν τα διαπιστευτήρια GitHub.', 'github_patch_file_missing': 'Δεν βρέθηκε το αρχείο patch:\n{patch_file}', 'github_clone_status': 'Κλωνοποίηση αποθετηρίου GitHub χωρίς checkout...', 'github_upload_status': 'Μεταφόρτωση του oscam-emu.patch στο GitHub...', 'github_upload_success_header': 'ΤΟ PATCH ΜΕΤΑΦΟΡΤΩΘΗΚΕ ΜΕ ΕΠΙΤΥΧΙΑ', 'github_repository_label': 'Αποθετήριο GitHub: {repo_url}', 'github_branch_label': 'Κλάδος: {branch}', 'github_file_label': 'Αρχείο: oscam-emu.patch', 'github_version_label': 'Έκδοση: {patch_version}', 'github_url_label': 'URL GitHub: {url}', 'github_upload_error_detail': 'Σφάλμα μεταφόρτωσης GitHub:\n{error}'})
+TEXTS["pl"].update({'github_credentials_missing': 'Brak danych logowania GitHub.', 'github_patch_file_missing': 'Nie znaleziono pliku patch:\n{patch_file}', 'github_clone_status': 'Klonowanie repozytorium GitHub bez checkout...', 'github_upload_status': 'Przesyłanie oscam-emu.patch do GitHub...', 'github_upload_success_header': 'PATCH ZOSTAŁ POMYŚLNIE PRZESŁANY', 'github_repository_label': 'Repozytorium GitHub: {repo_url}', 'github_branch_label': 'Gałąź: {branch}', 'github_file_label': 'Plik: oscam-emu.patch', 'github_version_label': 'Wersja: {patch_version}', 'github_url_label': 'URL GitHub: {url}', 'github_upload_error_detail': 'Błąd przesyłania do GitHub:\n{error}'})
+TEXTS["tr"].update({'github_credentials_missing': 'GitHub giriş bilgileri eksik.', 'github_patch_file_missing': 'Patch dosyası bulunamadı:\n{patch_file}', 'github_clone_status': 'GitHub deposu checkout yapılmadan klonlanıyor...', 'github_upload_status': "oscam-emu.patch GitHub'a yükleniyor...", 'github_upload_success_header': 'PATCH BAŞARIYLA YÜKLENDİ', 'github_repository_label': 'GitHub deposu: {repo_url}', 'github_branch_label': 'Dal: {branch}', 'github_file_label': 'Dosya: oscam-emu.patch', 'github_version_label': 'Sürüm: {patch_version}', 'github_url_label': 'GitHub URL: {url}', 'github_upload_error_detail': 'GitHub yükleme hatası:\n{error}'})
+
+# Sprachwechsel: Statusmeldungen für alle Sprachen
+TEXTS.setdefault("de", {}).update({"language_switching": "Sprache wird angepasst...", "loading_texts": "Texte werden geladen...", "updating_ui": "Oberfläche wird aktualisiert..."})
+TEXTS.setdefault("en", {}).update({"language_switching": "Switching language...", "loading_texts": "Loading texts...", "updating_ui": "Updating interface..."})
+TEXTS.setdefault("it", {}).update({"language_switching": "Cambio della lingua in corso...", "loading_texts": "Caricamento dei testi...", "updating_ui": "Aggiornamento dell'interfaccia..."})
+TEXTS.setdefault("gr", {}).update({"language_switching": "Αλλαγή γλώσσας...", "loading_texts": "Φόρτωση κειμένων...", "updating_ui": "Ενημέρωση διεπαφής..."})
+TEXTS.setdefault("pl", {}).update({"language_switching": "Zmienianie języka...", "loading_texts": "Ładowanie tekstów...", "updating_ui": "Aktualizowanie interfejsu..."})
+TEXTS.setdefault("tr", {}).update({"language_switching": "Dil değiştiriliyor...", "loading_texts": "Metinler yükleniyor...", "updating_ui": "Arayüz güncelleniyor..."})
+
+# Konsolen-Logbutton
+TEXTS.setdefault("de", {}).update({"log_button_text": " Log speichern"})
+TEXTS.setdefault("en", {}).update({"log_button_text": " Save Log"})
+TEXTS.setdefault("it", {}).update({"log_button_text": " Salva log"})
+TEXTS.setdefault("gr", {}).update({"log_button_text": " Αποθήκευση αρχείου καταγραφής"})
+TEXTS.setdefault("pl", {}).update({"log_button_text": " Zapisz dziennik"})
+TEXTS.setdefault("tr", {}).update({"log_button_text": " Günlüğü Kaydet"})
+
+# Installations- und Animationsstatus
+TEXTS.setdefault("de", {}).update({"install_tool": "installieren", "animation_system_check": "Animation & Systemcheck..."})
+TEXTS.setdefault("en", {}).update({"install_tool": "Install", "animation_system_check": "Animation & system check..."})
+TEXTS.setdefault("it", {}).update({"install_tool": "Installa", "animation_system_check": "Animazione e controllo del sistema..."})
+TEXTS.setdefault("gr", {}).update({"install_tool": "Εγκατάσταση", "animation_system_check": "Κινούμενα γραφικά και έλεγχος συστήματος..."})
+TEXTS.setdefault("pl", {}).update({"install_tool": "Zainstaluj", "animation_system_check": "Animacja i kontrola systemu..."})
+TEXTS.setdefault("tr", {}).update({"install_tool": "Yükle", "animation_system_check": "Animasyon ve sistem kontrolü..."})
+
+# OSCam-Emu Git-Auswahldialog
+TEXTS.setdefault("de", {}).update({"emu_git_title": "OSCam-Emu Git auswählen", "emu_git_prompt": "Repository-URL auswählen oder eigene Git-URL eingeben:", "apply": "Übernehmen", "cancel": "Abbrechen", "invalid_git_url": "Bitte eine gültige Git-Repository-URL eingeben.", "emu_git_selected": "✅ OSCam-Emu Git gesetzt: %p%", "emu_revision_reset": "Auswahl zurückgesetzt – beim nächsten Create Patch wird der aktuelle Branch-Stand dieses Repositories verwendet.", "emu_revision_label": "OSCam-Emu Revision:"})
+TEXTS.setdefault("en", {}).update({"emu_git_title": "Select OSCam-Emu Git", "emu_git_prompt": "Select a repository URL or enter your own Git URL:", "apply": "Apply", "cancel": "Cancel", "invalid_git_url": "Please enter a valid Git repository URL.", "emu_git_selected": "✅ OSCam-Emu Git selected: %p%", "emu_revision_reset": "Selection reset – the current branch state of this repository will be used on the next Create Patch.", "emu_revision_label": "OSCam-Emu Revision:"})
+TEXTS.setdefault("it", {}).update({"emu_git_title": "Seleziona Git OSCam-Emu", "emu_git_prompt": "Seleziona un URL del repository o inserisci il tuo:", "apply": "Applica", "cancel": "Annulla", "invalid_git_url": "Inserisci un URL Git valido.", "emu_git_selected": "✅ Git OSCam-Emu selezionato: %p%", "emu_revision_reset": "Selezione reimpostata: al prossimo Create Patch verrà usato lo stato corrente del branch di questo repository.", "emu_revision_label": "Revisione OSCam-Emu:"})
+TEXTS.setdefault("gr", {}).update({"emu_git_title": "Επιλογή Git OSCam-Emu", "emu_git_prompt": "Επιλέξτε URL αποθετηρίου ή εισαγάγετε το δικό σας:", "apply": "Εφαρμογή", "cancel": "Ακύρωση", "invalid_git_url": "Εισαγάγετε ένα έγκυρο URL Git.", "emu_git_selected": "✅ Επιλέχθηκε Git OSCam-Emu: %p%", "emu_revision_reset": "Η επιλογή επαναφέρθηκε – στο επόμενο Create Patch θα χρησιμοποιηθεί η τρέχουσα κατάσταση του branch αυτού του αποθετηρίου.", "emu_revision_label": "Αναθεώρηση OSCam-Emu:"})
+TEXTS.setdefault("pl", {}).update({"emu_git_title": "Wybierz Git OSCam-Emu", "emu_git_prompt": "Wybierz adres URL repozytorium lub wpisz własny:", "apply": "Zastosuj", "cancel": "Anuluj", "invalid_git_url": "Wprowadź prawidłowy adres URL Git.", "emu_git_selected": "✅ Wybrano Git OSCam-Emu: %p%", "emu_revision_reset": "Wybór zresetowano – przy następnym Create Patch zostanie użyty aktualny stan gałęzi tego repozytorium.", "emu_revision_label": "Wersja OSCam-Emu:"})
+TEXTS.setdefault("tr", {}).update({"emu_git_title": "OSCam-Emu Git seç", "emu_git_prompt": "Bir depo URL'si seçin veya kendi Git URL'nizi girin:", "apply": "Uygula", "cancel": "İptal", "invalid_git_url": "Lütfen geçerli bir Git depo URL'si girin.", "emu_git_selected": "✅ OSCam-Emu Git seçildi: %p%", "emu_revision_reset": "Seçim sıfırlandı – sonraki Create Patch işleminde bu deponun mevcut dal durumu kullanılacak.", "emu_revision_label": "OSCam-Emu Revizyonu:"})
+
+for _lang, _values in {
+    "de": {
+        "github_temp_git_cleanup_error": "Temporäres Git-Verzeichnis konnte nicht gelöscht werden:",
+        "github_invalid_config": "GitHub-Konfiguration ist ungültig.",
+        "github_temp_upload_cleanup_warning": "Temporäres Upload-Verzeichnis konnte nicht gelöscht werden:",
+    },
+    "en": {
+        "github_temp_git_cleanup_error": "Could not delete temporary Git directory:",
+        "github_invalid_config": "GitHub configuration is invalid.",
+        "github_temp_upload_cleanup_warning": "Could not delete temporary upload directory:",
+    },
+    "it": {
+        "github_temp_git_cleanup_error": "Impossibile eliminare la directory Git temporanea:",
+        "github_invalid_config": "La configurazione GitHub non è valida.",
+        "github_temp_upload_cleanup_warning": "Impossibile eliminare la directory di caricamento temporanea:",
+    },
+    "gr": {
+        "github_temp_git_cleanup_error": "Δεν ήταν δυνατή η διαγραφή του προσωρινού καταλόγου Git:",
+        "github_invalid_config": "Η διαμόρφωση GitHub δεν είναι έγκυρη.",
+        "github_temp_upload_cleanup_warning": "Δεν ήταν δυνατή η διαγραφή του προσωρινού καταλόγου μεταφόρτωσης:",
+    },
+    "pl": {
+        "github_temp_git_cleanup_error": "Nie można usunąć tymczasowego katalogu Git:",
+        "github_invalid_config": "Konfiguracja GitHub jest nieprawidłowa.",
+        "github_temp_upload_cleanup_warning": "Nie można usunąć tymczasowego katalogu przesyłania:",
+    },
+    "tr": {
+        "github_temp_git_cleanup_error": "Geçici Git dizini silinemedi:",
+        "github_invalid_config": "GitHub yapılandırması geçersiz.",
+        "github_temp_upload_cleanup_warning": "Geçici yükleme dizini silinemedi:",
+    },
+}.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# S3 Install Worker – six-language translations
+_S3_WORKER_TRANSLATIONS = {
+    "en": {
+        "s3_worker_project": "Project: {name}",
+        "s3_worker_repository": "Repository: {url}",
+        "s3_worker_target": "Target base: {path}",
+        "s3_worker_cloning": "Cloning Git repository ...",
+        "s3_worker_cloned": "Repository cloned successfully.",
+        "s3_worker_clone_failed": "Git clone failed:\n{details}",
+        "s3_worker_copied": "Files have been copied.",
+        "s3_worker_permission_warning": "Warning: File permissions could not be fully set.",
+        "s3_worker_success": "{name} successfully installed!\nRepository: {url}\nPath: {path}",
+        "s3_worker_error": "{name} error:\n{error}",
+        "s3_worker_permission_tip": "\n\nTip: Choose another installation folder or check file permissions.",
+    },
+    "de": {
+        "s3_worker_project": "Projekt: {name}",
+        "s3_worker_repository": "Repository: {url}",
+        "s3_worker_target": "Zielbasis: {path}",
+        "s3_worker_cloning": "Git-Repository wird geklont ...",
+        "s3_worker_cloned": "Repository erfolgreich geklont.",
+        "s3_worker_clone_failed": "Git Clone fehlgeschlagen:\n{details}",
+        "s3_worker_copied": "Dateien wurden kopiert.",
+        "s3_worker_permission_warning": "Warnung: Dateirechte konnten nicht vollständig gesetzt werden.",
+        "s3_worker_success": "{name} erfolgreich installiert!\nRepository: {url}\nPfad: {path}",
+        "s3_worker_error": "{name} Fehler:\n{error}",
+        "s3_worker_permission_tip": "\n\nTipp: Wählen Sie einen anderen Installationsordner oder prüfen Sie die Dateiberechtigungen.",
+    },
+    "it": {
+        "s3_worker_project": "Progetto: {name}",
+        "s3_worker_repository": "Repository: {url}",
+        "s3_worker_target": "Cartella di destinazione: {path}",
+        "s3_worker_cloning": "Clonazione del repository Git ...",
+        "s3_worker_cloned": "Repository clonato correttamente.",
+        "s3_worker_clone_failed": "Clonazione Git non riuscita:\n{details}",
+        "s3_worker_copied": "File copiati.",
+        "s3_worker_permission_warning": "Attenzione: non è stato possibile impostare tutti i permessi dei file.",
+        "s3_worker_success": "{name} installato correttamente!\nRepository: {url}\nPercorso: {path}",
+        "s3_worker_error": "Errore durante l'installazione di {name}:\n{error}",
+        "s3_worker_permission_tip": "\n\nSuggerimento: scegli un'altra cartella di installazione o controlla i permessi dei file.",
+    },
+    "gr": {
+        "s3_worker_project": "Έργο: {name}",
+        "s3_worker_repository": "Αποθετήριο: {url}",
+        "s3_worker_target": "Βασικός φάκελος προορισμού: {path}",
+        "s3_worker_cloning": "Κλωνοποίηση αποθετηρίου Git ...",
+        "s3_worker_cloned": "Το αποθετήριο κλωνοποιήθηκε με επιτυχία.",
+        "s3_worker_clone_failed": "Αποτυχία κλωνοποίησης Git:\n{details}",
+        "s3_worker_copied": "Τα αρχεία αντιγράφηκαν.",
+        "s3_worker_permission_warning": "Προειδοποίηση: Δεν ήταν δυνατός ο πλήρης ορισμός των δικαιωμάτων αρχείων.",
+        "s3_worker_success": "Το {name} εγκαταστάθηκε με επιτυχία!\nΑποθετήριο: {url}\nΔιαδρομή: {path}",
+        "s3_worker_error": "Σφάλμα κατά την εγκατάσταση του {name}:\n{error}",
+        "s3_worker_permission_tip": "\n\nΣυμβουλή: Επιλέξτε διαφορετικό φάκελο εγκατάστασης ή ελέγξτε τα δικαιώματα αρχείων.",
+    },
+    "pl": {
+        "s3_worker_project": "Projekt: {name}",
+        "s3_worker_repository": "Repozytorium: {url}",
+        "s3_worker_target": "Katalog docelowy: {path}",
+        "s3_worker_cloning": "Klonowanie repozytorium Git ...",
+        "s3_worker_cloned": "Repozytorium zostało pomyślnie sklonowane.",
+        "s3_worker_clone_failed": "Klonowanie Git nie powiodło się:\n{details}",
+        "s3_worker_copied": "Pliki zostały skopiowane.",
+        "s3_worker_permission_warning": "Ostrzeżenie: Nie udało się w pełni ustawić uprawnień plików.",
+        "s3_worker_success": "{name} został pomyślnie zainstalowany!\nRepozytorium: {url}\nŚcieżka: {path}",
+        "s3_worker_error": "Błąd instalacji {name}:\n{error}",
+        "s3_worker_permission_tip": "\n\nWskazówka: Wybierz inny folder instalacyjny lub sprawdź uprawnienia plików.",
+    },
+    "tr": {
+        "s3_worker_project": "Proje: {name}",
+        "s3_worker_repository": "Depo: {url}",
+        "s3_worker_target": "Hedef dizin: {path}",
+        "s3_worker_cloning": "Git deposu klonlanıyor ...",
+        "s3_worker_cloned": "Depo başarıyla klonlandı.",
+        "s3_worker_clone_failed": "Git klonlama başarısız oldu:\n{details}",
+        "s3_worker_copied": "Dosyalar kopyalandı.",
+        "s3_worker_permission_warning": "Uyarı: Dosya izinleri tamamen ayarlanamadı.",
+        "s3_worker_success": "{name} başarıyla yüklendi!\nDepo: {url}\nYol: {path}",
+        "s3_worker_error": "{name} yükleme hatası:\n{error}",
+        "s3_worker_permission_tip": "\n\nİpucu: Başka bir yükleme klasörü seçin veya dosya izinlerini kontrol edin.",
+    },
+}
+for _lang, _values in _S3_WORKER_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# S3 installation dialog title
+_S3_DIALOG_TITLES = {
+    "en": "S3 Installation",
+    "de": "S3-Installation",
+    "it": "Installazione S3",
+    "gr": "Εγκατάσταση S3",
+    "pl": "Instalacja S3",
+    "tr": "S3 Kurulumu",
+}
+for _lang, _title in _S3_DIALOG_TITLES.items():
+    TEXTS.setdefault(_lang, {})["s3_worker_dialog_title"] = _title
+
+# NCam Bonecrew Install Worker
+_NCAM_WORKER_TRANSLATIONS = {
+    "en": {
+        "ncam_success_path": "{name} successfully installed!\nPath: {path}",
+        "ncam_success_folder": "{name} successfully installed in '{folder}'!",
+        "ncam_error": "{name} error:\n{error}",
+        "ncam_git_error": "Git error: {error}",
+        "ncam_permission_tip": "\n\nTip: Run the program as administrator or choose another installation folder.",
+    },
+    "de": {
+        "ncam_success_path": "{name} erfolgreich installiert!\nPfad: {path}",
+        "ncam_success_folder": "{name} erfolgreich in '{folder}' installiert!",
+        "ncam_error": "{name} Fehler:\n{error}",
+        "ncam_git_error": "Git-Fehler: {error}",
+        "ncam_permission_tip": "\n\nTipp: Starten Sie das Programm als Administrator oder wählen Sie einen anderen Installationsort.",
+    },
+    "it": {
+        "ncam_success_path": "{name} installato correttamente!\nPercorso: {path}",
+        "ncam_success_folder": "{name} installato correttamente in '{folder}'!",
+        "ncam_error": "Errore di {name}:\n{error}",
+        "ncam_git_error": "Errore Git: {error}",
+        "ncam_permission_tip": "\n\nSuggerimento: Avvia il programma come amministratore o scegli un'altra cartella di installazione.",
+    },
+    "gr": {
+        "ncam_success_path": "Το {name} εγκαταστάθηκε με επιτυχία!\nΔιαδρομή: {path}",
+        "ncam_success_folder": "Το {name} εγκαταστάθηκε με επιτυχία στον φάκελο '{folder}'!",
+        "ncam_error": "Σφάλμα {name}:\n{error}",
+        "ncam_git_error": "Σφάλμα Git: {error}",
+        "ncam_permission_tip": "\n\nΣυμβουλή: Εκτελέστε το πρόγραμμα ως διαχειριστής ή επιλέξτε διαφορετικό φάκελο εγκατάστασης.",
+    },
+    "pl": {
+        "ncam_success_path": "{name} został pomyślnie zainstalowany!\nŚcieżka: {path}",
+        "ncam_success_folder": "{name} został pomyślnie zainstalowany w '{folder}'!",
+        "ncam_error": "Błąd {name}:\n{error}",
+        "ncam_git_error": "Błąd Git: {error}",
+        "ncam_permission_tip": "\n\nWskazówka: Uruchom program jako administrator lub wybierz inny folder instalacyjny.",
+    },
+    "tr": {
+        "ncam_success_path": "{name} başarıyla yüklendi!\nYol: {path}",
+        "ncam_success_folder": "{name}, '{folder}' klasörüne başarıyla yüklendi!",
+        "ncam_error": "{name} hatası:\n{error}",
+        "ncam_git_error": "Git hatası: {error}",
+        "ncam_permission_tip": "\n\nİpucu: Programı yönetici olarak çalıştırın veya başka bir yükleme klasörü seçin.",
+    },
+}
+for _lang, _values in _NCAM_WORKER_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# NCam Bonecrew GUI Dialog
+_NCAM_GUI_TRANSLATIONS = {
+    "en": {
+        "ncam_dialog_title": "NCam Setup",
+        "ncam_done": "✅ Done",
+        "ncam_error_status": "❌ Error",
+        "ncam_path_label": "Path",
+    },
+    "de": {
+        "ncam_dialog_title": "NCam Installation",
+        "ncam_done": "✅ Fertig",
+        "ncam_error_status": "❌ Fehler",
+        "ncam_path_label": "Pfad",
+    },
+    "it": {
+        "ncam_dialog_title": "Installazione NCam",
+        "ncam_done": "✅ Completato",
+        "ncam_error_status": "❌ Errore",
+        "ncam_path_label": "Percorso",
+    },
+    "gr": {
+        "ncam_dialog_title": "Εγκατάσταση NCam",
+        "ncam_done": "✅ Ολοκληρώθηκε",
+        "ncam_error_status": "❌ Σφάλμα",
+        "ncam_path_label": "Διαδρομή",
+    },
+    "pl": {
+        "ncam_dialog_title": "Instalacja NCam",
+        "ncam_done": "✅ Gotowe",
+        "ncam_error_status": "❌ Błąd",
+        "ncam_path_label": "Ścieżka",
+    },
+    "tr": {
+        "ncam_dialog_title": "NCam Kurulumu",
+        "ncam_done": "✅ Tamamlandı",
+        "ncam_error_status": "❌ Hata",
+        "ncam_path_label": "Yol",
+    },
+}
+for _lang, _values in _NCAM_GUI_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)

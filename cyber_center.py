@@ -37,7 +37,7 @@ class CyberCenterDialog(QDialog):
     def __init__(self, parent=None, language="de", colors=None):
         super().__init__(parent)
 
-        self.language = "de" if str(language).lower().startswith("de") else "en"
+        self.language = str(language).lower()[:2] if str(language).lower()[:2] in ("de", "en", "it", "gr", "pl", "tr") else "en"
         self.colors = colors if isinstance(colors, dict) else {}
 
         self.setWindowTitle("OSCam Control Center")
@@ -68,7 +68,101 @@ class CyberCenterDialog(QDialog):
         self._refresh_scan_tiles()
 
     def _tr(self, german, english):
-        return german if self.language == "de" else english
+        fixed = {
+            "CYBER OPERATIONS  •  DEINE ZENTRALE KOMMANDOZENTRALE": {
+                "en": "CYBER OPERATIONS  •  YOUR CENTRAL COMMAND CENTER",
+                "it": "CYBER OPERATIONS  •  IL TUO CENTRO DI COMANDO",
+                "gr": "CYBER OPERATIONS  •  ΤΟ ΚΕΝΤΡΙΚΟ ΣΟΥ ΚΕΝΤΡΟ ΕΛΕΓΧΟΥ",
+                "pl": "CYBER OPERATIONS  •  TWOJE CENTRUM DOWODZENIA",
+                "tr": "CYBER OPERATIONS  •  MERKEZİ KOMUTA KONTROLÜN",
+            },
+            "SYSTEMÜBERSICHT": {"en": "SYSTEM OVERVIEW", "it": "PANORAMICA DEL SISTEMA", "gr": "ΕΠΙΣΚΟΠΗΣΗ ΣΥΣΤΗΜΑΤΟΣ", "pl": "PRZEGLĄD SYSTEMU", "tr": "SİSTEM GENEL BAKIŞI"},
+            "PATCH-MANAGEMENT": {"en": "PATCH MANAGEMENT", "it": "GESTIONE PATCH", "gr": "ΔΙΑΧΕΙΡΙΣΗ PATCH", "pl": "ZARZĄDZANIE PATCHAMI", "tr": "YAMA YÖNETİMİ"},
+            "SICHERUNG": {"en": "BACKUP & RESTORE", "it": "BACKUP E RIPRISTINO", "gr": "ΑΝΤΙΓΡΑΦΑ & ΕΠΑΝΑΦΟΡΑ", "pl": "KOPIA ZAPASOWA I PRZYWRACANIE", "tr": "YEDEKLEME VE GERİ YÜKLEME"},
+            "AUSWERTUNG": {"en": "ANALYTICS", "it": "STATISTICHE", "gr": "ΣΤΑΤΙΣΤΙΚΑ", "pl": "ANALITYKA", "tr": "ANALİZ"},
+            "Daten werden geladen …": {"en": "Loading data …", "it": "Caricamento dati …", "gr": "Φόρτωση δεδομένων …", "pl": "Ładowanie danych …", "tr": "Veriler yükleniyor …"},
+            "MODULE & FUNKTIONEN": {"en": "MODULES & FEATURES", "it": "MODULI E FUNZIONI", "gr": "ΕΝΟΤΗΤΕΣ & ΛΕΙΤΟΥΡΓΙΕΣ", "pl": "MODUŁY I FUNKCJE", "tr": "MODÜLLER VE ÖZELLİKLER"},
+            "Wähle ein Modul zum Öffnen": {"en": "Select a module to open", "it": "Seleziona un modulo da aprire", "gr": "Επιλέξτε μια ενότητα", "pl": "Wybierz moduł do otwarcia", "tr": "Açmak için bir modül seçin"},
+            "OSCAM MODULE": {"en": "OSCAM MODULE", "it": "MODULO OSCAM", "gr": "ΕΝΟΤΗΤΑ OSCAM", "pl": "MODUŁ OSCAM", "tr": "OSCAM MODÜLÜ"},
+            "MODUL ÖFFNEN  →": {"en": "OPEN MODULE  →", "it": "APRI MODULO  →", "gr": "ΑΝΟΙΓΜΑ ΕΝΟΤΗΤΑΣ  →", "pl": "OTWÓRZ MODUŁ  →", "tr": "MODÜLÜ AÇ  →"},
+            "OSCam Patch Manager  •  Alle neun Module an einem Ort": {"en": "OSCam Patch Manager  •  All nine modules in one place", "it": "OSCam Patch Manager  •  Tutti e nove i moduli in un unico posto", "gr": "OSCam Patch Manager  •  Και οι εννέα ενότητες σε ένα μέρος", "pl": "OSCam Patch Manager  •  Wszystkie dziewięć modułów w jednym miejscu", "tr": "OSCam Patch Manager  •  Dokuz modül tek yerde"},
+            "SCHLIESSEN": {"en": "CLOSE", "it": "CHIUDI", "gr": "ΚΛΕΙΣΙΜΟ", "pl": "ZAMKNIJ", "tr": "KAPAT"},
+            "OSCam Control Center schließen": {"en": "Close OSCam Control Center", "it": "Chiudi OSCam Control Center", "gr": "Κλείσιμο OSCam Control Center", "pl": "Zamknij OSCam Control Center", "tr": "OSCam Control Center'ı kapat"},
+            "Live-Auslastung": {"en": "Live utilization", "it": "Utilizzo in tempo reale", "gr": "Ζωντανή χρήση πόρων", "pl": "Bieżące wykorzystanie", "tr": "Canlı kullanım"},
+            "Keine Builds": {"en": "No builds", "it": "Nessuna compilazione", "gr": "Δεν υπάρχουν builds", "pl": "Brak kompilacji", "tr": "Derleme yok"},
+            "Letzter Build: Erfolg": {"en": "Latest build: success", "it": "Ultima compilazione: riuscita", "gr": "Τελευταίο build: επιτυχία", "pl": "Ostatnia kompilacja: sukces", "tr": "Son derleme: başarılı"},
+            "Letzter Build: Fehler": {"en": "Latest build: failed", "it": "Ultima compilazione: errore", "gr": "Τελευταίο build: αποτυχία", "pl": "Ostatnia kompilacja: błąd", "tr": "Son derleme: başarısız"},
+            "Letzter Build: unvollständig": {"en": "Latest build: incomplete", "it": "Ultima compilazione: incompleta", "gr": "Τελευταίο build: ημιτελές", "pl": "Ostatnia kompilacja: nieukończona", "tr": "Son derleme: tamamlanmadı"},
+            "Live-System-Dashboard": {"it": "Dashboard del sistema in tempo reale", "gr": "Ζωντανός πίνακας συστήματος", "pl": "Panel systemowy na żywo", "tr": "Canlı sistem paneli"},
+            "Cyber-Terminal": {"it": "Terminale Cyber", "gr": "Cyber τερματικό", "pl": "Terminal Cyber", "tr": "Siber Terminal"},
+            "Update-Zeitmaschine": {"it": "Cronologia aggiornamenti", "gr": "Χρονομηχανή ενημερώσεων", "pl": "Maszyna czasu aktualizacji", "tr": "Güncelleme zaman makinesi"},
+            "Build-Statistik": {"it": "Statistiche compilazioni", "gr": "Στατιστικά build", "pl": "Statystyki kompilacji", "tr": "Derleme istatistikleri"},
+            "Smart-Benachrichtigungen": {"it": "Notifiche intelligenti", "gr": "Έξυπνες ειδοποιήσεις", "pl": "Inteligentne powiadomienia", "tr": "Akıllı bildirimler"},
+            "Backup-Explorer": {"it": "Esplora backup", "gr": "Εξερεύνηση αντιγράφων ασφαλείας", "pl": "Eksplorator kopii zapasowych", "tr": "Yedek gezgini"},
+            "Premium-Startanimation": {"it": "Animazione di avvio premium", "gr": "Premium κινούμενη εκκίνηση", "pl": "Animacja uruchamiania premium", "tr": "Premium açılış animasyonu"},
+            "Patch-Kompatibilitätsprüfung": {"it": "Verifica compatibilità patch", "gr": "Έλεγχος συμβατότητας patch", "pl": "Kontrola zgodności patchy", "tr": "Yama uyumluluk denetimi"},
+            "Patch Radar – Ampelsystem": {"it": "Patch Radar – sistema a semaforo", "gr": "Patch Radar – σύστημα φωτεινών ενδείξεων", "pl": "Patch Radar – sygnalizacja świetlna", "tr": "Patch Radar – trafik ışığı sistemi"},
+            "CPU, RAM, Festplatte und Netzwerk": {"it": "CPU, RAM, disco e rete", "gr": "CPU, RAM, δίσκος και δίκτυο", "pl": "CPU, RAM, dysk i sieć", "tr": "CPU, RAM, disk ve ağ"},
+            "Animierte Systemmeldungen und Status": {"it": "Messaggi e stato del sistema animati", "gr": "Κινούμενα μηνύματα και κατάσταση συστήματος", "pl": "Animowane komunikaty i stan systemu", "tr": "Animasyonlu sistem mesajları ve durumu"},
+            "Update-Verlauf und Wiederherstellung": {"it": "Cronologia aggiornamenti e ripristino", "gr": "Ιστορικό ενημερώσεων και επαναφορά", "pl": "Historia aktualizacji i przywracanie", "tr": "Güncelleme geçmişi ve geri yükleme"},
+            "Erfolge, Fehler und Build-Zeiten": {"it": "Successi, errori e tempi di compilazione", "gr": "Επιτυχίες, σφάλματα και χρόνοι build", "pl": "Sukcesy, błędy i czasy kompilacji", "tr": "Başarılar, hatalar ve derleme süreleri"},
+            "Hinweise zu Updates und neuen Commits": {"it": "Avvisi su aggiornamenti e nuovi commit", "gr": "Ειδοποιήσεις για ενημερώσεις και νέα commit", "pl": "Informacje o aktualizacjach i nowych commitach", "tr": "Güncellemeler ve yeni commitler hakkında bildirimler"},
+            "Backups durchsuchen und wiederherstellen": {"it": "Esplora e ripristina i backup", "gr": "Περιήγηση και επαναφορά αντιγράφων", "pl": "Przeglądaj i przywracaj kopie zapasowe", "tr": "Yedekleri incele ve geri yükle"},
+            "Animierter Systemstart und Systemcheck": {"it": "Avvio animato e controllo del sistema", "gr": "Κινούμενη εκκίνηση και έλεγχος συστήματος", "pl": "Animowany start i kontrola systemu", "tr": "Animasyonlu sistem başlangıcı ve denetimi"},
+            "Patches auf doppelte Änderungen und Konflikte prüfen": {"it": "Controlla modifiche duplicate e conflitti nelle patch", "gr": "Έλεγχος διπλών αλλαγών και συγκρούσεων στα patch", "pl": "Sprawdź zduplikowane zmiany i konflikty patchy", "tr": "Yamalardaki yinelenen değişiklikleri ve çakışmaları denetle"},
+            "Patch-Varianten automatisch auf Konflikte prüfen": {"it": "Controlla automaticamente i conflitti tra varianti patch", "gr": "Αυτόματος έλεγχος συγκρούσεων μεταξύ παραλλαγών patch", "pl": "Automatycznie sprawdzaj konflikty między wariantami patchy", "tr": "Yama varyantlarını çakışmalara karşı otomatik denetle"},
+        }
+        if self.language == "de":
+            return german
+        if german in fixed:
+            return fixed[german].get(self.language, english)
+
+        import re
+        patterns = (
+            (r"^(\d+) Dateien$", {
+                "en": "{} files", "it": "{} file", "gr": "{} αρχεία",
+                "pl": "{} plików", "tr": "{} dosya"
+            }),
+            (r"^(\d+) Build-Logs$", {
+                "en": "{} build logs", "it": "{} log di compilazione",
+                "gr": "{} αρχεία καταγραφής build",
+                "pl": "{} dzienników kompilacji", "tr": "{} derleme günlüğü"
+            }),
+            (r"^([0-9.,]+) MB belegt$", {
+                "en": "{} MB used", "it": "{} MB utilizzati",
+                "gr": "{} MB σε χρήση", "pl": "{} MB zajęte",
+                "tr": "{} MB kullanılıyor"
+            }),
+        )
+        for pattern, values in patterns:
+            match = re.match(pattern, german)
+            if match:
+                return values.get(self.language, english).format(match.group(1))
+
+        if "Konflikte" in german and "Duplikate" in german:
+            import re
+            nums = re.findall(r"\d+", german)
+            if len(nums) == 2:
+                templates = {
+                    "en": "{} conflicts · {} duplicates",
+                    "it": "{} conflitti · {} duplicati",
+                    "gr": "{} συγκρούσεις · {} διπλότυπα",
+                    "pl": "{} konfliktów · {} duplikatów",
+                    "tr": "{} çakışma · {} kopya",
+                }
+                return templates.get(self.language, english).format(*nums)
+        if "Scanfehler" in german:
+            import re
+            num = re.search(r"\d+", german)
+            if num:
+                templates = {
+                    "en": " · {} scan errors", "it": " · {} errori di scansione",
+                    "gr": " · {} σφάλματα σάρωσης",
+                    "pl": " · {} błędów skanowania",
+                    "tr": " · {} tarama hatası",
+                }
+                return templates.get(self.language, english).format(num.group())
+        return english
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -184,14 +278,13 @@ class CyberCenterDialog(QDialog):
 
         for index, module in enumerate(self.MODULES):
             key, de_title, en_title, de_desc, en_desc = module
+            title = self._tr(de_title, en_title)
+            description_text = self._tr(de_desc, en_desc)
 
             card = QFrame()
             card.setObjectName("cyberCard")
             card.setMinimumHeight(158)
-            card.setToolTip(self._tr(
-                f"{de_title}\n{de_desc}",
-                f"{en_title}\n{en_desc}"
-            ))
+            card.setToolTip(f"{title}\n{description_text}")
 
             card_layout = QVBoxLayout(card)
             card_layout.setContentsMargins(16, 13, 16, 14)
@@ -209,11 +302,11 @@ class CyberCenterDialog(QDialog):
             top_row.addStretch(1)
             top_row.addWidget(category)
 
-            heading = QLabel(self._tr(de_title, en_title))
+            heading = QLabel(title)
             heading.setObjectName("cardHeading")
             heading.setWordWrap(True)
 
-            description = QLabel(self._tr(de_desc, en_desc))
+            description = QLabel(description_text)
             description.setObjectName("cardDescription")
             description.setWordWrap(True)
 
@@ -223,10 +316,7 @@ class CyberCenterDialog(QDialog):
             ))
             button.setObjectName("moduleButton")
             button.setMinimumHeight(36)
-            button.setToolTip(self._tr(
-                f"{de_title} öffnen – {de_desc}",
-                f"Open {en_title} – {en_desc}"
-            ))
+            button.setToolTip(f"{title} – {description_text}")
             button.clicked.connect(
                 lambda checked=False, module_key=key:
                 self._open_module(module_key)
@@ -753,11 +843,18 @@ class CyberCenterDialog(QDialog):
             key: self._tr(de_title, en_title)
             for key, de_title, en_title, _, _ in self.MODULES
         }
+        messages = {
+            "de": "Das Modul „{title}“ wird in einem der nächsten Schritte integriert.",
+            "en": "The module “{title}” will be integrated in a later step.",
+            "it": "Il modulo „{title}“ sarà integrato in una fase successiva.",
+            "gr": "Η ενότητα „{title}“ θα ενσωματωθεί σε επόμενο στάδιο.",
+            "pl": "Moduł „{title}” zostanie zintegrowany w jednym z kolejnych etapów.",
+            "tr": "“{title}” modülü sonraki aşamalardan birinde entegre edilecek."
+        }
         QMessageBox.information(
             self,
             "OSCam Control Center",
-            self._tr(
-                f"Das Modul „{titles[module_key]}“ wird in einem der nächsten Schritte integriert.",
-                f"The module “{titles[module_key]}” will be integrated in a later step."
+            messages.get(self.language, messages["en"]).format(
+                title=titles[module_key]
             )
         )

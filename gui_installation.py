@@ -102,6 +102,7 @@ class PatchManagerInstallationMixin:
             base_target_dir=self.S3_PATH,
             repo_url=repo_url,
             project_name=repo_name,
+            language=getattr(self, "LANG", "en"),
         )
 
         self.s3_install_worker.finished_signal.connect(
@@ -814,7 +815,7 @@ class PatchManagerInstallationMixin:
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
 
-        is_de = getattr(self, "LANG", "de") == "de"
+        ncam_texts = TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {}))
         default_start = "C:\\" if platform.system() == "Windows" else "/opt"
         start_path = getattr(self, "NCAM_PATH", default_start)
 
@@ -835,7 +836,7 @@ class PatchManagerInstallationMixin:
             self.btn_ncam.setText("⏳ ..." if is_de else "⏳ Busy...")
 
             # Nutzt den dedizierten NCam-Worker
-            self.ncam_worker = NcamBonecrewInstallWorker(self.NCAM_PATH)
+            self.ncam_worker = NcamBonecrewInstallWorker(self.NCAM_PATH, language=getattr(self, "LANG", "en"))
             self.ncam_worker.finished_signal.connect(self.on_ncam_finished)
             self.ncam_worker.start()
         except Exception as e:
@@ -846,7 +847,7 @@ class PatchManagerInstallationMixin:
         import os
         from PyQt6.QtWidgets import QMessageBox
 
-        is_de = getattr(self, "LANG", "de") == "de"
+        ncam_texts = TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {}))
         self.btn_ncam.setEnabled(True)
 
         if success:
@@ -877,7 +878,7 @@ class PatchManagerInstallationMixin:
                 }
                 """
             )
-            self.btn_ncam.setText("✅ Fertig" if is_de else "✅ Done")
+            self.btn_ncam.setText(ncam_texts["ncam_done"])
 
             # UI-Texte aktualisieren, falls die Funktion existiert
             if hasattr(self, "update_ui_texts"):
@@ -885,10 +886,8 @@ class PatchManagerInstallationMixin:
 
             QMessageBox.information(
                 self,
-                "NCam Installation" if is_de else "NCam Setup",
-                f"{message}\n\nPfad: {self.NCAM_PATH}"
-                if is_de
-                else f"{message}\n\nPath: {self.NCAM_PATH}"
+                ncam_texts["ncam_dialog_title"],
+                f"{message}\n\n{ncam_texts[chr(110)+chr(99)+chr(97)+chr(109)+chr(95)+chr(112)+chr(97)+chr(116)+chr(104)+chr(95)+chr(108)+chr(97)+chr(98)+chr(101)+chr(108)]}: {self.NCAM_PATH}"
             )
         else:
             # Fehler-Zustand: Roter Button
@@ -903,11 +902,11 @@ class PatchManagerInstallationMixin:
                 }
                 """
             )
-            self.btn_ncam.setText("❌ Fehler" if is_de else "❌ Error")
+            self.btn_ncam.setText(ncam_texts["ncam_error_status"])
 
             QMessageBox.critical(
                 self,
-                "NCam Installation" if is_de else "NCam Setup",
+                ncam_texts["ncam_dialog_title"],
                 message
             )
 
@@ -1327,6 +1326,7 @@ class PatchManagerInstallationMixin:
             project_name=selected_repo,
             sub_folder="s3",
             parent=self,
+            language=getattr(self, "LANG", "en"),
         )
 
         self.s3_worker.finished_signal.connect(self.on_s3_finished)
@@ -1359,13 +1359,13 @@ class PatchManagerInstallationMixin:
         if success:
             QMessageBox.information(
                 self, 
-                "S3 Installation" if is_de else "S3 Setup", 
+                TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {})).get("s3_worker_dialog_title", "S3 Installation"), 
                 message
             )
         else:
             QMessageBox.critical(
                 self, 
-                "S3 Installation" if is_de else "S3 Setup", 
+                TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {})).get("s3_worker_dialog_title", "S3 Installation"), 
                 message
             )
 

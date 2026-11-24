@@ -100,6 +100,9 @@ def github_upload_patch_file(
         getattr(gui_instance, "LANG", "de")
     ).lower()[:2]
 
+    progress_texts = {'de': {'start': '⏳ Start...', 'credentials': '❌ Zugangsdaten fehlen', 'missing': '❌ Patch fehlt', 'temp': '📁 Temporäres Verzeichnis...', 'repo': '📥 GitHub-Repository...', 'config': '⚙️ Git-Konfiguration...', 'copy': '📄 Patch kopieren...', 'prepare': '📦 Patch vorbereiten...', 'upload': '🚀 GitHub-Upload...', 'success': '✅ Patch erfolgreich hochgeladen', 'error': '❌ Upload-Fehler'}, 'en': {'start': '⏳ Starting...', 'credentials': '❌ Credentials missing', 'missing': '❌ Patch missing', 'temp': '📁 Temporary directory...', 'repo': '📥 GitHub repository...', 'config': '⚙️ Git configuration...', 'copy': '📄 Copying patch...', 'prepare': '📦 Preparing patch...', 'upload': '🚀 GitHub upload...', 'success': '✅ Patch successfully uploaded', 'error': '❌ Upload error'}, 'it': {'start': '⏳ Avvio...', 'credentials': '❌ Credenziali mancanti', 'missing': '❌ Patch mancante', 'temp': '📁 Directory temporanea...', 'repo': '📥 Repository GitHub...', 'config': '⚙️ Configurazione Git...', 'copy': '📄 Copia della patch...', 'prepare': '📦 Preparazione della patch...', 'upload': '🚀 Caricamento su GitHub...', 'success': '✅ Patch caricata con successo', 'error': '❌ Errore di caricamento'}, 'gr': {'start': '⏳ Έναρξη...', 'credentials': '❌ Λείπουν τα διαπιστευτήρια', 'missing': '❌ Δεν βρέθηκε το patch', 'temp': '📁 Προσωρινός κατάλογος...', 'repo': '📥 Αποθετήριο GitHub...', 'config': '⚙️ Ρύθμιση Git...', 'copy': '📄 Αντιγραφή patch...', 'prepare': '📦 Προετοιμασία patch...', 'upload': '🚀 Μεταφόρτωση στο GitHub...', 'success': '✅ Το patch μεταφορτώθηκε με επιτυχία', 'error': '❌ Σφάλμα μεταφόρτωσης'}, 'pl': {'start': '⏳ Uruchamianie...', 'credentials': '❌ Brak danych logowania', 'missing': '❌ Brak pliku patch', 'temp': '📁 Katalog tymczasowy...', 'repo': '📥 Repozytorium GitHub...', 'config': '⚙️ Konfiguracja Git...', 'copy': '📄 Kopiowanie patch...', 'prepare': '📦 Przygotowywanie patch...', 'upload': '🚀 Przesyłanie do GitHub...', 'success': '✅ Patch został pomyślnie przesłany', 'error': '❌ Błąd przesyłania'}, 'tr': {'start': '⏳ Başlatılıyor...', 'credentials': '❌ Giriş bilgileri eksik', 'missing': '❌ Patch dosyası bulunamadı', 'temp': '📁 Geçici dizin...', 'repo': '📥 GitHub deposu...', 'config': '⚙️ Git yapılandırması...', 'copy': '📄 Patch kopyalanıyor...', 'prepare': '📦 Patch hazırlanıyor...', 'upload': "🚀 GitHub'a yükleniyor...", 'success': '✅ Patch başarıyla yüklendi', 'error': '❌ Yükleme hatası'}}
+    progress_text = progress_texts.get(lang, progress_texts["en"])
+
     # ------------------------------------------------------------
     # ProgressBar
     # ------------------------------------------------------------
@@ -397,8 +400,7 @@ def github_upload_patch_file(
         if last_error:
 
             raise RuntimeError(
-                "Temporäres Git-Verzeichnis konnte "
-                "nicht gelöscht werden:\n\n"
+                f"{TEXTS.get(lang, TEXTS["en"]).get('github_temp_git_cleanup_error', 'Could not delete temporary Git directory:')}\n\n"
                 f"{path}\n\n"
                 f"{last_error}"
             )
@@ -586,7 +588,7 @@ sys.stdout.write(value)
 
     set_progress(
         5,
-        text="⏳ Start..."
+        text=progress_text["start"]
     )
 
     try:
@@ -599,7 +601,7 @@ sys.stdout.write(value)
 
         if not isinstance(cfg, dict):
             raise RuntimeError(
-                "GitHub-Konfiguration ist ungültig."
+                TEXTS.get(lang, TEXTS["en"]).get("github_invalid_config", "GitHub configuration is invalid.")
             )
 
         repo_url = str(
@@ -636,14 +638,14 @@ sys.stdout.write(value)
         ):
 
             log(
-                "GitHub Credentials fehlen.",
+                "github_credentials_missing",
                 "error"
             )
 
             set_progress(
                 100,
                 is_err=True,
-                text="❌ Credentials"
+                text=progress_text["credentials"]
             )
 
             play_sound(False)
@@ -686,15 +688,15 @@ sys.stdout.write(value)
         ):
 
             log(
-                f"Patch-Datei nicht gefunden:\n"
-                f"{patch_file}",
-                "error"
+                "github_patch_file_missing",
+                "error",
+                patch_file=patch_file
             )
 
             set_progress(
                 100,
                 is_err=True,
-                text="❌ Patch fehlt"
+                text=progress_text["missing"]
             )
 
             play_sound(False)
@@ -705,7 +707,7 @@ sys.stdout.write(value)
         # ========================================================
         set_progress(
             15,
-            text="📁 Temp-Verzeichnis..."
+            text=progress_text["temp"]
         )
 
         plugin_dir = globals().get(
@@ -781,11 +783,11 @@ sys.stdout.write(value)
         # ========================================================
         set_progress(
             25,
-            text="📥 GitHub Repository..."
+            text=progress_text["repo"]
         )
 
         log(
-            "GitHub Repository wird ohne Checkout geklont...",
+            "github_clone_status",
             "info"
         )
 
@@ -844,7 +846,7 @@ sys.stdout.write(value)
         # ========================================================
         set_progress(
             45,
-            text="⚙️ Git Config..."
+            text=progress_text["config"]
         )
 
         if user_name:
@@ -876,7 +878,7 @@ sys.stdout.write(value)
         # ========================================================
         set_progress(
             55,
-            text="📄 Patch kopieren..."
+            text=progress_text["copy"]
         )
 
         destination_patch = os.path.join(
@@ -924,7 +926,7 @@ sys.stdout.write(value)
         # ========================================================
         set_progress(
             70,
-            text="📦 Patch vorbereiten..."
+            text=progress_text["prepare"]
         )
 
         git_command(
@@ -962,11 +964,11 @@ sys.stdout.write(value)
         # ========================================================
         set_progress(
             85,
-            text="🚀 GitHub Upload..."
+            text=progress_text["upload"]
         )
 
         log(
-            "oscam-emu.patch wird zu GitHub übertragen...",
+            "github_upload_status",
             "warning"
         )
 
@@ -1002,28 +1004,32 @@ sys.stdout.write(value)
             "success"
         )
         log(
-            "PATCH ERFOLGREICH HOCHGELADEN",
+            "github_upload_success_header",
             "success"
         )
         log(
-            f"GitHub Repository: {repo_url}",
+            "github_repository_label",
+            "success",
+            repo_url=repo_url
+        )
+        log(
+            "github_branch_label",
+            "success",
+            branch=branch
+        )
+        log(
+            "github_file_label",
             "success"
         )
         log(
-            f"Branch: {branch}",
-            "success"
+            "github_version_label",
+            "success",
+            patch_version=patch_version
         )
         log(
-            "Datei: oscam-emu.patch",
-            "success"
-        )
-        log(
-            f"Version: {patch_version}",
-            "success"
-        )
-        log(
-            f"GitHub URL: {repo_url.rstrip('/')}/blob/{branch}/oscam-emu.patch",
-            "success"
+            "github_url_label",
+            "success",
+            url=f"{repo_url.rstrip('/')}/blob/{branch}/oscam-emu.patch"
         )
         log(
             "==========================================",
@@ -1032,11 +1038,7 @@ sys.stdout.write(value)
 
         set_progress(
             100,
-            text=(
-                "✅ Patch erfolgreich hochgeladen"
-                if lang == "de"
-                else "✅ Patch successfully uploaded"
-            )
+            text=progress_text["success"]
         )
 
         play_sound(True)
@@ -1073,14 +1075,15 @@ sys.stdout.write(value)
             )
 
         log(
-            f"GitHub Upload Fehler:\n{error_text}",
-            "error"
+            "github_upload_error_detail",
+            "error",
+            error=error_text
         )
 
         set_progress(
             100,
             is_err=True,
-            text="❌ Upload Fehler"
+            text=progress_text["error"]
         )
 
         play_sound(False)
@@ -1158,8 +1161,7 @@ sys.stdout.write(value)
                     )
 
                 log(
-                    "Temporäres Upload-Verzeichnis "
-                    "konnte nicht gelöscht werden:\n"
+                    f"{TEXTS.get(lang, TEXTS["en"]).get('github_temp_upload_cleanup_warning', 'Could not delete temporary upload directory:')}\n"
                     f"{cleanup_text}",
                     "warning"
                 )

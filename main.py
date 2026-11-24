@@ -7,6 +7,11 @@ import faulthandler
 import signal
 import sys
 
+# --- NEU: Skalierungsfaktor automatisch setzen ---
+if "QT_SCALE_FACTOR" not in os.environ:
+    os.environ["QT_SCALE_FACTOR"] = "0.75"
+# ------------------------------------------------
+
 if hasattr(signal, "SIGUSR1"):
     faulthandler.register(signal.SIGUSR1, file=sys.stderr, all_threads=True)
 
@@ -20,7 +25,7 @@ import traceback
 
 def _qt_exception_hook(exc_type, exc_value, exc_tb):
     print(
-        "\\n========== UNBEHANDELTE PYTHON-AUSNAHME IN QT ==========\\n",
+        "\n========== UNBEHANDELTE PYTHON-AUSNAHME IN QT ==========\n",
         file=sys.__stderr__,
         flush=True,
     )
@@ -28,7 +33,7 @@ def _qt_exception_hook(exc_type, exc_value, exc_tb):
         exc_type, exc_value, exc_tb, file=sys.__stderr__
     )
     print(
-        "\\n========== ENDE DES FEHLERBERICHTS ==========\\n",
+        "\n========== ENDE DES FEHLERBERICHTS ==========\n",
         file=sys.__stderr__,
         flush=True,
     )

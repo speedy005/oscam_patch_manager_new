@@ -17,7 +17,7 @@ class CyberTerminalDialog(QDialog):
     def __init__(self, parent=None, language="de", colors=None):
         super().__init__(parent)
 
-        self.language = "de" if str(language).lower().startswith("de") else "en"
+        self.language = str(language).lower()[:2] if str(language).lower()[:2] in ("de", "en", "it", "gr", "pl", "tr") else "en"
         self.colors = colors if isinstance(colors, dict) else {}
         self.running = True
         self.message_index = 0
@@ -49,7 +49,92 @@ class CyberTerminalDialog(QDialog):
         self.add_line("BOOT", "Cyber Terminal gestartet", "Cyber Terminal started")
 
     def tr(self, de, en):
-        return de if self.language == "de" else en
+        translations = {
+            "Cyber-Terminal": {
+                "it": "Terminal Cyber", "gr": "Cyber Terminal",
+                "pl": "Terminal Cyber", "tr": "Siber Terminal",
+            },
+            "CYBER-TERMINAL": {
+                "it": "TERMINALE CYBER", "gr": "CYBER TERMINAL",
+                "pl": "TERMINAL CYBER", "tr": "SİBER TERMİNAL",
+            },
+            "LEEREN": {"it": "SVUOTA", "gr": "ΚΑΘΑΡΙΣΜΟΣ", "pl": "WYCZYŚĆ", "tr": "TEMİZLE"},
+            "SCHLIESSEN": {"it": "CHIUDI", "gr": "ΚΛΕΙΣΙΜΟ", "pl": "ZAMKNIJ", "tr": "KAPAT"},
+            "AKTIV": {"it": "ATTIVO", "gr": "ΕΝΕΡΓΟ", "pl": "AKTYWNY", "tr": "ETKİN"},
+            "PAUSIERT": {"it": "IN PAUSA", "gr": "ΣΕ ΠΑΥΣΗ", "pl": "WSTRZYMANO", "tr": "DURAKLATILDI"},
+            "FORTSETZEN": {"it": "RIPRENDI", "gr": "ΣΥΝΕΧΕΙΑ", "pl": "WZNÓW", "tr": "SÜRDÜR"},
+            "Systemüberwachung initialisiert": {
+                "it": "Monitoraggio del sistema inizializzato",
+                "gr": "Η παρακολούθηση συστήματος αρχικοποιήθηκε",
+                "pl": "Monitorowanie systemu zainicjowane",
+                "tr": "Sistem izleme başlatıldı",
+            },
+            "Prozessorstatus wird geprüft": {
+                "it": "Controllo dello stato del processore",
+                "gr": "Έλεγχος κατάστασης επεξεργαστή",
+                "pl": "Sprawdzanie stanu procesora",
+                "tr": "İşlemci durumu kontrol ediliyor",
+            },
+            "Arbeitsspeicher wird analysiert": {
+                "it": "Analisi della memoria",
+                "gr": "Ανάλυση μνήμης",
+                "pl": "Analizowanie pamięci",
+                "tr": "Bellek analiz ediliyor",
+            },
+            "Netzwerkstatus wird aktualisiert": {
+                "it": "Aggiornamento dello stato della rete",
+                "gr": "Ενημέρωση κατάστασης δικτύου",
+                "pl": "Aktualizowanie stanu sieci",
+                "tr": "Ağ durumu güncelleniyor",
+            },
+            "Simulierter Cyber-Scan gestartet": {
+                "it": "Scansione cyber simulata avviata",
+                "gr": "Ξεκίνησε προσομοιωμένη κυβερνοσάρωση",
+                "pl": "Uruchomiono symulowane skanowanie cybernetyczne",
+                "tr": "Simüle edilmiş siber tarama başlatıldı",
+            },
+            "Simulierter Scan: lokale Statusprüfung": {
+                "it": "Scansione simulata: controllo dello stato locale",
+                "gr": "Προσομοιωμένη σάρωση: τοπικός έλεγχος κατάστασης",
+                "pl": "Skanowanie symulowane: lokalne sprawdzenie stanu",
+                "tr": "Simüle edilmiş tarama: yerel durum kontrolü",
+            },
+            "Keine externe Verbindung aufgebaut": {
+                "it": "Nessuna connessione esterna stabilita",
+                "gr": "Δεν δημιουργήθηκε εξωτερική σύνδεση",
+                "pl": "Nie nawiązano połączenia zewnętrznego",
+                "tr": "Harici bağlantı kurulmadı",
+            },
+            "System läuft ordnungsgemäß": {
+                "it": "Il sistema funziona correttamente",
+                "gr": "Το σύστημα λειτουργεί κανονικά",
+                "pl": "System działa prawidłowo",
+                "tr": "Sistem düzgün çalışıyor",
+            },
+            "Simulierter Scan abgeschlossen": {
+                "it": "Scansione simulata completata",
+                "gr": "Η προσομοιωμένη σάρωση ολοκληρώθηκε",
+                "pl": "Zakończono skanowanie symulowane",
+                "tr": "Simüle edilmiş tarama tamamlandı",
+            },
+            "Cyber Terminal gestartet": {
+                "it": "Terminal Cyber avviato", "gr": "Το Cyber Terminal ξεκίνησε",
+                "pl": "Uruchomiono Terminal Cyber", "tr": "Siber Terminal başlatıldı",
+            },
+            "Terminal fortgesetzt": {
+                "it": "Terminale ripreso", "gr": "Το τερματικό συνεχίστηκε",
+                "pl": "Wznowiono terminal", "tr": "Terminal sürdürüldü",
+            },
+            "Terminal pausiert": {
+                "it": "Terminale in pausa", "gr": "Το τερματικό τέθηκε σε παύση",
+                "pl": "Wstrzymano terminal", "tr": "Terminal duraklatıldı",
+            },
+        }
+        if self.language == "de":
+            return de
+        if self.language == "en":
+            return en
+        return translations.get(de, {}).get(self.language, en)
 
     def build_ui(self):
         root = QVBoxLayout(self)
@@ -133,7 +218,7 @@ class CyberTerminalDialog(QDialog):
         )
 
     def add_line(self, category, german, english):
-        message = german if self.language == "de" else english
+        message = self.tr(german, english)
         timestamp = datetime.now().strftime("%H:%M:%S")
 
         cursor = self.output.textCursor()

@@ -20,7 +20,7 @@ class SmartNotificationsDialog(QDialog):
 
     def __init__(self, parent=None, language="de", colors=None):
         super().__init__(parent)
-        self.is_de = str(language).lower().startswith("de")
+        self.language = str(language).lower()[:2] if str(language).lower()[:2] in ("de", "en", "it", "gr", "pl", "tr") else "en"
         self.colors = colors or {}
         self.root = Path(__file__).resolve().parent
         self.log_dir = self.root / "build_logs"
@@ -39,7 +39,101 @@ class SmartNotificationsDialog(QDialog):
         self.refresh_notifications()
 
     def tr(self, de, en):
-        return de if self.is_de else en
+        translations = {
+            "Smart-Benachrichtigungen": ["Notifiche intelligenti", "Έξυπνες ειδοποιήσεις", "Inteligentne powiadomienia", "Akıllı Bildirimler"],
+            "SMART-BENACHRICHTIGUNGEN – Systemmeldungen": ["NOTIFICHE INTELLIGENTI – Avvisi di sistema", "ΕΞΥΠΝΕΣ ΕΙΔΟΠΟΙΗΣΕΙΣ – Ειδοποιήσεις συστήματος", "INTELIGENTNE POWIADOMIENIA – Alerty systemowe", "AKILLI BİLDİRİMLER – Sistem uyarıları"],
+            "Überwacht vorhandene Build-Logs und Update-Sicherungen. Meldungen und Lesestatus bleiben dauerhaft gespeichert.": ["Monitora i log di build e i backup degli aggiornamenti. Le notifiche e lo stato di lettura vengono salvati in modo permanente.", "Παρακολουθεί τα υπάρχοντα αρχεία καταγραφής build και τα αντίγραφα ασφαλείας ενημερώσεων. Οι ειδοποιήσεις και η κατάσταση ανάγνωσης αποθηκεύονται μόνιμα.", "Monitoruje istniejące logi kompilacji i kopie zapasowe aktualizacji. Powiadomienia i stan przeczytania są trwale zapisywane.", "Mevcut derleme günlüklerini ve güncelleme yedeklerini izler. Bildirimler ve okunma durumları kalıcı olarak saklanır."],
+            "Meldungen": ["Notifiche", "Ειδοποιήσεις", "Powiadomienia", "Bildirimler"],
+            "Ungelesen": ["Non lette", "Μη αναγνωσμένα", "Nieprzeczytane", "Okunmamış"],
+            "Fehler": ["Errori", "Σφάλματα", "Błędy", "Hatalar"],
+            "Warnungen": ["Avvisi", "Προειδοποιήσεις", "Ostrzeżenia", "Uyarılar"],
+            "Alle Meldungen": ["Tutte le notifiche", "Όλες οι ειδοποιήσεις", "Wszystkie powiadomienia", "Tüm bildirimler"],
+            "Nur Fehler": ["Solo errori", "Μόνο σφάλματα", "Tylko błędy", "Yalnızca hatalar"],
+            "Nur Warnungen": ["Solo avvisi", "Μόνο προειδοποιήσεις", "Tylko ostrzeżenia", "Yalnızca uyarılar"],
+            "Informationen": ["Informazioni", "Πληροφορίες", "Informacje", "Bilgiler"],
+            "Prüfen / Aktualisieren": ["Scansiona / aggiorna", "Σάρωση / ανανέωση", "Skanuj / odśwież", "Tara / yenile"],
+            "Alle gelesen": ["Segna tutte come lette", "Σήμανση όλων ως αναγνωσμένων", "Oznacz wszystkie jako przeczytane", "Tümünü okundu olarak işaretle"],
+            "Datum": ["Data", "Ημερομηνία", "Data", "Tarih"],
+            "Typ": ["Tipo", "Τύπος", "Typ", "Tür"],
+            "Status": ["Stato", "Κατάσταση", "Status", "Durum"],
+            "Meldung": ["Notifica", "Ειδοποίηση", "Powiadomienie", "Bildirim"],
+            "Wähle eine Meldung aus.": ["Seleziona una notifica.", "Επιλέξτε μια ειδοποίηση.", "Wybierz powiadomienie.", "Bir bildirim seçin."],
+            "Ausgewählte gelesen": ["Segna selezionata come letta", "Σήμανση επιλεγμένης ως αναγνωσμένης", "Oznacz wybrane jako przeczytane", "Seçileni okundu olarak işaretle"],
+            "Schließen": ["Chiudi", "Κλείσιμο", "Zamknij", "Kapat"],
+            "Automatische Update-Sicherung": ["Backup automatico aggiornamento", "Αυτόματο αντίγραφο ασφαλείας ενημέρωσης", "Automatyczna kopia zapasowa aktualizacji", "Otomatik güncelleme yedeği"],
+            "Manuelle Git-Sicherung": ["Backup Git manuale", "Μη αυτόματο αντίγραφο ασφαλείας Git", "Ręczna kopia zapasowa Git", "Manuel Git yedeği"],
+            "Größe": ["Dimensione", "Μέγεθος", "Rozmiar", "Boyut"],
+            "Bytes": ["byte", "bytes", "bajtów", "bayt"],
+            "Hinweis: Es wurde nur die ZIP-Inhaltsübersicht gelesen. Keine vollständige CRC-Prüfung durchgeführt.": ["Nota: è stato letto solo l'indice ZIP. Non è stata eseguita una verifica CRC completa.", "Σημείωση: διαβάστηκε μόνο ο κατάλογος ZIP. Δεν πραγματοποιήθηκε πλήρης έλεγχος CRC.", "Uwaga: odczytano tylko spis zawartości ZIP. Nie wykonano pełnej weryfikacji CRC.", "Not: Yalnızca ZIP dizini okundu. Tam CRC doğrulaması yapılmadı."],
+            "Build": ["Build", "Build", "Kompilacja", "Derleme"],
+            "Sicherung": ["Backup", "Αντίγραφο ασφαλείας", "Kopia zapasowa", "Yedek"],
+            "System": ["Sistema", "Σύστημα", "System", "Sistem"],
+            "Warnung": ["Avviso", "Προειδοποίηση", "Ostrzeżenie", "Uyarı"],
+            "Info": ["Info", "Πληροφορίες", "Informacja", "Bilgi"],
+        }
+
+        if self.language == "de":
+            return de
+        if self.language == "en":
+            return en
+
+        index = {"it": 0, "gr": 1, "pl": 2, "tr": 3}[self.language]
+        if de in translations:
+            return translations[de][index]
+
+        if de.startswith("Speichern fehlgeschlagen: "):
+            detail = de.split(": ", 1)[1]
+            prefixes = ["Salvataggio non riuscito: ", "Η αποθήκευση απέτυχε: ", "Nie udało się zapisać: ", "Kaydetme başarısız: "]
+            return prefixes[index] + detail
+
+        if de.startswith("Build fehlgeschlagen: "):
+            name = de.split(": ", 1)[1]
+            prefixes = ["Build non riuscita: ", "Αποτυχία build: ", "Kompilacja nie powiodła się: ", "Derleme başarısız: "]
+            return prefixes[index] + name
+
+        if de.startswith("Build unvollständig: "):
+            name = de.split(": ", 1)[1]
+            prefixes = ["Build incompleta: ", "Ατελές build: ", "Niekompletna kompilacja: ", "Eksik derleme: "]
+            return prefixes[index] + name
+
+        if de.startswith("Build-Log: "):
+            lines = de.splitlines()
+            result = lines[1].split(": ", 1)[1] if len(lines) > 1 and ": " in lines[1] else ""
+            result_map = {
+                "Fehler": ["Non riuscita", "Απέτυχε", "Niepowodzenie", "Başarısız"],
+                "Kein eindeutiger Abschlussmarker": ["Nessun indicatore di completamento conclusivo", "Δεν υπάρχει σαφής δείκτης ολοκλήρωσης", "Brak jednoznacznego znacznika zakończenia", "Kesin bir tamamlanma işareti yok"],
+            }
+            labels = ["Log build: ", "Αρχείο καταγραφής build: ", "Log kompilacji: ", "Derleme günlüğü: "]
+            result_labels = ["Risultato: ", "Αποτέλεσμα: ", "Wynik: ", "Sonuç: "]
+            return labels[index] + lines[0].split(": ", 1)[1] + "\n" + result_labels[index] + result_map.get(result, [result] * 4)[index]
+
+        if de.startswith("ZIP lesbar, ") and de.endswith(" Einträge"):
+            count = de[len("ZIP lesbar, "):-len(" Einträge")]
+            labels = ["ZIP leggibile, ", "Το ZIP είναι αναγνώσιμο, ", "Czytelny ZIP, ", "ZIP okunabilir, "]
+            nouns = [" voci", " εγγραφές", " wpisów", " öğe"]
+            return labels[index] + count + nouns[index]
+
+        if de.startswith("Update-Sicherung vorhanden: "):
+            name = de.split(": ", 1)[1]
+            prefixes = ["Backup aggiornamento disponibile: ", "Υπάρχει αντίγραφο ασφαλείας ενημέρωσης: ", "Dostępna kopia zapasowa aktualizacji: ", "Güncelleme yedeği mevcut: "]
+            return prefixes[index] + name
+
+        if de.startswith("Problem mit Sicherung: "):
+            name = de.split(": ", 1)[1]
+            prefixes = ["Problema con il backup: ", "Πρόβλημα με το αντίγραφο ασφαλείας: ", "Problem z kopią zapasową: ", "Yedekleme sorunu: "]
+            return prefixes[index] + name
+
+        if de.startswith("Archiv kann nicht gelesen werden: "):
+            detail = de.split(": ", 1)[1]
+            prefixes = ["Impossibile leggere l'archivio: ", "Δεν είναι δυνατή η ανάγνωση του αρχείου: ", "Nie można odczytać archiwum: ", "Arşiv okunamıyor: "]
+            return prefixes[index] + detail
+
+        if de.endswith(" Meldungen gespeichert"):
+            count = de.split(" ", 1)[0]
+            labels = [" notifiche salvate", " ειδοποιήσεις αποθηκεύτηκαν", " powiadomień zapisano", " bildirim kaydedildi"]
+            return count + labels[index]
+
+        return en
 
     def _load_events(self):
         try:
@@ -191,7 +285,8 @@ class SmartNotificationsDialog(QDialog):
             )
             details = (
                 f"{label}\n{path}\n"
-                f"{self.tr('Größe', 'Size')}: {stat.st_size:,} Bytes\n"
+                f"{self.tr('Größe', 'Size')}: {stat.st_size:,} "
+                f"{self.tr('Bytes', 'Bytes')}\n"
                 f"{result}\n\n"
                 + self.tr(
                     "Hinweis: Es wurde nur die ZIP-Inhaltsübersicht gelesen. "

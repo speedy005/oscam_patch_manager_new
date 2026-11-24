@@ -1603,7 +1603,16 @@ class MusicPlayerWindow(QWidget):
             self.theme_combo.setCurrentIndex(selected_index)
 
         self.theme_combo.currentIndexChanged.connect(self._change_theme)
-        self.theme_combo.setToolTip("Neon-Farbdesign auswählen")
+        lang = str(getattr(self.host, "LANG", "de")).lower()[:2]
+        theme_tooltips = {
+            "de": "Neon-Farbdesign auswählen",
+            "en": "Choose neon color theme",
+            "it": "Seleziona il tema di colori neon",
+            "pl": "Wybierz neonowy motyw kolorystyczny",
+            "tr": "Neon renk temasını seç",
+            "gr": "Επιλογή θέματος χρωμάτων νέον",
+        }
+        self.theme_combo.setToolTip(theme_tooltips.get(lang, theme_tooltips["en"]))
 
         theme_layout.addWidget(theme_label)
         theme_layout.addStretch()
@@ -1627,26 +1636,26 @@ class MusicPlayerWindow(QWidget):
 
     
     def set_language(self):
-        is_de = str(
-            getattr(self.host, "LANG", "de")
-        ).lower().startswith("de")
+        lang = str(getattr(self.host, "LANG", "de")).lower()[:2]
+
+        translations = {
+            "de": ("▶ ABSPIELEN", "■ STOPP", "BEREIT FÜR DEN NÄCHSTEN BUILD-SOUND"),
+            "en": ("▶ PLAY", "■ STOP", "READY FOR YOUR NEXT BUILD SESSION"),
+            "it": ("▶ RIPRODUCI", "■ STOP", "PRONTO PER LA PROSSIMA SESSIONE DI BUILD"),
+            "pl": ("▶ ODTWARZAJ", "■ STOP", "GOTOWY NA NASTĘPNĄ SESJĘ BUILD"),
+            "tr": ("▶ OYNAT", "■ DURDUR", "SONRAKİ BUILD OTURUMUNU BEKLİYOR"),
+            "gr": ("▶ ΑΝΑΠΑΡΑΓΩΓΗ", "■ ΔΙΑΚΟΠΗ", "ΕΤΟΙΜΟ ΓΙΑ ΤΗΝ ΕΠΟΜΕΝΗ ΣΥΝΕΔΡΙΑ BUILD"),
+        }
+
+        play_text, stop_text, ready_text = translations.get(lang, translations["en"])
 
         self.setWindowTitle("OSCam • NEON BEAST ULTIMATE")
-
-        self.play_btn.setText(
-            "▶ ABSPIELEN" if is_de else "▶ PLAY"
-        )
-        self.stop_btn.setText(
-            "■ STOPP" if is_de else "■ STOP"
-        )
+        self.play_btn.setText(play_text)
+        self.stop_btn.setText(stop_text)
         self.volume_label.setText(f"{self.volume.value()} %")
 
         if self.track_combo.count() == 0:
-            self.track_label.setText(
-                "BEREIT FÜR DEN NÄCHSTEN BUILD-SOUND"
-                if is_de else
-                "READY FOR YOUR NEXT BUILD SESSION"
-            )
+            self.track_label.setText(ready_text)
 
     # ========================================================
     # TRACK MANAGEMENT
@@ -1709,8 +1718,17 @@ class MusicPlayerWindow(QWidget):
 
     def _update_track_label(self):
         text = self.track_combo.currentText().strip()
+        lang = str(getattr(self.host, "LANG", "de")).lower()[:2]
+        ready_labels = {
+            "de": "NEON BEAST // BEREIT",
+            "en": "NEON BEAST // READY",
+            "it": "NEON BEAST // PRONTO",
+            "pl": "NEON BEAST // GOTOWY",
+            "tr": "NEON BEAST // HAZIR",
+            "gr": "NEON BEAST // ΕΤΟΙΜΟ",
+        }
         self.track_label.setText(
-            text if text else "NEON BEAST // READY"
+            text if text else ready_labels.get(lang, ready_labels["en"])
         )
 
     def _step_track(self, step):
@@ -1754,11 +1772,22 @@ class MusicPlayerWindow(QWidget):
         self._stereo_levels = [0.0, 0.0]
         self._audio_bands = [.02] * 32
 
+        lang = str(getattr(self.host, "LANG", "de")).lower()[:2]
+        audio_status = {
+            "de": ("DSP / PUFFER NICHT VERFÜGBAR", "DSP / AUDIO VERBUNDEN", "DSP / AUDIOFEHLER"),
+            "en": ("DSP / BUFFER UNAVAILABLE", "DSP / AUDIO CONNECTED", "DSP / AUDIO ERROR"),
+            "it": ("DSP / BUFFER NON DISPONIBILE", "DSP / AUDIO CONNESSO", "DSP / ERRORE AUDIO"),
+            "pl": ("DSP / BUFOR NIEDOSTĘPNY", "DSP / AUDIO POŁĄCZONE", "DSP / BŁĄD AUDIO"),
+            "tr": ("DSP / ARABELLEK KULLANILAMIYOR", "DSP / SES BAĞLANDI", "DSP / SES HATASI"),
+            "gr": ("DSP / Η ΜΝΗΜΗ ΠΡΟΣΩΡΙΝΗΣ ΑΠΟΘΗΚΕΥΣΗΣ ΔΕΝ ΕΙΝΑΙ ΔΙΑΘΕΣΙΜΗ", "DSP / Ο ΗΧΟΣ ΣΥΝΔΕΘΗΚΕ", "DSP / ΣΦΑΛΜΑ ΗΧΟΥ"),
+        }
+        buffer_unavailable, audio_connected, audio_error = audio_status.get(lang, audio_status["en"])
+
         try:
             from PyQt6.QtMultimedia import QAudioBufferOutput
 
             if not hasattr(player, "setAudioBufferOutput"):
-                self.signal_label.setText("DSP / BUFFER UNAVAILABLE")
+                self.signal_label.setText(buffer_unavailable)
                 return
 
             self._buffer_output = QAudioBufferOutput(self)
@@ -1768,14 +1797,14 @@ class MusicPlayerWindow(QWidget):
             player.setAudioBufferOutput(self._buffer_output)
 
             self._buffer_signal_connected = True
-            self.signal_label.setText("DSP / AUDIO CONNECTED")
+            self.signal_label.setText(audio_connected)
 
         except (
             ImportError, AttributeError, TypeError, RuntimeError
         ) as error:
             self._buffer_output = None
             self._buffer_signal_connected = False
-            self.signal_label.setText("DSP / AUDIO ERROR")
+            self.signal_label.setText(audio_error)
             print("AudioBufferOutput Fehler:", error)
 
     # ========================================================
@@ -1989,14 +2018,20 @@ class MusicPlayerWindow(QWidget):
         button = getattr(self.host, "music_button", None)
 
         playing = bool(button and button.isChecked())
-        is_de = str(
-            getattr(self.host, "LANG", "de")
-        ).lower().startswith("de")
-
+        lang = str(getattr(self.host, "LANG", "de")).lower()[:2]
+        play_labels = {
+            "de": "▶ ABSPIELEN", "en": "▶ PLAY",
+            "it": "▶ RIPRODUCI", "pl": "▶ ODTWARZAJ",
+            "tr": "▶ OYNAT", "gr": "▶ ΑΝΑΠΑΡΑΓΩΓΗ",
+        }
+        pause_labels = {
+            "de": "Ⅱ PAUSE", "en": "Ⅱ PAUSE",
+            "it": "Ⅱ PAUSA", "pl": "Ⅱ PAUZA",
+            "tr": "Ⅱ DURAKLAT", "gr": "Ⅱ ΠΑΥΣΗ",
+        }
         self.play_btn.setText(
-            ("Ⅱ PAUSE" if playing else "▶ ABSPIELEN")
-            if is_de else
-            ("Ⅱ PAUSE" if playing else "▶ PLAY")
+            pause_labels.get(lang, pause_labels["en"])
+            if playing else play_labels.get(lang, play_labels["en"])
         )
 
         if player is None:
@@ -2056,6 +2091,29 @@ class MusicPlayerWindow(QWidget):
         except (AttributeError, RuntimeError):
             playing = False
 
+        lang = str(getattr(self.host, "LANG", "de")).lower()[:2]
+        status_texts = {
+            "de": ("DSP / LIVE-AUDIO", "● AUDIOSTREAM AKTIV",
+                   "DSP / WARTE AUF AUDIO", "● WARTE AUF SIGNAL",
+                   "DSP / BEREIT", "● SYSTEM ONLINE"),
+            "en": ("DSP / LIVE AUDIO", "● AUDIO STREAM ACTIVE",
+                   "DSP / WAITING FOR AUDIO", "● WAITING FOR SIGNAL",
+                   "DSP / STANDBY", "● SYSTEM ONLINE"),
+            "it": ("DSP / AUDIO IN DIRETTA", "● STREAM AUDIO ATTIVO",
+                   "DSP / IN ATTESA DI AUDIO", "● IN ATTESA DEL SEGNALE",
+                   "DSP / STANDBY", "● SISTEMA ONLINE"),
+            "pl": ("DSP / DŹWIĘK NA ŻYWO", "● STRUMIEŃ AUDIO AKTYWNY",
+                   "DSP / OCZEKIWANIE NA AUDIO", "● OCZEKIWANIE NA SYGNAŁ",
+                   "DSP / GOTOWOŚĆ", "● SYSTEM ONLINE"),
+            "tr": ("DSP / CANLI SES", "● SES AKIŞI AKTİF",
+                   "DSP / SES BEKLENİYOR", "● SİNYAL BEKLENİYOR",
+                   "DSP / BEKLEMEDE", "● SİSTEM ÇEVRİMİÇİ"),
+            "gr": ("DSP / ΖΩΝΤΑΝΟΣ ΗΧΟΣ", "● Η ΡΟΗ ΗΧΟΥ ΕΙΝΑΙ ΕΝΕΡΓΗ",
+                   "DSP / ΑΝΑΜΟΝΗ ΗΧΟΥ", "● ΑΝΑΜΟΝΗ ΣΗΜΑΤΟΣ",
+                   "DSP / ΑΝΑΜΟΝΗ", "● ΤΟ ΣΥΣΤΗΜΑ ΕΙΝΑΙ ΣΕ ΣΥΝΔΕΣΗ"),
+        }
+        live_signal, live_status, wait_signal, wait_status, idle_signal, idle_status = status_texts.get(lang, status_texts["en"])
+
         if playing:
             if (
                 self._buffer_signal_connected
@@ -2065,15 +2123,15 @@ class MusicPlayerWindow(QWidget):
                 right = self._stereo_levels[1]
                 bands = self._audio_bands
 
-                self.signal_label.setText("DSP / LIVE AUDIO")
-                self.status_label.setText("● AUDIO STREAM ACTIVE")
+                self.signal_label.setText(live_signal)
+                self.status_label.setText(live_status)
                 sub = sum(bands[:4]) / 4
             else:
                 left = right = 0.0
                 bands = [.02] * 32
                 sub = 0.0
-                self.signal_label.setText("DSP / WAITING FOR AUDIO")
-                self.status_label.setText("● WAITING FOR SIGNAL")
+                self.signal_label.setText(wait_signal)
+                self.status_label.setText(wait_status)
 
             self.left_speaker.set_level(left, self._phase, sub)
             self.right_speaker.set_level(right, self._phase, sub)
@@ -2095,8 +2153,8 @@ class MusicPlayerWindow(QWidget):
             self.vu_right.reset()
             self.spectrum.set_bands([.02] * 32)
 
-            self.signal_label.setText("DSP / STANDBY")
-            self.status_label.setText("● SYSTEM ONLINE")
+            self.signal_label.setText(idle_signal)
+            self.status_label.setText(idle_status)
 
         self._sync_state()
 

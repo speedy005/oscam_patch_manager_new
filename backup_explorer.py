@@ -30,7 +30,7 @@ class BackupExplorerDialog(QDialog):
     def __init__(self, parent=None, language="de", colors=None):
         super().__init__(parent)
 
-        self.is_de = str(language).lower().startswith("de")
+        self.language = str(language).lower()[:2] if str(language).lower()[:2] in ("de", "en", "it", "gr", "pl", "tr") else "en"
         self.colors = colors or {}
         self.root = Path(__file__).resolve().parent
         self.records = []
@@ -44,7 +44,102 @@ class BackupExplorerDialog(QDialog):
         self.refresh_backups()
 
     def tr(self, de, en):
-        return de if self.is_de else en
+        translations = {
+            "Schreibgeschützte Übersicht. Dateien und Archive werden nicht verändert oder entpackt.": {
+                "it": "Panoramica in sola lettura. I file e gli archivi non vengono modificati né estratti.",
+                "gr": "Επισκόπηση μόνο για ανάγνωση. Τα αρχεία και οι φάκελοι δεν τροποποιούνται ούτε αποσυμπιέζονται.",
+                "pl": "Widok tylko do odczytu. Pliki i archiwa nie są modyfikowane ani rozpakowywane.",
+                "tr": "Salt okunur genel bakış. Dosyalar ve arşivler değiştirilmez veya çıkarılmaz.",
+            },
+            "Sicherungen": {"it": "Backup", "gr": "Αντίγραφα ασφαλείας", "pl": "Kopie zapasowe", "tr": "Yedekler"},
+            "Gesamtgröße": {"it": "Dimensione totale", "gr": "Συνολικό μέγεθος", "pl": "Łączny rozmiar", "tr": "Toplam boyut"},
+            "Dateiname oder Pfad suchen ...": {
+                "it": "Cerca nome file o percorso ...", "gr": "Αναζήτηση ονόματος αρχείου ή διαδρομής ...",
+                "pl": "Szukaj nazwy pliku lub ścieżki ...", "tr": "Dosya adı veya yol ara ...",
+            },
+            "Alle Quellen": {"it": "Tutte le fonti", "gr": "Όλες οι πηγές", "pl": "Wszystkie źródła", "tr": "Tüm kaynaklar"},
+            "Aktualisieren": {"it": "Aggiorna", "gr": "Ανανέωση", "pl": "Odśwież", "tr": "Yenile"},
+            "Datum": {"it": "Data", "gr": "Ημερομηνία", "pl": "Data", "tr": "Tarih"},
+            "Quelle": {"it": "Fonte", "gr": "Πηγή", "pl": "Źródło", "tr": "Kaynak"},
+            "Größe": {"it": "Dimensione", "gr": "Μέγεθος", "pl": "Rozmiar", "tr": "Boyut"},
+            "Typ": {"it": "Tipo", "gr": "Τύπος", "pl": "Typ", "tr": "Tür"},
+            "Datei / Pfad": {"it": "File / percorso", "gr": "Αρχείο / διαδρομή", "pl": "Plik / ścieżka", "tr": "Dosya / yol"},
+            "Vorschau / Archivinhalt": {
+                "it": "Anteprima / contenuto archivio", "gr": "Προεπισκόπηση / περιεχόμενο αρχείου",
+                "pl": "Podgląd / zawartość archiwum", "tr": "Önizleme / arşiv içeriği",
+            },
+            "Wähle eine Sicherung aus.": {
+                "it": "Seleziona un backup.", "gr": "Επιλέξτε ένα αντίγραφο ασφαλείας.",
+                "pl": "Wybierz kopię zapasową.", "tr": "Bir yedek seçin.",
+            },
+            "Schließen": {"it": "Chiudi", "gr": "Κλείσιμο", "pl": "Zamknij", "tr": "Kapat"},
+            "Projektarchive": {"it": "Archivi del progetto", "gr": "Αρχεία έργου", "pl": "Archiwa projektu", "tr": "Proje arşivleri"},
+            "Automatische Sicherungen": {"it": "Backup automatici", "gr": "Αυτόματα αντίγραφα ασφαλείας", "pl": "Automatyczne kopie zapasowe", "tr": "Otomatik yedekler"},
+            "Patch-Sicherungen": {"it": "Backup delle patch", "gr": "Αντίγραφα ασφαλείας patch", "pl": "Kopie zapasowe patchy", "tr": "Yama yedekleri"},
+            "S4-Backups": {"it": "Backup S4", "gr": "Αντίγραφα ασφαλείας S4", "pl": "Kopie zapasowe S4", "tr": "S4 yedekleri"},
+            "Inhalt – nur gelesen, nichts entpackt:": {
+                "it": "Contenuto – sola lettura, nessuna estrazione:",
+                "gr": "Περιεχόμενο – μόνο ανάγνωση, χωρίς αποσυμπίεση:",
+                "pl": "Zawartość – tylko do odczytu, bez rozpakowywania:",
+                "tr": "İçerik – salt okunur, hiçbir şey çıkarılmadı:",
+            },
+            "(Datei ist leer.)": {
+                "it": "(Il file è vuoto.)", "gr": "(Το αρχείο είναι κενό.)",
+                "pl": "(Plik jest pusty.)", "tr": "(Dosya boş.)",
+            },
+        }
+        if self.language == "de":
+            return de
+        if self.language == "en":
+            return en
+        if de.startswith("Archiv: "):
+            name = de[len("Archiv: "):]
+            return {
+                "it": f"Archivio: {name}", "gr": f"Αρχείο: {name}",
+                "pl": f"Archiwum: {name}", "tr": f"Arşiv: {name}",
+            }.get(self.language, en)
+        if de.startswith("Datei ist zu groß für eine Textvorschau"):
+            size = de.split("(", 1)[-1].rstrip(").")
+            return {
+                "it": f"Il file è troppo grande per l'anteprima testuale ({size}).",
+                "gr": f"Το αρχείο είναι πολύ μεγάλο για προεπισκόπηση κειμένου ({size}).",
+                "pl": f"Plik jest zbyt duży do podglądu tekstu ({size}).",
+                "tr": f"Dosya metin önizlemesi için çok büyük ({size}).",
+            }.get(self.language, en)
+        if de.endswith("Einträge angezeigt"):
+            import re
+            match = re.match(r"(\d+) von (\d+) Einträgen angezeigt", de)
+            if match:
+                shown, total = match.groups()
+                return {
+                    "it": f"Visualizzati {shown} di {total} elementi",
+                    "gr": f"Εμφανίζονται {shown} από {total} εγγραφές",
+                    "pl": f"Wyświetlono {shown} z {total} elementów",
+                    "tr": f"{total} öğeden {shown} tanesi gösteriliyor",
+                }.get(self.language, en)
+        if de.endswith("Einträge"):
+            count = de.split()[0]
+            return {
+                "it": f"{count} elementi", "gr": f"{count} εγγραφές",
+                "pl": f"{count} elementów", "tr": f"{count} öğe",
+            }.get(self.language, en)
+        if de.startswith("... weitere ") and " Einträge nicht angezeigt." in de:
+            count = de.split("... weitere ", 1)[1].split()[0]
+            return {
+                "it": f"... altri {count} elementi non visualizzati.",
+                "gr": f"... δεν εμφανίζονται {count} ακόμη εγγραφές.",
+                "pl": f"... nie pokazano kolejnych {count} elementów.",
+                "tr": f"... {count} öğe daha gösterilmedi.",
+            }.get(self.language, en)
+        if de.startswith("Archiv konnte nicht gelesen werden:"):
+            error = de.split(": ", 1)[-1]
+            return {
+                "it": f"Impossibile leggere l'archivio: {error}",
+                "gr": f"Δεν ήταν δυνατή η ανάγνωση του αρχείου: {error}",
+                "pl": f"Nie można odczytać archiwum: {error}",
+                "tr": f"Arşiv okunamadı: {error}",
+            }.get(self.language, en)
+        return translations.get(de, {}).get(self.language, en)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)

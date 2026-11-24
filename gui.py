@@ -605,7 +605,7 @@ class PatchManagerGUI(
             """Aktualisiert die verbleibenden Labels und startet den Abschluss."""
             try:
                 lang_dict = getattr(self, "TEXT", {}) or {}
-                is_de = getattr(self, "LANG", "en") == "de"
+                is_de = False
 
                 if hasattr(self, "commit_label"):
                     self.commit_label.setText(
@@ -940,9 +940,9 @@ class PatchManagerGUI(
                     save_config_func(config_obj, gui_instance=self, silent=True)
             except Exception as save_exc:
                 print(f"[change_language] Sprache konnte nicht gespeichert werden: {save_exc}")
-            is_de = self.LANG == "de"
 
-            overlay_text = "Sprache wird angepasst..." if is_de else "Switching language..."
+            lang_dict = globals().get("TEXTS", {}).get(self.LANG, {})
+            overlay_text = lang_dict.get("language_switching", "Switching language...")
             update_pbar(10, f"⏳ {overlay_text}")
 
             if hasattr(self, "loading_overlay") and hasattr(self, "loading_label"):
@@ -963,7 +963,7 @@ class PatchManagerGUI(
                 except Exception as exc:
                     log_error("Sprachwechsel-Sound fehlgeschlagen", exc)
 
-            load_text = "Texte werden geladen..." if is_de else "Loading texts..."
+            load_text = lang_dict.get("loading_texts", "Loading texts...")
             update_pbar(30, f"⏳ {load_text}")
 
             all_texts = globals().get("TEXTS", {})
@@ -978,7 +978,7 @@ class PatchManagerGUI(
             lang_dict = self.TEXT
 
             
-            ui_text = "UI wird aktualisiert..." if is_de else "Updating UI..."
+            ui_text = lang_dict.get("updating_ui", "Updating interface...")
             update_pbar(50, f"⏳ {ui_text}")
 
             update_language = getattr(self, "update_language", None)
@@ -1014,9 +1014,7 @@ class PatchManagerGUI(
                     f"{display_name} OK"
                     if exists
                     else (
-                        f"{display_name} installieren"
-                        if is_de
-                        else f"Install {display_name}"
+                        lang_dict.get("install_tool", "Install") + f" {display_name}"
                     )
                 )
 
@@ -1058,7 +1056,7 @@ class PatchManagerGUI(
             except Exception as exc:
                 log_error("Button-Text-Anpassung fehlgeschlagen", exc)
 
-            anim_text = "Animation & Systemcheck..." if is_de else "Animation & system check..."
+            anim_text = lang_dict.get("animation_system_check", "Animation & system check...")
 
             update_pbar(80, f"⏳ {anim_text}")
 
@@ -1489,15 +1487,6 @@ class PatchManagerGUI(
         if pbar:
             pbar.setValue(100)
 
-            is_de = (
-                getattr(
-                    self,
-                    "LANG",
-                    "de",
-                ).lower()
-                == "de"
-            )
-
             # 100 % bleibt die letzte Anzeige im Fortschrittsbalken.
             pbar.setFormat("%p%")
 
@@ -1820,8 +1809,8 @@ class PatchManagerGUI(
             self.final_label.hide()
 
         lang_code = str(lang_code).lower()[:2]
-        is_de = lang_code == "de"
-        text_msg = "Sprache wird umgestellt..." if is_de else "Switching language..."
+        lang_dict = TEXTS.get(lang_code, TEXTS.get("en", {}))
+        text_msg = lang_dict.get("language_switching", "Switching language...")
 
         # 3. Passende Länderflagge als SVG anzeigen
         from PyQt6.QtCore import QByteArray, Qt
@@ -2608,15 +2597,15 @@ class PatchManagerGUI(
         if current and current not in presets:
             presets.insert(0,current)
 
-        is_de=str(getattr(self,"LANG","de")).lower()[:2]=="de"
+        lang_dict = getattr(self, "TEXT", {}) or TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {}))
         dialog=QInputDialog(self)
-        dialog.setWindowTitle("OSCam-Emu Git auswählen" if is_de else "Select OSCam-Emu Git")
-        dialog.setLabelText("Repository-URL auswählen oder eigene Git-URL eingeben:" if is_de else "Select a repository URL or enter your own Git URL:")
+        dialog.setWindowTitle(lang_dict.get("emu_git_title", "Select OSCam-Emu Git"))
+        dialog.setLabelText(lang_dict.get("emu_git_prompt", "Select a repository URL or enter your own Git URL:"))
         dialog.setComboBoxItems(presets)
         dialog.setComboBoxEditable(True)
         dialog.setTextValue(current or presets[0])
-        dialog.setOkButtonText("Übernehmen" if is_de else "Apply")
-        dialog.setCancelButtonText("Abbrechen" if is_de else "Cancel")
+        dialog.setOkButtonText(lang_dict.get("apply", "Apply"))
+        dialog.setCancelButtonText(lang_dict.get("cancel", "Cancel"))
 
         if not dialog.exec():
             return False
@@ -2624,8 +2613,7 @@ class PatchManagerGUI(
         valid=bool(re.match(r"^(https?://|ssh://|git@|file://|/|[A-Za-z]:[\\/])",new_url))
         if not valid:
             QMessageBox.warning(self,"OSCam-Emu Git",
-                "Bitte eine gültige Git-Repository-URL eingeben." if is_de else
-                "Please enter a valid Git repository URL.")
+                lang_dict.get("invalid_git_url", "Please enter a valid Git repository URL."))
             return False
 
         # Die Auswahl sofort als aktive Patch-Quelle merken.
@@ -2659,7 +2647,7 @@ class PatchManagerGUI(
         pbar=getattr(self,"progress_bar",None)
         if pbar:
             pbar.setValue(100)
-            pbar.setFormat(("✅ OSCam-Emu Git gesetzt: %p%" if is_de else "✅ OSCam-Emu Git selected: %p%"))
+            pbar.setFormat(lang_dict.get("emu_git_selected", "✅ OSCam-Emu Git selected: %p%"))
             pbar.show()
             QTimer.singleShot(2500,getattr(self,"pbar_idle",lambda:pbar.setValue(0)))
         # Nach einem Repo-Wechsel die Revision-Anzeige sofort auf den
@@ -2675,9 +2663,8 @@ class PatchManagerGUI(
             )
             
             self.info_text.append(
-                "<b>ℹ️ OSCam-Emu Revision:</b> "
-                "<b>Auswahl zurückgesetzt – beim nächsten Create Patch "
-                "wird der aktuelle Branch-Stand dieses Repositories verwendet.</b>"
+                f"<b>ℹ️ {lang_dict.get('emu_revision_label', 'OSCam-Emu Revision:')}</b> "
+                f"<b>{lang_dict.get('emu_revision_reset', 'Selection reset')}</b>"
             )
 
             self.info_text.ensureCursorVisible()
@@ -3831,7 +3818,6 @@ class PatchManagerGUI(
         console_tools.setContentsMargins(0, 0, 0, 0)
         console_tools.setSpacing(2)
 
-        is_de = str(getattr(self, "LANG", LANG)).lower() == "de"
         copy_log_button = QPushButton(self.TEXT.get("copy_log_button", "COPY LOG"))
         copy_log_button.setToolTip(
             self.TEXT.get("copy_log_tooltip", "Copy all visible console output to the clipboard")
@@ -4796,7 +4782,7 @@ class PatchManagerGUI(
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 0px 5px;
-                top: -10px;
+                top: 0px;
             }
         """)
         self.layout_grid_buttons = QGridLayout(self.grid_container)

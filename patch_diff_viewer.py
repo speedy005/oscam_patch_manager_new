@@ -17,14 +17,104 @@ class PatchDiffViewer(QDialog):
 
     def __init__(self, parent=None, language="de"):
         super().__init__(parent)
-        self.lang = "en" if str(language).lower().startswith("en") else "de"
+        self.lang = str(language).lower()[:2] if str(language).lower()[:2] in ("de", "en", "it", "gr", "pl", "tr") else "en"
         self.report = ""
         self.setMinimumSize(1000, 700)
         self.build_ui()
         self.translate_ui()
 
     def t(self, de, en):
-        return en if self.lang == "en" else de
+        translations = {
+            "Bitte zwei vorhandene Patch-Dateien auswählen.": {
+                "en": "Please select two existing patch files.",
+                "it": "Seleziona due file patch esistenti.",
+                "gr": "Επιλέξτε δύο υπάρχοντα αρχεία patch.",
+                "pl": "Wybierz dwa istniejące pliki patch.",
+                "tr": "Lütfen mevcut iki yama dosyası seçin.",
+            },
+            "Repository und beide Commits/Branches angeben.": {
+                "en": "Enter the repository and both commits/branches.",
+                "it": "Inserisci il repository e entrambi i commit/branch.",
+                "gr": "Εισαγάγετε το αποθετήριο και τα δύο commit/branch.",
+                "pl": "Podaj repozytorium oraz oba commity/branche.",
+                "tr": "Depoyu ve her iki commit/branch bilgisini girin.",
+            },
+            "Git-Vergleich fehlgeschlagen:\\n": {
+                "en": "Git comparison failed:\\n",
+                "it": "Confronto Git non riuscito:\\n",
+                "gr": "Η σύγκριση Git απέτυχε:\\n",
+                "pl": "Porównanie Git nie powiodło się:\\n",
+                "tr": "Git karşılaştırması başarısız oldu:\\n",
+            },
+            "Keine Unterschiede gefunden.": {
+                "en": "No differences found.",
+                "it": "Nessuna differenza trovata.",
+                "gr": "Δεν βρέθηκαν διαφορές.",
+                "pl": "Nie znaleziono różnic.",
+                "tr": "Fark bulunamadı.",
+            },
+            "Bitte zuerst einen Vergleich ausführen.": {
+                "en": "Please run a comparison first.",
+                "it": "Esegui prima un confronto.",
+                "gr": "Εκτελέστε πρώτα μια σύγκριση.",
+                "pl": "Najpierw uruchom porównanie.",
+                "tr": "Lütfen önce bir karşılaştırma yapın.",
+            },
+            "HTML-Bericht speichern": {
+                "en": "Save HTML report",
+                "it": "Salva rapporto HTML",
+                "gr": "Αποθήκευση αναφοράς HTML",
+                "pl": "Zapisz raport HTML",
+                "tr": "HTML raporunu kaydet",
+            },
+            "Gespeichert: ": {
+                "en": "Saved: ",
+                "it": "Salvato: ",
+                "gr": "Αποθηκεύτηκε: ",
+                "pl": "Zapisano: ",
+                "tr": "Kaydedildi: ",
+            },
+            "Patch vergleichen": {
+                "en": "Compare patches",
+                "it": "Confronta patch",
+                "gr": "Σύγκριση patch",
+                "pl": "Porównaj patche",
+                "tr": "Yamaları karşılaştır",
+            },
+            "Patch-Datei auswählen": {
+                "en": "Select patch file",
+                "it": "Seleziona file patch",
+                "gr": "Επιλογή αρχείου patch",
+                "pl": "Wybierz plik patch",
+                "tr": "Yama dosyası seç",
+            },
+            "Git-Repository auswählen": {
+                "en": "Select Git repository",
+                "it": "Seleziona repository Git",
+                "gr": "Επιλογή αποθετηρίου Git",
+                "pl": "Wybierz repozytorium Git",
+                "tr": "Git deposu seç",
+            },
+        }
+        import re
+        stats = re.fullmatch(
+            r"Dateien: (\d+) \| Hinzugefügt: (\d+) \| Entfernt: (\d+)",
+            de
+        )
+        if stats:
+            files, added, removed = stats.groups()
+            templates = {
+                "de": "Dateien: {} | Hinzugefügt: {} | Entfernt: {}",
+                "en": "Files: {} | Added: {} | Removed: {}",
+                "it": "File: {} | Aggiunti: {} | Rimossi: {}",
+                "gr": "Αρχεία: {} | Προστέθηκαν: {} | Αφαιρέθηκαν: {}",
+                "pl": "Pliki: {} | Dodano: {} | Usunięto: {}",
+                "tr": "Dosyalar: {} | Eklenen: {} | Kaldırılan: {}",
+            }
+            return templates.get(self.lang, templates["en"]).format(
+                files, added, removed
+            )
+        return de if self.lang == "de" else translations.get(de, {}).get(self.lang, en)
 
     def build_ui(self):
         layout = QVBoxLayout(self)
@@ -296,28 +386,74 @@ class PatchDiffViewer(QDialog):
         )
 
     def translate_ui(self):
-        de = self.lang == "de"
-
-        self.setWindowTitle(
-            "OSCam Patch-Diff-Viewer" if de else "OSCam Patch Diff Viewer"
-        )
-        self.tabs.setTabText(
-            0, "Patch-Dateien vergleichen" if de else "Compare patch files"
-        )
-        self.tabs.setTabText(
-            1, "Git-Commits vergleichen" if de else "Compare Git commits"
-        )
-        self.patch_button.setText(
-            "PATCHES VERGLEICHEN" if de else "COMPARE PATCHES"
-        )
-        self.git_button.setText(
-            "COMMITS VERGLEICHEN" if de else "COMPARE COMMITS"
-        )
-        self.export_button.setText(
-            "HTML-BERICHT EXPORTIEREN" if de else "EXPORT HTML REPORT"
-        )
-        self.close_button.setText("SCHLIESSEN" if de else "CLOSE")
-        self.status.setText(
-            "Zwei Patch-Dateien oder Git-Commits vergleichen."
-            if de else "Compare two patch files or Git commits."
-        )
+        ui = {
+            "de": {
+                "title": "OSCam Patch-Diff-Viewer",
+                "patch_tab": "Patch-Dateien vergleichen",
+                "git_tab": "Git-Commits vergleichen",
+                "patch_button": "PATCHES VERGLEICHEN",
+                "git_button": "COMMITS VERGLEICHEN",
+                "export": "HTML-BERICHT EXPORTIEREN",
+                "close": "SCHLIESSEN",
+                "status": "Zwei Patch-Dateien oder Git-Commits vergleichen.",
+            },
+            "en": {
+                "title": "OSCam Patch Diff Viewer",
+                "patch_tab": "Compare patch files",
+                "git_tab": "Compare Git commits",
+                "patch_button": "COMPARE PATCHES",
+                "git_button": "COMPARE COMMITS",
+                "export": "EXPORT HTML REPORT",
+                "close": "CLOSE",
+                "status": "Compare two patch files or Git commits.",
+            },
+            "it": {
+                "title": "Visualizzatore differenze patch OSCam",
+                "patch_tab": "Confronta file patch",
+                "git_tab": "Confronta commit Git",
+                "patch_button": "CONFRONTA PATCH",
+                "git_button": "CONFRONTA COMMIT",
+                "export": "ESPORTA RAPPORTO HTML",
+                "close": "CHIUDI",
+                "status": "Confronta due file patch o commit Git.",
+            },
+            "gr": {
+                "title": "Προβολή διαφορών patch OSCam",
+                "patch_tab": "Σύγκριση αρχείων patch",
+                "git_tab": "Σύγκριση Git commit",
+                "patch_button": "ΣΥΓΚΡΙΣΗ PATCH",
+                "git_button": "ΣΥΓΚΡΙΣΗ COMMIT",
+                "export": "ΕΞΑΓΩΓΗ ΑΝΑΦΟΡΑΣ HTML",
+                "close": "ΚΛΕΙΣΙΜΟ",
+                "status": "Συγκρίνετε δύο αρχεία patch ή Git commit.",
+            },
+            "pl": {
+                "title": "Przeglądarka różnic patch OSCam",
+                "patch_tab": "Porównaj pliki patch",
+                "git_tab": "Porównaj commity Git",
+                "patch_button": "PORÓWNAJ PATCHE",
+                "git_button": "PORÓWNAJ COMMITY",
+                "export": "EKSPORTUJ RAPORT HTML",
+                "close": "ZAMKNIJ",
+                "status": "Porównaj dwa pliki patch lub commity Git.",
+            },
+            "tr": {
+                "title": "OSCam Yama Fark Görüntüleyici",
+                "patch_tab": "Yama dosyalarını karşılaştır",
+                "git_tab": "Git commit'lerini karşılaştır",
+                "patch_button": "YAMALARI KARŞILAŞTIR",
+                "git_button": "COMMIT'LERİ KARŞILAŞTIR",
+                "export": "HTML RAPORUNU DIŞA AKTAR",
+                "close": "KAPAT",
+                "status": "İki yama dosyasını veya Git commit'ini karşılaştırın.",
+            },
+        }
+        t = ui.get(self.lang, ui["en"])
+        self.setWindowTitle(t["title"])
+        self.tabs.setTabText(0, t["patch_tab"])
+        self.tabs.setTabText(1, t["git_tab"])
+        self.patch_button.setText(t["patch_button"])
+        self.git_button.setText(t["git_button"])
+        self.export_button.setText(t["export"])
+        self.close_button.setText(t["close"])
+        self.status.setText(t["status"])
