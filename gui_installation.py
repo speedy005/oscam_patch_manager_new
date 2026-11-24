@@ -815,7 +815,7 @@ class PatchManagerInstallationMixin:
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
 
-        ncam_texts = TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {}))
+        is_de = getattr(self, "LANG", "de") == "de"
         default_start = "C:\\" if platform.system() == "Windows" else "/opt"
         start_path = getattr(self, "NCAM_PATH", default_start)
 
