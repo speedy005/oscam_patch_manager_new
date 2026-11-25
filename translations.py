@@ -2231,3 +2231,120 @@ _NCAM_UPDATE_STATUS_TRANSLATIONS = {
 
 for _lang, _values in _NCAM_UPDATE_STATUS_TRANSLATIONS.items():
     TEXTS.setdefault(_lang, {}).update(_values)
+
+# Systemprüfung: Statusmeldungen
+_SYSTEM_CHECK_STATUS_TRANSLATIONS = {
+    "en": {
+        "system_check_error": "System Check Error:",
+        "system_check_initializing": "🚀 Initializing system...",
+        "system_check_running": "System startup check in progress …",
+    },
+    "de": {
+        "system_check_error": "Systemprüfungsfehler:",
+        "system_check_initializing": "🚀 System wird initialisiert...",
+        "system_check_running": "Systemstartprüfung wird ausgeführt …",
+    },
+    "it": {
+        "system_check_error": "Errore controllo sistema:",
+        "system_check_initializing": "🚀 Inizializzazione del sistema...",
+        "system_check_running": "Controllo di avvio del sistema in corso …",
+    },
+    "gr": {
+        "system_check_error": "Σφάλμα ελέγχου συστήματος:",
+        "system_check_initializing": "🚀 Αρχικοποίηση συστήματος...",
+        "system_check_running": "Εκτελείται ο έλεγχος εκκίνησης συστήματος …",
+    },
+    "pl": {
+        "system_check_error": "Błąd kontroli systemu:",
+        "system_check_initializing": "🚀 Inicjalizacja systemu...",
+        "system_check_running": "Trwa kontrola uruchamiania systemu …",
+    },
+    "tr": {
+        "system_check_error": "Sistem denetimi hatası:",
+        "system_check_initializing": "🚀 Sistem başlatılıyor...",
+        "system_check_running": "Sistem başlangıç denetimi yürütülüyor …",
+    },
+}
+
+for _lang, _values in _SYSTEM_CHECK_STATUS_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# Systemprüfung: Abschluss und Update-Check
+_SYSTEM_CHECK_FINISH_TRANSLATIONS = {
+    "en": {
+        "system_check_completed": "✅ System check completed ✔",
+        "update_check_warning": "⚠️ Update check:",
+    },
+    "de": {
+        "system_check_completed": "✅ Systemprüfung abgeschlossen ✔",
+        "update_check_warning": "⚠️ Update-Prüfung:",
+    },
+    "it": {
+        "system_check_completed": "✅ Controllo del sistema completato ✔",
+        "update_check_warning": "⚠️ Controllo aggiornamenti:",
+    },
+    "gr": {
+        "system_check_completed": "✅ Ο έλεγχος συστήματος ολοκληρώθηκε ✔",
+        "update_check_warning": "⚠️ Έλεγχος ενημερώσεων:",
+    },
+    "pl": {
+        "system_check_completed": "✅ Kontrola systemu zakończona ✔",
+        "update_check_warning": "⚠️ Sprawdzanie aktualizacji:",
+    },
+    "tr": {
+        "system_check_completed": "✅ Sistem denetimi tamamlandı ✔",
+        "update_check_warning": "⚠️ Güncelleme denetimi:",
+    },
+}
+
+for _lang, _values in _SYSTEM_CHECK_FINISH_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# Rechte-Reparatur: Statusmeldungen
+_PERMISSION_FIX_TRANSLATIONS = {
+    "en": {
+        "permission_fix_start": "<b>🔧 Starting permission repair in:</b>",
+        "permission_fix_error": "Error:",
+        "permission_fix_progress": "Fixing permissions...",
+        "permission_fix_completed": "✅ Permissions fixed!",
+        "permission_fix_done": "✅ Done! {count} objects adjusted.",
+    },
+    "de": {
+        "permission_fix_start": "<b>🔧 Starte Rechte-Reparatur in:</b>",
+        "permission_fix_error": "Fehler:",
+        "permission_fix_progress": "Rechte werden repariert...",
+        "permission_fix_completed": "✅ Rechte repariert!",
+        "permission_fix_done": "✅ Fertig! {count} Objekte angepasst.",
+    },
+    "it": {
+        "permission_fix_start": "<b>🔧 Avvio della riparazione dei permessi in:</b>",
+        "permission_fix_error": "Errore:",
+        "permission_fix_progress": "Riparazione dei permessi...",
+        "permission_fix_completed": "✅ Permessi ripristinati!",
+        "permission_fix_done": "✅ Completato! {count} elementi modificati.",
+    },
+    "gr": {
+        "permission_fix_start": "<b>🔧 Έναρξη επιδιόρθωσης δικαιωμάτων στο:</b>",
+        "permission_fix_error": "Σφάλμα:",
+        "permission_fix_progress": "Επιδιόρθωση δικαιωμάτων...",
+        "permission_fix_completed": "✅ Τα δικαιώματα επιδιορθώθηκαν!",
+        "permission_fix_done": "✅ Ολοκληρώθηκε! Προσαρμόστηκαν {count} αντικείμενα.",
+    },
+    "pl": {
+        "permission_fix_start": "<b>🔧 Rozpoczynanie naprawy uprawnień w:</b>",
+        "permission_fix_error": "Błąd:",
+        "permission_fix_progress": "Naprawianie uprawnień...",
+        "permission_fix_completed": "✅ Uprawnienia naprawione!",
+        "permission_fix_done": "✅ Gotowe! Zmieniono {count} obiektów.",
+    },
+    "tr": {
+        "permission_fix_start": "<b>🔧 İzin onarımı başlatılıyor:</b>",
+        "permission_fix_error": "Hata:",
+        "permission_fix_progress": "İzinler onarılıyor...",
+        "permission_fix_completed": "✅ İzinler düzeltildi!",
+        "permission_fix_done": "✅ Tamamlandı! {count} nesne güncellendi.",
+    },
+}
+
+for _lang, _values in _PERMISSION_FIX_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)

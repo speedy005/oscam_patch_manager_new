@@ -197,12 +197,16 @@ class PatchManagerInstallationMixin:
     @pyqtSlot(str)
     def _system_check_append_error(self, message):
         """Display worker errors in the same info screen as the check output."""
+        t = TEXTS.get(
+            str(getattr(self, "LANG", "en")).lower()[:2],
+            TEXTS.get("en", {}),
+        )
         safe_message = (str(message).replace("&", "&amp;")
                         .replace("<", "&lt;").replace(">", "&gt;"))
         self._system_check_append_html(
             "<br><div style='text-align:center;color:#FF0000;"
             "font-family:Arial Black;font-size:18pt;'>"
-            f"❌ System Check Error:<br>{safe_message}</div>"
+            f"❌ {t['system_check_error']}<br>{safe_message}</div>"
         )
         self._system_check_had_error = True
 
@@ -295,8 +299,12 @@ class PatchManagerInstallationMixin:
                 """
             )
 
+            t = TEXTS.get(
+                str(getattr(self, "LANG", "en")).lower()[:2],
+                TEXTS.get("en", {}),
+            )
             pbar.setFormat(
-                "🚀 Initialisiere System...   %p%"
+                f"{t['system_check_initializing']}   %p%"
             )
             pbar.show()
 
@@ -316,7 +324,7 @@ class PatchManagerInstallationMixin:
         self._system_check_append_html(
             "<div style='text-align:center;color:#00ADFF;"
             "font-family:Arial,sans-serif;font-size:16pt;font-weight:bold;'>"
-            "Systemstartprüfung wird ausgeführt …</div>"
+            f"{TEXTS.get(str(getattr(self, 'LANG', 'en')).lower()[:2], TEXTS.get('en', {}))['system_check_running']}</div>"
         )
 
         # ------------------------------------------------------------
@@ -437,22 +445,12 @@ class PatchManagerInstallationMixin:
         if pbar:
             pbar.setValue(100)
 
-            is_de = (
-                getattr(
-                    self,
-                    "LANG",
-                    "de",
-                ).lower()
-                == "de"
+            t = TEXTS.get(
+                str(getattr(self, "LANG", "en")).lower()[:2],
+                TEXTS.get("en", {}),
             )
-
             pbar.setFormat(
-                (
-                    "✅ System Check abgeschlossen ✔   %p%"
-                    if is_de
-                    else
-                    "✅ System check completed ✔   %p%"
-                )
+                f"{t['system_check_completed']}   %p%"
             )
 
         # ------------------------------------------------------------
@@ -485,7 +483,7 @@ class PatchManagerInstallationMixin:
                     "color:#F57A08;"
                     "font-weight:bold;"
                     "'>"
-                    f"⚠️ Update check: {e}"
+                    f"{TEXTS.get(str(getattr(self, 'LANG', 'en')).lower()[:2], TEXTS.get('en', {}))['update_check_warning']} {e}"
                     "</span>"
                 )
 
@@ -519,12 +517,12 @@ class PatchManagerInstallationMixin:
 
         # Aktuelle Sprache live ermitteln
         lang = str(getattr(self, "LANG", "de")).lower()[:2]
-        is_de = lang == "de"
+        t = TEXTS.get(lang, TEXTS.get("en", {}))
         
         base_path = os.path.dirname(os.path.realpath(__file__))
         pbar = getattr(self, "progress_bar", None)
 
-        start_msg = f"<b>🔧 Starte Rechte-Reparatur in:</b> {base_path}" if is_de else f"<b>🔧 Starting permission fix in:</b> {base_path}"
+        start_msg = f"{t['permission_fix_start']} {base_path}"
         if hasattr(self, "info_text"):
             self.info_text.append(start_msg)
         QApplication.processEvents()
@@ -544,7 +542,7 @@ class PatchManagerInstallationMixin:
                 QApplication.processEvents() # Verhindert "Keine Rückmeldung"
         except Exception as e:
             if hasattr(self, "info_text"):
-                self.info_text.append(f"<span style='color:red'>Error: {e}</span>")
+                self.info_text.append(f"<span style='color:red'>{t['permission_fix_error']} {e}</span>")
 
         total = len(all_items)
         if total == 0:
@@ -563,7 +561,7 @@ class PatchManagerInstallationMixin:
                 if pbar and count % 2 == 0:
                     val = int((count / total) * 100)
                     pbar.setValue(val)
-                    msg = "Fixe Rechte..." if is_de else "Fixing perms..."
+                    msg = t["permission_fix_progress"]
                     pbar.setFormat(f"🔐 {msg} {val}%")
                     QApplication.processEvents() 
             except:
@@ -572,12 +570,12 @@ class PatchManagerInstallationMixin:
         # 3. ABSCHLUSS
         if pbar:
             pbar.setValue(100)
-            pbar.setFormat("✅ Rechte fixiert!" if is_de else "✅ Rights fixed!")
+            pbar.setFormat(t["permission_fix_completed"])
         
         if "safe_play" in globals():
             safe_play("complete.oga")
 
-        final_msg = f"✅ Fertig! {count} Objekte angepasst." if is_de else f"✅ Done! {count} objects adjusted."
+        final_msg = t["permission_fix_done"].format(count=count)
         if hasattr(self, "info_text"):
             self.info_text.append(f"<span style='color:#39FF14'><b>{final_msg}</b></span>")
             self.info_text.ensureCursorVisible()
