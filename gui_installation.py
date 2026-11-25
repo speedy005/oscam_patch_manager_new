@@ -37,14 +37,18 @@ class PatchManagerInstallationMixin:
             traceback.print_exc()
 
     def start_s3_installation(self):
+        s3_texts = TEXTS.get(
+            str(getattr(self, "LANG", "en")).lower()[:2],
+            TEXTS.get("en", {}),
+        )
         repo_name = self.s3_repo_combo.currentText()
         repo_url = self.s3_repo_combo.currentData()
 
         if not repo_url:
             QMessageBox.warning(
                 self,
-                "S3-Installation",
-                "Bitte wählen Sie ein Git-Repository aus.",
+                s3_texts["s3_dialog_title"],
+                s3_texts["s3_select_repository"],
             )
             return
 
@@ -54,8 +58,8 @@ class PatchManagerInstallationMixin:
         ):
             QMessageBox.information(
                 self,
-                "S3-Installation",
-                "Eine S3-Installation läuft bereits.",
+                s3_texts["s3_dialog_title"],
+                s3_texts["s3_already_running"],
             )
             return
 
@@ -72,8 +76,8 @@ class PatchManagerInstallationMixin:
         except Exception as e:
             QMessageBox.warning(
                 self,
-                "Konfiguration",
-                f"Auswahl konnte nicht gespeichert werden:\n{e}",
+                s3_texts["s3_config_title"],
+                s3_texts["s3_config_save_error"].format(error=str(e)),
             )
 
         # Build-Log für genau diesen S3-Start vorbereiten. Der S3-Button
@@ -116,16 +120,20 @@ class PatchManagerInstallationMixin:
         self.s3_install_worker.start()
 
     def on_s3_install_finished(self, success, message):
+        s3_texts = TEXTS.get(
+            str(getattr(self, "LANG", "en")).lower()[:2],
+            TEXTS.get("en", {}),
+        )
         if success:
             QMessageBox.information(
                 self,
-                "S3-Installation erfolgreich",
+                s3_texts["s3_success_title"],
                 message,
             )
         else:
             QMessageBox.critical(
                 self,
-                "S3-Installationsfehler",
+                s3_texts["s3_error_title"],
                 message,
             )
 
@@ -603,15 +611,20 @@ class PatchManagerInstallationMixin:
         if not btn:
             return
 
+        ncam_texts = TEXTS.get(
+            str(getattr(self, "LANG", "en")).lower()[:2],
+            TEXTS.get("en", {}),
+        )
+
         if update_available:
             print(f"[NCAM] Update verfügbar! Neuer Hash: {remote_hash[:7]}")
-            btn.setText("🚀 NCam Update!")
+            btn.setText(ncam_texts["ncam_update_available"])
             btn.setStyleSheet(
                 "background-color: orange; color: black; font-weight: bold; border-radius: 8px;"
             )
         else:
             print("[NCAM] Aktuell.")
-            btn.setText("NCam OK")
+            btn.setText(ncam_texts["ncam_up_to_date"])
             btn.setStyleSheet(
                 "background-color: #00FF00; color: black; font-weight: bold; border-radius: 8px;"
             )
@@ -756,25 +769,16 @@ class PatchManagerInstallationMixin:
         from PyQt6.QtWidgets import QFileDialog, QMessageBox
         import os, platform
 
-        lang = getattr(self, "LANG", "de").lower()[:2]
-        t = {
-            "de": {
-                "hint": "NCam Bonecrew Ordner wählen", 
-                "ok": "NCam Pfad gesetzt", 
-                "err": "Datei 's3' nicht im Ordner gefunden!"
-            },
-            "en": {
-                "hint": "Select NCam Bonecrew folder", 
-                "ok": "NCam path set", 
-                "err": "File 's3' not found in the selected folder!"
-            },
-        }.get(lang, {"hint": "Select NCam Bonecrew folder", "ok": "NCam path set", "err": "File 's3' not found!"})
+        t = TEXTS.get(
+            str(getattr(self, "LANG", "en")).lower()[:2],
+            TEXTS.get("en", {}),
+        )
 
         is_win = platform.system() == "Windows"
         default_start = "C:\\opt\\ncam" if is_win else "/opt/s3_ncam_bonecrew"
         start_path = getattr(self, "NCAM_PATH", default_start)
         
-        chosen_dir = QFileDialog.getExistingDirectory(self, t["hint"], start_path)
+        chosen_dir = QFileDialog.getExistingDirectory(self, t["ncam_manual_hint"], start_path)
         if not chosen_dir:
             return
 
@@ -803,9 +807,9 @@ class PatchManagerInstallationMixin:
             if hasattr(self, "update_ui_texts"):
                 self.update_ui_texts()
                 
-            QMessageBox.information(self, "OK", f"{t['ok']}:\n{self.NCAM_PATH}")
+            QMessageBox.information(self, t["ncam_manual_success_title"], f"{t['ncam_manual_ok']}:\n{self.NCAM_PATH}")
         else:
-            QMessageBox.warning(self, "Error", t["err"])
+            QMessageBox.warning(self, t["ncam_manual_error_title"], t["ncam_manual_error"])
 
     def start_ncam_install(self):
         """Startet die NCam Installation."""
@@ -815,13 +819,13 @@ class PatchManagerInstallationMixin:
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
 
-        is_de = getattr(self, "LANG", "de") == "de"
+        ncam_texts = TEXTS.get(str(getattr(self, "LANG", "en")).lower()[:2], TEXTS.get("en", {}))
         default_start = "C:\\" if platform.system() == "Windows" else "/opt"
         start_path = getattr(self, "NCAM_PATH", default_start)
 
         chosen_dir = QFileDialog.getExistingDirectory(
             self, 
-            "Installationsordner wählen" if is_de else "Select Installation Folder",
+            ncam_texts["ncam_install_folder_hint"],
             start_path
         )
 
@@ -833,14 +837,14 @@ class PatchManagerInstallationMixin:
         try:
             os.makedirs(self.NCAM_PATH, exist_ok=True)
             self.btn_ncam.setEnabled(False)
-            self.btn_ncam.setText("⏳ ..." if is_de else "⏳ Busy...")
+            self.btn_ncam.setText(ncam_texts["ncam_busy"])
 
             # Nutzt den dedizierten NCam-Worker
             self.ncam_worker = NcamBonecrewInstallWorker(self.NCAM_PATH, language=getattr(self, "LANG", "en"))
             self.ncam_worker.finished_signal.connect(self.on_ncam_finished)
             self.ncam_worker.start()
         except Exception as e:
-            self.on_ncam_finished(False, f"Fehler beim Erstellen des Ordners: {str(e)}")
+            self.on_ncam_finished(False, ncam_texts["ncam_folder_error"].format(error=str(e)))
 
     def on_ncam_finished(self, success, message):
         """Nach Abschluss des Workers für NCam."""
@@ -1094,18 +1098,13 @@ class PatchManagerInstallationMixin:
         import platform
         import traceback
 
-        lang = getattr(self, "LANG", "de").lower()[:2]
+        from translations import TEXTS
+        t = TEXTS.get(str(getattr(self, "LANG", "de")).lower()[:2], TEXTS["en"])
 
-        if lang == "en":
-            hint = "Select S3 folder"
-            ok_text = "S3 path set"
-            err_title = "Error"
-            err_msg = "The S3 executable (s3 or s3.exe) was not found in this folder."
-        else:
-            hint = "S3-Ordner wählen"
-            ok_text = "S3-Pfad gesetzt"
-            err_title = "Fehler"
-            err_msg = "Die ausführbare S3-Datei wurde in diesem Ordner nicht gefunden!"
+        hint = t["s3_path_hint"]
+        ok_text = t["s3_path_set"]
+        err_title = t["s3_path_error_title"]
+        err_msg = t["s3_path_not_found"]
 
         is_win = platform.system() == "Windows"
         default_start = "C:\\s3" if is_win else "/opt/s3"
@@ -1158,7 +1157,7 @@ class PatchManagerInstallationMixin:
                 QMessageBox.critical(
                     self,
                     err_title,
-                    "Der S3-Pfad konnte nicht gespeichert werden."
+                    t["s3_path_save_error"]
                 )
                 return
 
@@ -1181,7 +1180,7 @@ class PatchManagerInstallationMixin:
             QMessageBox.critical(
                 self,
                 err_title,
-                f"Fehler beim Setzen des S3-Pfads:\n{exc}"
+                f"{t['s3_path_set_error']}:\n{exc}"
             )
 
     def start_s3_install(self):
@@ -1192,7 +1191,8 @@ class PatchManagerInstallationMixin:
         if hasattr(self, "hide_final_label"):
             self.hide_final_label()
 
-        is_de = getattr(self, "LANG", "de") == "de"
+        from translations import TEXTS
+        t = TEXTS.get(str(getattr(self, "LANG", "de")).lower()[:2], TEXTS["en"])
         is_win = platform.system() == "Windows"
 
         # 1. Intelligenten Startpfad für den Dialog wählen
@@ -1206,7 +1206,7 @@ class PatchManagerInstallationMixin:
 
         chosen_dir = QFileDialog.getExistingDirectory(
             self,
-            "Wähle S3 Installationsordner" if is_de else "Select S3 Installation Folder",
+            t["s3_install_folder_hint"],
             start_path,
         )
 
@@ -1240,17 +1240,16 @@ class PatchManagerInstallationMixin:
 
         except Exception as e:
             QMessageBox.critical(
-                self, 
-                "Error", 
-                f"Keine Schreibrechte in diesem Ordner!\n{str(e)}" if is_de 
-                else f"No write permissions in this folder!\n{str(e)}"
+                self,
+                t["s3_write_error_title"],
+                t["s3_write_error"].format(error=str(e))
             )
             return
 
         # 2. UI Feedback
         self.btn_s3.setEnabled(False)
         # Nutze ein Icon oder Text-Update
-        busy_text = "⏳ Installation läuft..." if is_de else "⏳ Installing..."
+        busy_text = t["s3_busy"]
         self.btn_s3.setText(busy_text)
     
         if hasattr(self, "log"): # Falls deine GUI eine Log-Funktion hat
@@ -1263,8 +1262,8 @@ class PatchManagerInstallationMixin:
 
         selected_repo, ok = QInputDialog.getItem(
             self,
-            "S3 Installation",
-            "Welches S3-Repository möchtest du installieren?",
+            t["s3_repo_title"],
+            t["s3_repo_prompt"],
             repositories,
             0,
             False,
@@ -1414,7 +1413,7 @@ class PatchManagerInstallationMixin:
             raw_path = os.path.expanduser(str(path or "").strip())
 
             if not raw_path:
-                raise ValueError("Der Ordnerpfad ist leer.")
+                raise ValueError(folder_texts["folder_path_empty"])
 
             is_windows_path = (
                 len(raw_path) >= 3
@@ -1437,7 +1436,7 @@ class PatchManagerInstallationMixin:
 
                 if not os.path.isfile(explorer):
                     raise FileNotFoundError(
-                        "explorer.exe wurde in WSL nicht gefunden."
+                        folder_texts["folder_explorer_missing"]
                     )
 
                 if is_windows_path:
@@ -1453,7 +1452,7 @@ class PatchManagerInstallationMixin:
 
                 if not os.path.isdir(linux_path):
                     raise FileNotFoundError(
-                        f"Der Ordner existiert nicht: {linux_path}"
+                        folder_texts["folder_not_exists"].format(folder=linux_path)
                     )
 
                 result = subprocess.run(
@@ -1475,7 +1474,7 @@ class PatchManagerInstallationMixin:
 
                 if not os.path.isdir(folder):
                     raise FileNotFoundError(
-                        f"Der Ordner existiert nicht: {folder}"
+                        folder_texts["folder_not_exists"].format(folder=folder)
                     )
 
                 if platform.system() == "Windows":
@@ -1492,8 +1491,8 @@ class PatchManagerInstallationMixin:
         except Exception as exc:
             QMessageBox.warning(
                 self,
-                "Ordner öffnen" if is_de else "Open folder",
-                f"Ordner konnte nicht geöffnet werden:\n{exc}",
+                folder_texts["folder_open_error_title"],
+                folder_texts["folder_open_error"].format(error=str(exc)),
             )
 
             # --- 2. SOUND NACH DEM ÖFFNEN (Abschluss) ---
@@ -1785,7 +1784,13 @@ class PatchManagerInstallationMixin:
                 launch_tool_menu("s4", s4_path, log=_setup_log)
                 return
             except Exception as exc:
-                QMessageBox.critical(self, "S4 / WSL2", f"WSL2-Einrichtung oder S4-Start fehlgeschlagen:\n{exc}")
+                from translations import TEXTS
+                t = TEXTS.get(str(getattr(self, "LANG", "de")).lower()[:2], TEXTS["en"])
+                QMessageBox.critical(
+                    self,
+                    t["s4_wsl2_error_title"],
+                    t["s4_wsl2_error"].format(error=str(exc))
+                )
                 return
         sub_folder = "simplebuild4"
 
@@ -1911,7 +1916,13 @@ class PatchManagerInstallationMixin:
                 launch_tool_menu("ncam", ncam_path, log=_setup_log)
                 return
             except Exception as exc:
-                QMessageBox.critical(self, "NCam Bonecrew / WSL2", f"WSL2-Einrichtung oder NCam-Start fehlgeschlagen:\n{exc}")
+                from translations import TEXTS
+                t = TEXTS.get(str(getattr(self, "LANG", "de")).lower()[:2], TEXTS["en"])
+                QMessageBox.critical(
+                    self,
+                    t["ncam_wsl2_error_title"],
+                    t["ncam_wsl2_error"].format(error=str(exc))
+                )
                 return
         sub_folder = "s3_ncam_bonecrew"
 

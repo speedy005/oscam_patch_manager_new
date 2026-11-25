@@ -1522,6 +1522,97 @@ for _lang, _values in {
 }.items():
     TEXTS.setdefault(_lang, {}).update(_values)
 
+# S3 GUI – six-language translations
+_S3_GUI_TRANSLATIONS = {
+    "en": {
+        "s3_path_hint": "Select S3 folder",
+        "s3_path_set": "S3 path set",
+        "s3_path_error_title": "Error",
+        "s3_path_not_found": "The S3 executable (s3 or s3.exe) was not found in this folder.",
+        "s3_path_save_error": "The S3 path could not be saved.",
+        "s3_path_set_error": "Error while setting the S3 path:",
+        "s3_install_folder_hint": "Select S3 installation folder",
+        "s3_write_error_title": "Error",
+        "s3_write_error": "No write permissions in this folder!\\n{error}",
+        "s3_busy": "⏳ Installing...",
+        "s3_repo_title": "S3 Installation",
+        "s3_repo_prompt": "Which S3 repository would you like to install?",
+    },
+    "de": {
+        "s3_path_hint": "S3-Ordner wählen",
+        "s3_path_set": "S3-Pfad gesetzt",
+        "s3_path_error_title": "Fehler",
+        "s3_path_not_found": "Die ausführbare S3-Datei wurde in diesem Ordner nicht gefunden!",
+        "s3_path_save_error": "Der S3-Pfad konnte nicht gespeichert werden.",
+        "s3_path_set_error": "Fehler beim Setzen des S3-Pfads:",
+        "s3_install_folder_hint": "S3-Installationsordner wählen",
+        "s3_write_error_title": "Fehler",
+        "s3_write_error": "Keine Schreibrechte in diesem Ordner!\\n{error}",
+        "s3_busy": "⏳ Installation läuft...",
+        "s3_repo_title": "S3-Installation",
+        "s3_repo_prompt": "Welches S3-Repository möchtest du installieren?",
+    },
+    "it": {
+        "s3_path_hint": "Seleziona la cartella S3",
+        "s3_path_set": "Percorso S3 impostato",
+        "s3_path_error_title": "Errore",
+        "s3_path_not_found": "L'eseguibile S3 (s3 o s3.exe) non è stato trovato in questa cartella.",
+        "s3_path_save_error": "Impossibile salvare il percorso S3.",
+        "s3_path_set_error": "Errore durante l'impostazione del percorso S3:",
+        "s3_install_folder_hint": "Seleziona la cartella di installazione S3",
+        "s3_write_error_title": "Errore",
+        "s3_write_error": "Nessun permesso di scrittura in questa cartella!\\n{error}",
+        "s3_busy": "⏳ Installazione in corso...",
+        "s3_repo_title": "Installazione S3",
+        "s3_repo_prompt": "Quale repository S3 desideri installare?",
+    },
+    "gr": {
+        "s3_path_hint": "Επιλέξτε φάκελο S3",
+        "s3_path_set": "Η διαδρομή S3 ορίστηκε",
+        "s3_path_error_title": "Σφάλμα",
+        "s3_path_not_found": "Το εκτελέσιμο S3 (s3 ή s3.exe) δεν βρέθηκε σε αυτόν τον φάκελο.",
+        "s3_path_save_error": "Δεν ήταν δυνατή η αποθήκευση της διαδρομής S3.",
+        "s3_path_set_error": "Σφάλμα κατά τον ορισμό της διαδρομής S3:",
+        "s3_install_folder_hint": "Επιλέξτε φάκελο εγκατάστασης S3",
+        "s3_write_error_title": "Σφάλμα",
+        "s3_write_error": "Δεν υπάρχουν δικαιώματα εγγραφής σε αυτόν τον φάκελο!\\n{error}",
+        "s3_busy": "⏳ Η εγκατάσταση βρίσκεται σε εξέλιξη...",
+        "s3_repo_title": "Εγκατάσταση S3",
+        "s3_repo_prompt": "Ποιο αποθετήριο S3 θέλετε να εγκαταστήσετε;",
+    },
+    "pl": {
+        "s3_path_hint": "Wybierz folder S3",
+        "s3_path_set": "Ścieżka S3 została ustawiona",
+        "s3_path_error_title": "Błąd",
+        "s3_path_not_found": "Nie znaleziono pliku wykonywalnego S3 (s3 lub s3.exe) w tym folderze.",
+        "s3_path_save_error": "Nie udało się zapisać ścieżki S3.",
+        "s3_path_set_error": "Błąd podczas ustawiania ścieżki S3:",
+        "s3_install_folder_hint": "Wybierz folder instalacyjny S3",
+        "s3_write_error_title": "Błąd",
+        "s3_write_error": "Brak uprawnień do zapisu w tym folderze!\\n{error}",
+        "s3_busy": "⏳ Instalacja w toku...",
+        "s3_repo_title": "Instalacja S3",
+        "s3_repo_prompt": "Które repozytorium S3 chcesz zainstalować?",
+    },
+    "tr": {
+        "s3_path_hint": "S3 klasörünü seçin",
+        "s3_path_set": "S3 yolu ayarlandı",
+        "s3_path_error_title": "Hata",
+        "s3_path_not_found": "Bu klasörde S3 çalıştırılabilir dosyası (s3 veya s3.exe) bulunamadı.",
+        "s3_path_save_error": "S3 yolu kaydedilemedi.",
+        "s3_path_set_error": "S3 yolu ayarlanırken hata oluştu:",
+        "s3_install_folder_hint": "S3 kurulum klasörünü seçin",
+        "s3_write_error_title": "Hata",
+        "s3_write_error": "Bu klasörde yazma izni yok!\\n{error}",
+        "s3_busy": "⏳ Kurulum devam ediyor...",
+        "s3_repo_title": "S3 Kurulumu",
+        "s3_repo_prompt": "Hangi S3 deposunu yüklemek istiyorsunuz?",
+    },
+}
+
+for _lang, _values in _S3_GUI_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
 # S3 Install Worker – six-language translations
 _S3_WORKER_TRANSLATIONS = {
     "en": {
@@ -1708,6 +1799,17 @@ _NCAM_GUI_TRANSLATIONS = {
 for _lang, _values in _NCAM_GUI_TRANSLATIONS.items():
     TEXTS.setdefault(_lang, {}).update(_values)
 
+_NCAM_START_TRANSLATIONS = {
+    "en": {"ncam_install_folder_hint": "Select NCam installation folder", "ncam_busy": "⏳ Installing...", "ncam_folder_error": "Error creating installation folder: {error}"},
+    "de": {"ncam_install_folder_hint": "NCam-Installationsordner wählen", "ncam_busy": "⏳ Installation läuft...", "ncam_folder_error": "Fehler beim Erstellen des Installationsordners: {error}"},
+    "it": {"ncam_install_folder_hint": "Seleziona la cartella di installazione NCam", "ncam_busy": "⏳ Installazione in corso...", "ncam_folder_error": "Errore durante la creazione della cartella: {error}"},
+    "gr": {"ncam_install_folder_hint": "Επιλέξτε φάκελο εγκατάστασης NCam", "ncam_busy": "⏳ Εγκατάσταση σε εξέλιξη...", "ncam_folder_error": "Σφάλμα δημιουργίας φακέλου εγκατάστασης: {error}"},
+    "pl": {"ncam_install_folder_hint": "Wybierz folder instalacyjny NCam", "ncam_busy": "⏳ Instalowanie...", "ncam_folder_error": "Błąd tworzenia folderu instalacyjnego: {error}"},
+    "tr": {"ncam_install_folder_hint": "NCam kurulum klasörünü seçin", "ncam_busy": "⏳ Yükleniyor...", "ncam_folder_error": "Kurulum klasörü oluşturulurken hata: {error}"},
+}
+for _lang, _values in _NCAM_START_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
 # SimpleBuild 4 Install Worker und GUI
 _S4_INSTALL_TRANSLATIONS = {
     "en": {
@@ -1848,4 +1950,284 @@ _S4_INSTALL_DIALOG_TRANSLATIONS = {
     },
 }
 for _lang, _values in _S4_INSTALL_DIALOG_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# WSL2-Fehlerdialoge für S4 und NCam Bonecrew
+_WSL2_ERROR_TRANSLATIONS = {
+    "en": {
+        "s4_wsl2_error_title": "S4 / WSL2",
+        "s4_wsl2_error": "WSL2 setup or S4 startup failed:\n{error}",
+        "ncam_wsl2_error_title": "NCam Bonecrew / WSL2",
+        "ncam_wsl2_error": "WSL2 setup or NCam startup failed:\n{error}",
+    },
+    "de": {
+        "s4_wsl2_error_title": "S4 / WSL2",
+        "s4_wsl2_error": "WSL2-Einrichtung oder S4-Start fehlgeschlagen:\n{error}",
+        "ncam_wsl2_error_title": "NCam Bonecrew / WSL2",
+        "ncam_wsl2_error": "WSL2-Einrichtung oder NCam-Start fehlgeschlagen:\n{error}",
+    },
+    "it": {
+        "s4_wsl2_error_title": "S4 / WSL2",
+        "s4_wsl2_error": "Configurazione WSL2 o avvio di S4 non riusciti:\n{error}",
+        "ncam_wsl2_error_title": "NCam Bonecrew / WSL2",
+        "ncam_wsl2_error": "Configurazione WSL2 o avvio di NCam non riusciti:\n{error}",
+    },
+    "gr": {
+        "s4_wsl2_error_title": "S4 / WSL2",
+        "s4_wsl2_error": "Η ρύθμιση WSL2 ή η εκκίνηση του S4 απέτυχε:\n{error}",
+        "ncam_wsl2_error_title": "NCam Bonecrew / WSL2",
+        "ncam_wsl2_error": "Η ρύθμιση WSL2 ή η εκκίνηση του NCam απέτυχε:\n{error}",
+    },
+    "pl": {
+        "s4_wsl2_error_title": "S4 / WSL2",
+        "s4_wsl2_error": "Konfiguracja WSL2 lub uruchomienie S4 nie powiodły się:\n{error}",
+        "ncam_wsl2_error_title": "NCam Bonecrew / WSL2",
+        "ncam_wsl2_error": "Konfiguracja WSL2 lub uruchomienie NCam nie powiodły się:\n{error}",
+    },
+    "tr": {
+        "s4_wsl2_error_title": "S4 / WSL2",
+        "s4_wsl2_error": "WSL2 kurulumu veya S4 başlatma işlemi başarısız oldu:\n{error}",
+        "ncam_wsl2_error_title": "NCam Bonecrew / WSL2",
+        "ncam_wsl2_error": "WSL2 kurulumu veya NCam başlatma işlemi başarısız oldu:\n{error}",
+    },
+}
+
+for _lang, _values in _WSL2_ERROR_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# Ergänzende S3-Menüauswahl für alle sechs Sprachen
+_S3_CHOICE_EXTRA_TRANSLATIONS = {
+    "it": {
+        "s3_choice_title": "Seleziona S3 Simplebuild",
+        "s3_choice_text": "Quale menu S3 desideri avviare?",
+        "s3_choice_info": "Gorgone utilizza la cartella 's3'.\nSpeedy005 utilizza la cartella 's3_speedy005'.",
+        "s3_choice_gorgone": "S3 Gorgone",
+        "s3_choice_speedy005": "S3 Speedy005",
+    },
+    "gr": {
+        "s3_choice_title": "Επιλογή S3 Simplebuild",
+        "s3_choice_text": "Ποιο μενού S3 θέλετε να εκκινήσετε;",
+        "s3_choice_info": "Το Gorgone χρησιμοποιεί τον φάκελο 's3'.\nΤο Speedy005 χρησιμοποιεί τον φάκελο 's3_speedy005'.",
+        "s3_choice_gorgone": "S3 Gorgone",
+        "s3_choice_speedy005": "S3 Speedy005",
+    },
+    "pl": {
+        "s3_choice_title": "Wybierz S3 Simplebuild",
+        "s3_choice_text": "Które menu S3 chcesz uruchomić?",
+        "s3_choice_info": "Gorgone używa folderu 's3'.\nSpeedy005 używa folderu 's3_speedy005'.",
+        "s3_choice_gorgone": "S3 Gorgone",
+        "s3_choice_speedy005": "S3 Speedy005",
+    },
+    "tr": {
+        "s3_choice_title": "S3 Simplebuild seçimi",
+        "s3_choice_text": "Hangi S3 menüsünü başlatmak istiyorsunuz?",
+        "s3_choice_info": "Gorgone 's3' klasörünü kullanır.\nSpeedy005 's3_speedy005' klasörünü kullanır.",
+        "s3_choice_gorgone": "S3 Gorgone",
+        "s3_choice_speedy005": "S3 Speedy005",
+    },
+}
+
+for _lang, _values in _S3_CHOICE_EXTRA_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# Übersetzungen für das Öffnen benutzerdefinierter Ordner
+_FOLDER_OPEN_TRANSLATIONS = {
+    "en": {
+        "folder_open_progress": "Opening folder...",
+        "folder_open_done": "Folder opened!",
+        "folder_open_error_title": "Open folder",
+        "folder_open_error": "Could not open folder:\n{error}",
+        "folder_path_empty": "The folder path is empty.",
+        "folder_explorer_missing": "explorer.exe was not found in WSL.",
+        "folder_not_exists": "The folder does not exist: {folder}",
+    },
+    "de": {
+        "folder_open_progress": "Öffne Ordner...",
+        "folder_open_done": "Ordner offen!",
+        "folder_open_error_title": "Ordner öffnen",
+        "folder_open_error": "Ordner konnte nicht geöffnet werden:\n{error}",
+        "folder_path_empty": "Der Ordnerpfad ist leer.",
+        "folder_explorer_missing": "explorer.exe wurde in WSL nicht gefunden.",
+        "folder_not_exists": "Der Ordner existiert nicht: {folder}",
+    },
+    "it": {
+        "folder_open_progress": "Apertura cartella...",
+        "folder_open_done": "Cartella aperta!",
+        "folder_open_error_title": "Apri cartella",
+        "folder_open_error": "Impossibile aprire la cartella:\n{error}",
+        "folder_path_empty": "Il percorso della cartella è vuoto.",
+        "folder_explorer_missing": "explorer.exe non è stato trovato in WSL.",
+        "folder_not_exists": "La cartella non esiste: {folder}",
+    },
+    "gr": {
+        "folder_open_progress": "Άνοιγμα φακέλου...",
+        "folder_open_done": "Ο φάκελος άνοιξε!",
+        "folder_open_error_title": "Άνοιγμα φακέλου",
+        "folder_open_error": "Δεν ήταν δυνατό το άνοιγμα του φακέλου:\n{error}",
+        "folder_path_empty": "Η διαδρομή του φακέλου είναι κενή.",
+        "folder_explorer_missing": "Το explorer.exe δεν βρέθηκε στο WSL.",
+        "folder_not_exists": "Ο φάκελος δεν υπάρχει: {folder}",
+    },
+    "pl": {
+        "folder_open_progress": "Otwieranie folderu...",
+        "folder_open_done": "Folder otwarty!",
+        "folder_open_error_title": "Otwórz folder",
+        "folder_open_error": "Nie można otworzyć folderu:\n{error}",
+        "folder_path_empty": "Ścieżka folderu jest pusta.",
+        "folder_explorer_missing": "Nie znaleziono explorer.exe w WSL.",
+        "folder_not_exists": "Folder nie istnieje: {folder}",
+    },
+    "tr": {
+        "folder_open_progress": "Klasör açılıyor...",
+        "folder_open_done": "Klasör açıldı!",
+        "folder_open_error_title": "Klasörü aç",
+        "folder_open_error": "Klasör açılamadı:\n{error}",
+        "folder_path_empty": "Klasör yolu boş.",
+        "folder_explorer_missing": "WSL içinde explorer.exe bulunamadı.",
+        "folder_not_exists": "Klasör mevcut değil: {folder}",
+    },
+}
+
+for _lang, _values in _FOLDER_OPEN_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# S3-Installationsdialoge
+_S3_DIALOG_TRANSLATIONS = {
+    "en": {
+        "s3_dialog_title": "S3 Installation",
+        "s3_select_repository": "Please select a Git repository.",
+        "s3_already_running": "An S3 installation is already running.",
+        "s3_config_title": "Configuration",
+        "s3_config_save_error": "Selection could not be saved:\n{error}",
+        "s3_success_title": "S3 installation successful",
+        "s3_error_title": "S3 installation error",
+    },
+    "de": {
+        "s3_dialog_title": "S3-Installation",
+        "s3_select_repository": "Bitte wählen Sie ein Git-Repository aus.",
+        "s3_already_running": "Eine S3-Installation läuft bereits.",
+        "s3_config_title": "Konfiguration",
+        "s3_config_save_error": "Auswahl konnte nicht gespeichert werden:\n{error}",
+        "s3_success_title": "S3-Installation erfolgreich",
+        "s3_error_title": "S3-Installationsfehler",
+    },
+    "it": {
+        "s3_dialog_title": "Installazione S3",
+        "s3_select_repository": "Seleziona un repository Git.",
+        "s3_already_running": "È già in corso un'installazione S3.",
+        "s3_config_title": "Configurazione",
+        "s3_config_save_error": "Impossibile salvare la selezione:\n{error}",
+        "s3_success_title": "Installazione S3 riuscita",
+        "s3_error_title": "Errore di installazione S3",
+    },
+    "gr": {
+        "s3_dialog_title": "Εγκατάσταση S3",
+        "s3_select_repository": "Επιλέξτε ένα αποθετήριο Git.",
+        "s3_already_running": "Μια εγκατάσταση S3 βρίσκεται ήδη σε εξέλιξη.",
+        "s3_config_title": "Ρυθμίσεις",
+        "s3_config_save_error": "Δεν ήταν δυνατή η αποθήκευση της επιλογής:\n{error}",
+        "s3_success_title": "Η εγκατάσταση S3 ολοκληρώθηκε",
+        "s3_error_title": "Σφάλμα εγκατάστασης S3",
+    },
+    "pl": {
+        "s3_dialog_title": "Instalacja S3",
+        "s3_select_repository": "Wybierz repozytorium Git.",
+        "s3_already_running": "Instalacja S3 jest już uruchomiona.",
+        "s3_config_title": "Konfiguracja",
+        "s3_config_save_error": "Nie udało się zapisać wyboru:\n{error}",
+        "s3_success_title": "Instalacja S3 zakończona powodzeniem",
+        "s3_error_title": "Błąd instalacji S3",
+    },
+    "tr": {
+        "s3_dialog_title": "S3 Kurulumu",
+        "s3_select_repository": "Lütfen bir Git deposu seçin.",
+        "s3_already_running": "Bir S3 kurulumu zaten devam ediyor.",
+        "s3_config_title": "Yapılandırma",
+        "s3_config_save_error": "Seçim kaydedilemedi:\n{error}",
+        "s3_success_title": "S3 kurulumu başarılı",
+        "s3_error_title": "S3 kurulum hatası",
+    },
+}
+
+for _lang, _values in _S3_DIALOG_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# NCam: manuelle Pfadauswahl
+_NCAM_MANUAL_PATH_TRANSLATIONS = {
+    "en": {
+        "ncam_manual_hint": "Select NCam Bonecrew folder",
+        "ncam_manual_ok": "NCam path set",
+        "ncam_manual_error": "File 's3' not found in the selected folder!",
+        "ncam_manual_success_title": "Success",
+        "ncam_manual_error_title": "Error",
+    },
+    "de": {
+        "ncam_manual_hint": "NCam-Bonecrew-Ordner auswählen",
+        "ncam_manual_ok": "NCam-Pfad gesetzt",
+        "ncam_manual_error": "Die Datei 's3' wurde im ausgewählten Ordner nicht gefunden!",
+        "ncam_manual_success_title": "Erfolgreich",
+        "ncam_manual_error_title": "Fehler",
+    },
+    "it": {
+        "ncam_manual_hint": "Seleziona la cartella NCam Bonecrew",
+        "ncam_manual_ok": "Percorso NCam impostato",
+        "ncam_manual_error": "Il file 's3' non è stato trovato nella cartella selezionata!",
+        "ncam_manual_success_title": "Operazione riuscita",
+        "ncam_manual_error_title": "Errore",
+    },
+    "gr": {
+        "ncam_manual_hint": "Επιλέξτε τον φάκελο NCam Bonecrew",
+        "ncam_manual_ok": "Ορίστηκε η διαδρομή NCam",
+        "ncam_manual_error": "Το αρχείο 's3' δεν βρέθηκε στον επιλεγμένο φάκελο!",
+        "ncam_manual_success_title": "Επιτυχία",
+        "ncam_manual_error_title": "Σφάλμα",
+    },
+    "pl": {
+        "ncam_manual_hint": "Wybierz folder NCam Bonecrew",
+        "ncam_manual_ok": "Ustawiono ścieżkę NCam",
+        "ncam_manual_error": "Nie znaleziono pliku 's3' w wybranym folderze!",
+        "ncam_manual_success_title": "Powodzenie",
+        "ncam_manual_error_title": "Błąd",
+    },
+    "tr": {
+        "ncam_manual_hint": "NCam Bonecrew klasörünü seçin",
+        "ncam_manual_ok": "NCam yolu ayarlandı",
+        "ncam_manual_error": "Seçilen klasörde 's3' dosyası bulunamadı!",
+        "ncam_manual_success_title": "Başarılı",
+        "ncam_manual_error_title": "Hata",
+    },
+}
+
+for _lang, _values in _NCAM_MANUAL_PATH_TRANSLATIONS.items():
+    TEXTS.setdefault(_lang, {}).update(_values)
+
+# NCam: Update-Status
+_NCAM_UPDATE_STATUS_TRANSLATIONS = {
+    "en": {
+        "ncam_update_available": "🚀 NCam Update!",
+        "ncam_up_to_date": "NCam OK",
+    },
+    "de": {
+        "ncam_update_available": "🚀 NCam-Update!",
+        "ncam_up_to_date": "NCam aktuell",
+    },
+    "it": {
+        "ncam_update_available": "🚀 Aggiornamento NCam!",
+        "ncam_up_to_date": "NCam aggiornato",
+    },
+    "gr": {
+        "ncam_update_available": "🚀 Ενημέρωση NCam!",
+        "ncam_up_to_date": "Το NCam είναι ενημερωμένο",
+    },
+    "pl": {
+        "ncam_update_available": "🚀 Aktualizacja NCam!",
+        "ncam_up_to_date": "NCam jest aktualny",
+    },
+    "tr": {
+        "ncam_update_available": "🚀 NCam Güncellemesi!",
+        "ncam_up_to_date": "NCam güncel",
+    },
+}
+
+for _lang, _values in _NCAM_UPDATE_STATUS_TRANSLATIONS.items():
     TEXTS.setdefault(_lang, {}).update(_values)
