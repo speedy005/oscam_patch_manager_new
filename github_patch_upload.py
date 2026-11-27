@@ -400,7 +400,7 @@ def github_upload_patch_file(
         if last_error:
 
             raise RuntimeError(
-                f"{TEXTS.get(lang, TEXTS["en"]).get('github_temp_git_cleanup_error', 'Could not delete temporary Git directory:')}\n\n"
+                f"{TEXTS.get(lang, TEXTS['en']).get('github_temp_git_cleanup_error', 'Could not delete temporary Git directory:')}\n\n"
                 f"{path}\n\n"
                 f"{last_error}"
             )
@@ -601,7 +601,7 @@ sys.stdout.write(value)
 
         if not isinstance(cfg, dict):
             raise RuntimeError(
-                TEXTS.get(lang, TEXTS["en"]).get("github_invalid_config", "GitHub configuration is invalid.")
+                TEXTS.get(lang, TEXTS['en']).get("github_invalid_config", "GitHub configuration is invalid.")
             )
 
         repo_url = str(
@@ -1161,7 +1161,7 @@ sys.stdout.write(value)
                     )
 
                 log(
-                    f"{TEXTS.get(lang, TEXTS["en"]).get('github_temp_upload_cleanup_warning', 'Could not delete temporary upload directory:')}\n"
+                    f"{TEXTS.get(lang, TEXTS['en']).get('github_temp_upload_cleanup_warning', 'Could not delete temporary upload directory:')}\n"
                     f"{cleanup_text}",
                     "warning"
                 )

@@ -9,7 +9,7 @@ import sys
 
 # --- NEU: Skalierungsfaktor automatisch setzen ---
 if "QT_SCALE_FACTOR" not in os.environ:
-    os.environ["QT_SCALE_FACTOR"] = "0.75"
+    os.environ["QT_SCALE_FACTOR"] = "1.0"
 # ------------------------------------------------
 
 if hasattr(signal, "SIGUSR1"):
